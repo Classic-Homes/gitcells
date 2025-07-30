@@ -140,6 +140,8 @@ func (fw *FileWatcher) processEvents() {
 						Timestamp: time.Now(),
 					}
 
+					// Check operations in priority order
+					// Create events can sometimes include Write, so check Create first
 					switch {
 					case event.Op&fsnotify.Create == fsnotify.Create:
 						fileEvent.Type = EventTypeCreate

@@ -20,17 +20,24 @@ func TestNewDebouncer(t *testing.T) {
 func TestDebouncer_SingleCall(t *testing.T) {
 	debouncer := NewDebouncer(100 * time.Millisecond)
 
-	called := false
+	var called bool
+	var mu sync.Mutex
 	debouncer.Debounce("test", func() {
+		mu.Lock()
 		called = true
+		mu.Unlock()
 	})
 
 	// Should not be called immediately
+	mu.Lock()
 	assert.False(t, called)
+	mu.Unlock()
 
 	// Wait for debounce delay
 	time.Sleep(150 * time.Millisecond)
+	mu.Lock()
 	assert.True(t, called)
+	mu.Unlock()
 }
 
 func TestDebouncer_MultipleCalls(t *testing.T) {
@@ -102,26 +109,33 @@ func TestDebouncer_DifferentKeys(t *testing.T) {
 func TestDebouncer_Cancellation(t *testing.T) {
 	debouncer := NewDebouncer(200 * time.Millisecond)
 
-	firstCalled := false
-	secondCalled := false
+	var firstCalled bool
+	var secondCalled bool
+	var mu sync.Mutex
 
 	// First call
 	debouncer.Debounce("test", func() {
+		mu.Lock()
 		firstCalled = true
+		mu.Unlock()
 	})
 
 	// Wait a bit, then make second call (should cancel first)
 	time.Sleep(100 * time.Millisecond)
 	debouncer.Debounce("test", func() {
+		mu.Lock()
 		secondCalled = true
+		mu.Unlock()
 	})
 
 	// Wait for debounce delay
 	time.Sleep(250 * time.Millisecond)
 
 	// Only second should be called
+	mu.Lock()
 	assert.False(t, firstCalled)
 	assert.True(t, secondCalled)
+	mu.Unlock()
 }
 
 func TestDebouncer_ConcurrentAccess(t *testing.T) {
@@ -158,14 +172,19 @@ func TestDebouncer_ConcurrentAccess(t *testing.T) {
 func TestDebouncer_ZeroDelay(t *testing.T) {
 	debouncer := NewDebouncer(0)
 
-	called := false
+	var called bool
+	var mu sync.Mutex
 	debouncer.Debounce("test", func() {
+		mu.Lock()
 		called = true
+		mu.Unlock()
 	})
 
 	// With zero delay, should be called almost immediately
 	time.Sleep(10 * time.Millisecond)
+	mu.Lock()
 	assert.True(t, called)
+	mu.Unlock()
 }
 
 func TestDebouncer_MultipleKeysRapidFire(t *testing.T) {
@@ -214,11 +233,16 @@ func TestDebouncer_TimerCleanup(t *testing.T) {
 
 	// Verify timers are cleaned up (indirectly by checking no panic occurs)
 	// and that new calls still work
-	called := false
+	var called bool
+	var mu sync.Mutex
 	debouncer.Debounce("new-key", func() {
+		mu.Lock()
 		called = true
+		mu.Unlock()
 	})
 
 	time.Sleep(100 * time.Millisecond)
+	mu.Lock()
 	assert.True(t, called)
+	mu.Unlock()
 }
