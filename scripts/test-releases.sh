@@ -74,8 +74,8 @@ test_binary() {
         *) current_arch="unknown" ;;
     esac
     
-    if [[ "$platform" != *"$current_arch"* ]] && [[ "$(uname -s)" == "Darwin" ]]; then
-        log "Skipping execution test for different architecture"
+    if [[ "$platform" != *"$current_arch"* ]]; then
+        log "Skipping execution test for different architecture ($platform vs $current_arch)"
         file "$binary_path"
         success "$platform binary exists and has correct file type"
         return
