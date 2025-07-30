@@ -1210,10 +1210,10 @@ jobs:
 - [x] Implement basic CLI commands
 
 ### Week 3: Enhancement
-- [ ] Add configuration system
-- [ ] Implement diff functionality
-- [ ] Add conflict resolution
-- [ ] Improve error handling and logging
+- [x] Add configuration system
+- [x] Implement diff functionality
+- [x] Add conflict resolution
+- [x] Improve error handling and logging
 
 ### Week 4: Polish
 - [ ] Complete test coverage
