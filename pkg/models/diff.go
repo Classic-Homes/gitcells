@@ -326,3 +326,226 @@ func (d *ExcelDiff) String() string {
 
 	return strings.Join(parts, ", ")
 }
+
+// ToColorizedString returns a colorized string representation of the diff for terminal display
+func (d *ExcelDiff) ToColorizedString() string {
+	if !d.HasChanges() {
+		return "\033[32mNo changes detected\033[0m" // Green
+	}
+
+	var parts []string
+	
+	if d.Summary.AddedSheets > 0 {
+		parts = append(parts, fmt.Sprintf("\033[32m+%d sheet(s) added\033[0m", d.Summary.AddedSheets)) // Green
+	}
+	
+	if d.Summary.ModifiedSheets > 0 {
+		parts = append(parts, fmt.Sprintf("\033[33m~%d sheet(s) modified\033[0m", d.Summary.ModifiedSheets)) // Yellow
+	}
+	
+	if d.Summary.DeletedSheets > 0 {
+		parts = append(parts, fmt.Sprintf("\033[31m-%d sheet(s) deleted\033[0m", d.Summary.DeletedSheets)) // Red
+	}
+
+	if d.Summary.CellChanges > 0 {
+		parts = append(parts, fmt.Sprintf("\033[36m%d cell(s) changed\033[0m", d.Summary.CellChanges)) // Cyan
+	}
+
+	return strings.Join(parts, ", ")
+}
+
+// ToDetailedString returns a detailed string representation showing all changes
+func (d *ExcelDiff) ToDetailedString() string {
+	if !d.HasChanges() {
+		return "No changes detected"
+	}
+
+	var result strings.Builder
+	result.WriteString(fmt.Sprintf("Excel Diff Summary (%s):\n", d.Timestamp.Format("2006-01-02 15:04:05")))
+	result.WriteString(fmt.Sprintf("  Total Changes: %d\n", d.Summary.TotalChanges))
+	result.WriteString(fmt.Sprintf("  Cell Changes: %d\n", d.Summary.CellChanges))
+	result.WriteString("\n")
+
+	for _, sheetDiff := range d.SheetDiffs {
+		result.WriteString(fmt.Sprintf("Sheet: %s\n", sheetDiff.SheetName))
+		
+		if sheetDiff.Action != "" {
+			result.WriteString(fmt.Sprintf("  Action: %s\n", sheetDiff.Action))
+		}
+		
+		if len(sheetDiff.Changes) > 0 {
+			result.WriteString(fmt.Sprintf("  Changes (%d):\n", len(sheetDiff.Changes)))
+			for _, change := range sheetDiff.Changes {
+				result.WriteString(fmt.Sprintf("    %s [%s]: %s\n", change.Cell, change.Type, change.Description))
+			}
+		}
+		result.WriteString("\n")
+	}
+
+	return result.String()
+}
+
+// ToColorizedDetailedString returns a detailed colorized string representation
+func (d *ExcelDiff) ToColorizedDetailedString() string {
+	if !d.HasChanges() {
+		return "\033[32mNo changes detected\033[0m"
+	}
+
+	var result strings.Builder
+	result.WriteString(fmt.Sprintf("\033[1mExcel Diff Summary (%s):\033[0m\n", d.Timestamp.Format("2006-01-02 15:04:05")))
+	result.WriteString(fmt.Sprintf("  Total Changes: \033[36m%d\033[0m\n", d.Summary.TotalChanges))
+	result.WriteString(fmt.Sprintf("  Cell Changes: \033[36m%d\033[0m\n", d.Summary.CellChanges))
+	result.WriteString("\n")
+
+	for _, sheetDiff := range d.SheetDiffs {
+		result.WriteString(fmt.Sprintf("\033[1mSheet: %s\033[0m\n", sheetDiff.SheetName))
+		
+		if sheetDiff.Action != "" {
+			var color string
+			switch sheetDiff.Action {
+			case ChangeTypeAdd:
+				color = "\033[32m" // Green
+			case ChangeTypeModify:
+				color = "\033[33m" // Yellow  
+			case ChangeTypeDelete:
+				color = "\033[31m" // Red
+			default:
+				color = "\033[0m"
+			}
+			result.WriteString(fmt.Sprintf("  Action: %s%s\033[0m\n", color, sheetDiff.Action))
+		}
+		
+		if len(sheetDiff.Changes) > 0 {
+			result.WriteString(fmt.Sprintf("  Changes (\033[36m%d\033[0m):\n", len(sheetDiff.Changes)))
+			for _, change := range sheetDiff.Changes {
+				var typeColor string
+				switch change.Type {
+				case ChangeTypeAdd:
+					typeColor = "\033[32m" // Green
+				case ChangeTypeModify:
+					typeColor = "\033[33m" // Yellow
+				case ChangeTypeDelete:
+					typeColor = "\033[31m" // Red
+				default:
+					typeColor = "\033[0m"
+				}
+				result.WriteString(fmt.Sprintf("    \033[1m%s\033[0m [%s%s\033[0m]: %s\n", 
+					change.Cell, typeColor, change.Type, change.Description))
+			}
+		}
+		result.WriteString("\n")
+	}
+
+	return result.String()
+}
+
+// ToHTML returns an HTML representation of the diff for web display
+func (d *ExcelDiff) ToHTML() string {
+	if !d.HasChanges() {
+		return "<div class='no-changes'>No changes detected</div>"
+	}
+
+	var result strings.Builder
+	result.WriteString("<div class='excel-diff'>")
+	result.WriteString(fmt.Sprintf("<h2>Excel Diff Summary (%s)</h2>", d.Timestamp.Format("2006-01-02 15:04:05")))
+	result.WriteString(fmt.Sprintf("<p>Total Changes: <span class='count'>%d</span></p>", d.Summary.TotalChanges))
+	result.WriteString(fmt.Sprintf("<p>Cell Changes: <span class='count'>%d</span></p>", d.Summary.CellChanges))
+
+	for _, sheetDiff := range d.SheetDiffs {
+		result.WriteString(fmt.Sprintf("<div class='sheet-diff'><h3>Sheet: %s</h3>", sheetDiff.SheetName))
+		
+		if sheetDiff.Action != "" {
+			result.WriteString(fmt.Sprintf("<p>Action: <span class='action %s'>%s</span></p>", sheetDiff.Action, sheetDiff.Action))
+		}
+		
+		if len(sheetDiff.Changes) > 0 {
+			result.WriteString(fmt.Sprintf("<h4>Changes (%d)</h4><ul class='changes'>", len(sheetDiff.Changes)))
+			for _, change := range sheetDiff.Changes {
+				result.WriteString(fmt.Sprintf("<li class='change %s'><strong>%s</strong> [%s]: %s</li>", 
+					change.Type, change.Cell, change.Type, change.Description))
+			}
+			result.WriteString("</ul>")
+		}
+		result.WriteString("</div>")
+	}
+
+	result.WriteString("</div>")
+	return result.String()
+}
+
+// GetCSS returns CSS styles for HTML diff display
+func GetDiffCSS() string {
+	return `
+.excel-diff {
+	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+	background: #f8f9fa;
+	padding: 20px;
+	border-radius: 8px;
+	border: 1px solid #e9ecef;
+}
+
+.excel-diff h2, .excel-diff h3, .excel-diff h4 {
+	color: #343a40;
+	margin-top: 0;
+}
+
+.excel-diff .count {
+	font-weight: bold;
+	color: #007bff;
+}
+
+.excel-diff .sheet-diff {
+	background: white;
+	margin: 15px 0;
+	padding: 15px;
+	border-radius: 4px;
+	border-left: 4px solid #007bff;
+}
+
+.excel-diff .action.add {
+	color: #28a745;
+}
+
+.excel-diff .action.modify {
+	color: #ffc107;
+}
+
+.excel-diff .action.delete {
+	color: #dc3545;
+}
+
+.excel-diff .changes {
+	list-style: none;
+	padding: 0;
+}
+
+.excel-diff .change {
+	padding: 8px 12px;
+	margin: 4px 0;
+	border-radius: 4px;
+	border-left: 3px solid;
+}
+
+.excel-diff .change.add {
+	background: #d4edda;
+	border-left-color: #28a745;
+}
+
+.excel-diff .change.modify {
+	background: #fff3cd;
+	border-left-color: #ffc107;
+}
+
+.excel-diff .change.delete {
+	background: #f8d7da;
+	border-left-color: #dc3545;
+}
+
+.excel-diff .no-changes {
+	color: #28a745;
+	font-weight: bold;
+	text-align: center;
+	padding: 20px;
+}
+`
+}

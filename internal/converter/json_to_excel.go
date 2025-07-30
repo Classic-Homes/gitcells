@@ -7,6 +7,7 @@ import (
 
 	"github.com/xuri/excelize/v2"
 	"github.com/Classic-Homes/sheetsync/pkg/models"
+	"github.com/Classic-Homes/sheetsync/internal/utils"
 )
 
 func (c *converter) JSONToExcel(doc *models.ExcelDocument, outputPath string, options ConvertOptions) error {
@@ -22,7 +23,8 @@ func (c *converter) JSONToExcel(doc *models.ExcelDocument, outputPath string, op
 		// Create sheet
 		sheetIndex, err := f.NewSheet(sheet.Name)
 		if err != nil {
-			return fmt.Errorf("failed to create sheet %s: %w", sheet.Name, err)
+			return utils.WrapError(err, utils.ErrorTypeConverter, "createSheet", 
+				fmt.Sprintf("failed to create sheet %s", sheet.Name))
 		}
 
 		// Set as active sheet if it's the first one
@@ -137,7 +139,7 @@ func (c *converter) JSONToExcel(doc *models.ExcelDocument, outputPath string, op
 
 	// Save the file
 	if err := f.SaveAs(outputPath); err != nil {
-		return fmt.Errorf("failed to save Excel file: %w", err)
+		return utils.WrapError(err, utils.ErrorTypeConverter, "saveFile", "failed to save Excel file")
 	}
 
 	return nil
@@ -146,13 +148,14 @@ func (c *converter) JSONToExcel(doc *models.ExcelDocument, outputPath string, op
 // Helper function to convert string column to int
 func columnNameToNumber(name string) (int, error) {
 	if name == "" {
-		return 0, fmt.Errorf("column name cannot be empty")
+		return 0, utils.NewError(utils.ErrorTypeValidation, "columnNameToNumber", "column name cannot be empty")
 	}
 	
 	col := 0
 	for i := 0; i < len(name); i++ {
 		if name[i] < 'A' || name[i] > 'Z' {
-			return 0, fmt.Errorf("invalid column name: %s", name)
+			return 0, utils.NewError(utils.ErrorTypeValidation, "columnNameToNumber", 
+				fmt.Sprintf("invalid column name: %s", name))
 		}
 		col = col*26 + int(name[i]-'A'+1)
 	}
@@ -169,7 +172,8 @@ func parseCellReference(ref string) (col, row int, err error) {
 	}
 	
 	if i == 0 || i == len(ref) {
-		return 0, 0, fmt.Errorf("invalid cell reference: %s", ref)
+		return 0, 0, utils.NewError(utils.ErrorTypeValidation, "parseCellReference", 
+			fmt.Sprintf("invalid cell reference: %s", ref))
 	}
 	
 	colName := ref[:i]
@@ -182,7 +186,8 @@ func parseCellReference(ref string) (col, row int, err error) {
 	
 	row, err = strconv.Atoi(rowStr)
 	if err != nil {
-		return 0, 0, fmt.Errorf("invalid row number in reference %s: %v", ref, err)
+		return 0, 0, utils.WrapError(err, utils.ErrorTypeValidation, "parseCellReference", 
+			fmt.Sprintf("invalid row number in reference %s", ref))
 	}
 	
 	return col, row, nil

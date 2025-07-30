@@ -203,6 +203,8 @@ func (c *Client) applyResolutionStrategy(ourCode, theirCode []string, strategy C
 		return c.smartMergeExcelJSON(ourCode, theirCode)
 	case ResolveNewestValue:
 		return c.resolveByTimestamp(ourCode, theirCode)
+	case ResolveInteractive:
+		return c.resolveInteractively(ourCode, theirCode)
 	default:
 		// For manual resolution, we'll leave the conflict markers
 		result := make([]string, 0, len(ourCode)+len(theirCode)+3)
@@ -478,5 +480,242 @@ func (c *Client) ResolveExcelConflicts(strategy ConflictResolutionStrategy) erro
 	}
 
 	c.logger.Infof("Successfully resolved conflicts in %d file(s)", len(resolvedFiles))
+	return nil
+}
+
+// resolveInteractively prompts the user to choose how to resolve each conflict
+func (c *Client) resolveInteractively(ourCode, theirCode []string) []string {
+	fmt.Println("\n" + strings.Repeat("=", 80))
+	fmt.Println("INTERACTIVE CONFLICT RESOLUTION")
+	fmt.Println(strings.Repeat("=", 80))
+	
+	// Try to parse as Excel JSON to provide better context
+	ourJSON := strings.Join(ourCode, "\n")
+	theirJSON := strings.Join(theirCode, "\n")
+	
+	var ourDoc, theirDoc models.ExcelDocument
+	ourErr := json.Unmarshal([]byte(ourJSON), &ourDoc)
+	theirErr := json.Unmarshal([]byte(theirJSON), &theirDoc)
+	
+	if ourErr == nil && theirErr == nil {
+		// Both are valid Excel JSON - show detailed diff
+		fmt.Println("📊 Excel Document Conflict Detected")
+		fmt.Printf("Your version: Modified %s\n", ourDoc.Metadata.Modified.Format("2006-01-02 15:04:05"))
+		fmt.Printf("Their version: Modified %s\n", theirDoc.Metadata.Modified.Format("2006-01-02 15:04:05"))
+		
+		// Show sheet differences
+		c.showExcelConflictSummary(&ourDoc, &theirDoc)
+	} else {
+		// Generic conflict display
+		fmt.Println("📄 File Conflict Detected")
+	}
+	
+	fmt.Println("\nYOUR VERSION (HEAD):")
+	fmt.Println(strings.Repeat("-", 40))
+	for i, line := range ourCode {
+		fmt.Printf("%3d: %s\n", i+1, line)
+	}
+	
+	fmt.Println("\nTHEIR VERSION (incoming):")
+	fmt.Println(strings.Repeat("-", 40))
+	for i, line := range theirCode {
+		fmt.Printf("%3d: %s\n", i+1, line)
+	}
+	
+	fmt.Println("\nRESOLUTION OPTIONS:")
+	fmt.Println("1. Keep your version (y/yours)")
+	fmt.Println("2. Keep their version (t/theirs)")
+	fmt.Println("3. Keep both versions (b/both)")
+	fmt.Println("4. Smart merge (s/smart) - Excel-aware merge")
+	fmt.Println("5. Use newest timestamp (n/newest)")
+	fmt.Println("6. Edit manually (e/edit)")
+	fmt.Println("7. Skip this conflict (skip)")
+	
+	for {
+		fmt.Print("\nChoose resolution [1-7, or y/t/b/s/n/e/skip]: ")
+		
+		var choice string
+		fmt.Scanln(&choice)
+		choice = strings.ToLower(strings.TrimSpace(choice))
+		
+		switch choice {
+		case "1", "y", "yours":
+			fmt.Println("✅ Keeping your version")
+			return ourCode
+		case "2", "t", "theirs":
+			fmt.Println("✅ Keeping their version")
+			return theirCode
+		case "3", "b", "both":
+			fmt.Println("✅ Keeping both versions")
+			result := make([]string, 0, len(ourCode)+len(theirCode))
+			result = append(result, ourCode...)
+			result = append(result, theirCode...)
+			return result
+		case "4", "s", "smart":
+			fmt.Println("✅ Applying smart merge")
+			return c.smartMergeExcelJSON(ourCode, theirCode)
+		case "5", "n", "newest":
+			fmt.Println("✅ Using newest timestamp")
+			return c.resolveByTimestamp(ourCode, theirCode)
+		case "6", "e", "edit":
+			fmt.Println("✅ Opening for manual editing")
+			return c.editManually(ourCode, theirCode)
+		case "7", "skip":
+			fmt.Println("⏭️  Skipping - leaving conflict markers")
+			result := make([]string, 0, len(ourCode)+len(theirCode)+3)
+			result = append(result, string(ConflictStart)+"HEAD")
+			result = append(result, ourCode...)
+			result = append(result, string(ConflictMiddle))
+			result = append(result, theirCode...)
+			result = append(result, string(ConflictEnd)+"incoming")
+			return result
+		default:
+			fmt.Printf("❌ Invalid choice '%s'. Please choose 1-7 or use shortcuts.\n", choice)
+		}
+	}
+}
+
+// showExcelConflictSummary shows a summary of differences between two Excel documents
+func (c *Client) showExcelConflictSummary(ours, theirs *models.ExcelDocument) {
+	fmt.Println("\n📋 CONFLICT SUMMARY:")
+	
+	// Compare sheet counts
+	if len(ours.Sheets) != len(theirs.Sheets) {
+		fmt.Printf("• Sheet count differs: yours=%d, theirs=%d\n", len(ours.Sheets), len(theirs.Sheets))
+	}
+	
+	// Create sheet maps
+	ourSheets := make(map[string]*models.Sheet)
+	theirSheets := make(map[string]*models.Sheet)
+	
+	for i := range ours.Sheets {
+		ourSheets[ours.Sheets[i].Name] = &ours.Sheets[i]
+	}
+	for i := range theirs.Sheets {
+		theirSheets[theirs.Sheets[i].Name] = &theirs.Sheets[i]
+	}
+	
+	// Find sheet differences
+	allSheets := make(map[string]bool)
+	for name := range ourSheets {
+		allSheets[name] = true
+	}
+	for name := range theirSheets {
+		allSheets[name] = true
+	}
+	
+	for sheetName := range allSheets {
+		ourSheet, hasOur := ourSheets[sheetName]
+		theirSheet, hasTheir := theirSheets[sheetName]
+		
+		if hasOur && hasTheir {
+			ourCells := len(ourSheet.Cells)
+			theirCells := len(theirSheet.Cells)
+			if ourCells != theirCells {
+				fmt.Printf("• Sheet '%s': cell count differs (yours=%d, theirs=%d)\n", sheetName, ourCells, theirCells)
+			}
+		} else if hasOur && !hasTheir {
+			fmt.Printf("• Sheet '%s': only in your version\n", sheetName)
+		} else if !hasOur && hasTheir {
+			fmt.Printf("• Sheet '%s': only in their version\n", sheetName)
+		}
+	}
+	
+	// Compare defined names
+	if len(ours.DefinedNames) != len(theirs.DefinedNames) {
+		fmt.Printf("• Defined names count differs: yours=%d, theirs=%d\n", len(ours.DefinedNames), len(theirs.DefinedNames))
+	}
+}
+
+// editManually allows the user to manually edit the conflicted content
+func (c *Client) editManually(ourCode, theirCode []string) []string {
+	fmt.Println("\n📝 MANUAL EDITING MODE")
+	fmt.Println("Enter your resolved content line by line.")
+	fmt.Println("Type 'END' on a line by itself to finish.")
+	fmt.Println("Type 'CANCEL' to abort manual editing.")
+	fmt.Println(strings.Repeat("-", 50))
+	
+	var lines []string
+	scanner := bufio.NewScanner(os.Stdin)
+	
+	for {
+		fmt.Print(">>> ")
+		if !scanner.Scan() {
+			break
+		}
+		
+		line := scanner.Text()
+		if line == "END" {
+			break
+		}
+		if line == "CANCEL" {
+			fmt.Println("❌ Manual editing cancelled, keeping original conflict")
+			result := make([]string, 0, len(ourCode)+len(theirCode)+3)
+			result = append(result, string(ConflictStart)+"HEAD")
+			result = append(result, ourCode...)
+			result = append(result, string(ConflictMiddle))
+			result = append(result, theirCode...)
+			result = append(result, string(ConflictEnd)+"incoming")
+			return result
+		}
+		
+		lines = append(lines, line)
+	}
+	
+	if len(lines) == 0 {
+		fmt.Println("⚠️  No content entered, falling back to smart merge")
+		return c.smartMergeExcelJSON(ourCode, theirCode)
+	}
+	
+	fmt.Printf("✅ Manual resolution complete (%d lines)\n", len(lines))
+	return lines
+}
+
+// InteractiveConflictResolver provides a more advanced interactive interface
+type InteractiveConflictResolver struct {
+	client *Client
+}
+
+// NewInteractiveConflictResolver creates a new interactive conflict resolver
+func NewInteractiveConflictResolver(client *Client) *InteractiveConflictResolver {
+	return &InteractiveConflictResolver{client: client}
+}
+
+// ResolveAllConflicts provides an interactive interface for resolving all conflicts
+func (icr *InteractiveConflictResolver) ResolveAllConflicts() error {
+	conflictedFiles, err := icr.client.GetConflictedFiles()
+	if err != nil {
+		return fmt.Errorf("failed to get conflicted files: %w", err)
+	}
+	
+	if len(conflictedFiles) == 0 {
+		fmt.Println("✅ No conflicts found!")
+		return nil
+	}
+	
+	fmt.Printf("\n🔧 Found %d conflicted file(s):\n", len(conflictedFiles))
+	for i, file := range conflictedFiles {
+		fmt.Printf("%d. %s\n", i+1, file)
+	}
+	
+	fmt.Println("\nResolving conflicts interactively...")
+	
+	for i, file := range conflictedFiles {
+		fmt.Printf("\n" + strings.Repeat("=", 80))
+		fmt.Printf("RESOLVING CONFLICT %d/%d: %s", i+1, len(conflictedFiles), file)
+		fmt.Printf("\n" + strings.Repeat("=", 80))
+		
+		if filepath.Ext(file) == ".json" {
+			err := icr.client.ResolveConflict(file, ResolveInteractive)
+			if err != nil {
+				fmt.Printf("❌ Failed to resolve %s: %v\n", file, err)
+				continue
+			}
+		} else {
+			fmt.Printf("⏭️  Skipping non-JSON file: %s\n", file)
+		}
+	}
+	
+	fmt.Println("\n🎉 Interactive conflict resolution complete!")
 	return nil
 }
