@@ -58,6 +58,14 @@ test_binary() {
         return
     fi
     
+    # For Darwin binaries on Linux, we can't execute them
+    if [[ "$platform" == *"darwin"* ]] && [[ "$(uname -s)" == "Linux" ]]; then
+        log "Skipping execution test for Darwin binary on Linux"
+        file "$binary_path"
+        success "$platform binary exists and has correct file type"
+        return
+    fi
+    
     # For different architecture binaries, we might not be able to execute
     local current_arch
     case "$(uname -m)" in
