@@ -88,7 +88,7 @@ func ComputeDiff(oldDoc, newDoc *ExcelDocument) *ExcelDiff {
 			// Sheet added
 			sheetDiff.Action = ChangeTypeAdd
 			diff.Summary.AddedSheets++
-			
+
 			// Add all cells as new
 			for cellRef, cell := range newSheet.Cells {
 				sheetDiff.Changes = append(sheetDiff.Changes, CellChange{
@@ -103,7 +103,7 @@ func ComputeDiff(oldDoc, newDoc *ExcelDocument) *ExcelDiff {
 			// Sheet deleted
 			sheetDiff.Action = ChangeTypeDelete
 			diff.Summary.DeletedSheets++
-			
+
 			// Add all cells as deleted
 			for cellRef, cell := range oldSheet.Cells {
 				sheetDiff.Changes = append(sheetDiff.Changes, CellChange{
@@ -307,15 +307,15 @@ func (d *ExcelDiff) String() string {
 	}
 
 	var parts []string
-	
+
 	if d.Summary.AddedSheets > 0 {
 		parts = append(parts, fmt.Sprintf("%d sheet(s) added", d.Summary.AddedSheets))
 	}
-	
+
 	if d.Summary.ModifiedSheets > 0 {
 		parts = append(parts, fmt.Sprintf("%d sheet(s) modified", d.Summary.ModifiedSheets))
 	}
-	
+
 	if d.Summary.DeletedSheets > 0 {
 		parts = append(parts, fmt.Sprintf("%d sheet(s) deleted", d.Summary.DeletedSheets))
 	}
@@ -334,15 +334,15 @@ func (d *ExcelDiff) ToColorizedString() string {
 	}
 
 	var parts []string
-	
+
 	if d.Summary.AddedSheets > 0 {
 		parts = append(parts, fmt.Sprintf("\033[32m+%d sheet(s) added\033[0m", d.Summary.AddedSheets)) // Green
 	}
-	
+
 	if d.Summary.ModifiedSheets > 0 {
 		parts = append(parts, fmt.Sprintf("\033[33m~%d sheet(s) modified\033[0m", d.Summary.ModifiedSheets)) // Yellow
 	}
-	
+
 	if d.Summary.DeletedSheets > 0 {
 		parts = append(parts, fmt.Sprintf("\033[31m-%d sheet(s) deleted\033[0m", d.Summary.DeletedSheets)) // Red
 	}
@@ -368,11 +368,11 @@ func (d *ExcelDiff) ToDetailedString() string {
 
 	for _, sheetDiff := range d.SheetDiffs {
 		result.WriteString(fmt.Sprintf("Sheet: %s\n", sheetDiff.SheetName))
-		
+
 		if sheetDiff.Action != "" {
 			result.WriteString(fmt.Sprintf("  Action: %s\n", sheetDiff.Action))
 		}
-		
+
 		if len(sheetDiff.Changes) > 0 {
 			result.WriteString(fmt.Sprintf("  Changes (%d):\n", len(sheetDiff.Changes)))
 			for _, change := range sheetDiff.Changes {
@@ -399,14 +399,14 @@ func (d *ExcelDiff) ToColorizedDetailedString() string {
 
 	for _, sheetDiff := range d.SheetDiffs {
 		result.WriteString(fmt.Sprintf("\033[1mSheet: %s\033[0m\n", sheetDiff.SheetName))
-		
+
 		if sheetDiff.Action != "" {
 			var color string
 			switch sheetDiff.Action {
 			case ChangeTypeAdd:
 				color = "\033[32m" // Green
 			case ChangeTypeModify:
-				color = "\033[33m" // Yellow  
+				color = "\033[33m" // Yellow
 			case ChangeTypeDelete:
 				color = "\033[31m" // Red
 			default:
@@ -414,7 +414,7 @@ func (d *ExcelDiff) ToColorizedDetailedString() string {
 			}
 			result.WriteString(fmt.Sprintf("  Action: %s%s\033[0m\n", color, sheetDiff.Action))
 		}
-		
+
 		if len(sheetDiff.Changes) > 0 {
 			result.WriteString(fmt.Sprintf("  Changes (\033[36m%d\033[0m):\n", len(sheetDiff.Changes)))
 			for _, change := range sheetDiff.Changes {
@@ -429,7 +429,7 @@ func (d *ExcelDiff) ToColorizedDetailedString() string {
 				default:
 					typeColor = "\033[0m"
 				}
-				result.WriteString(fmt.Sprintf("    \033[1m%s\033[0m [%s%s\033[0m]: %s\n", 
+				result.WriteString(fmt.Sprintf("    \033[1m%s\033[0m [%s%s\033[0m]: %s\n",
 					change.Cell, typeColor, change.Type, change.Description))
 			}
 		}
@@ -453,15 +453,15 @@ func (d *ExcelDiff) ToHTML() string {
 
 	for _, sheetDiff := range d.SheetDiffs {
 		result.WriteString(fmt.Sprintf("<div class='sheet-diff'><h3>Sheet: %s</h3>", sheetDiff.SheetName))
-		
+
 		if sheetDiff.Action != "" {
 			result.WriteString(fmt.Sprintf("<p>Action: <span class='action %s'>%s</span></p>", sheetDiff.Action, sheetDiff.Action))
 		}
-		
+
 		if len(sheetDiff.Changes) > 0 {
 			result.WriteString(fmt.Sprintf("<h4>Changes (%d)</h4><ul class='changes'>", len(sheetDiff.Changes)))
 			for _, change := range sheetDiff.Changes {
-				result.WriteString(fmt.Sprintf("<li class='change %s'><strong>%s</strong> [%s]: %s</li>", 
+				result.WriteString(fmt.Sprintf("<li class='change %s'><strong>%s</strong> [%s]: %s</li>",
 					change.Type, change.Cell, change.Type, change.Description))
 			}
 			result.WriteString("</ul>")

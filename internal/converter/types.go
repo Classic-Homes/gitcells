@@ -2,12 +2,12 @@ package converter
 
 import (
 	"fmt"
+	"github.com/Classic-Homes/sheetsync/internal/utils"
+	"github.com/Classic-Homes/sheetsync/pkg/models"
+	"github.com/xuri/excelize/v2"
 	"runtime"
 	"strconv"
 	"strings"
-	"github.com/Classic-Homes/sheetsync/pkg/models"
-	"github.com/Classic-Homes/sheetsync/internal/utils"
-	"github.com/xuri/excelize/v2"
 )
 
 // detectCellType determines the cell type based on its value and formula
@@ -51,18 +51,37 @@ func (c *converter) detectCellType(value interface{}, formula string) models.Cel
 
 // isArrayFormula checks if a formula is an array formula
 func (c *converter) isArrayFormula(formula string) bool {
-	// Array formulas typically contain array functions or ranges
-	arrayFunctions := []string{"SUM(", "AVERAGE(", "COUNT(", "IF(", "INDEX(", "MATCH(", "VLOOKUP(", "SUMPRODUCT("}
+	// Array formulas are typically surrounded by curly braces in Excel
+	// or contain specific array patterns that Excel recognizes
+	formulaTrimmed := strings.TrimSpace(formula)
+
+	// Check for curly braces (Excel's array formula indicator)
+	if strings.HasPrefix(formulaTrimmed, "{") && strings.HasSuffix(formulaTrimmed, "}") {
+		return true
+	}
+
+	// Check for specific array function patterns
 	formulaUpper := strings.ToUpper(formula)
-	
-	for _, fn := range arrayFunctions {
+
+	// Functions that are commonly used in array contexts with multiple ranges
+	arrayOnlyFunctions := []string{"TRANSPOSE(", "MMULT(", "SUMPRODUCT("}
+	for _, fn := range arrayOnlyFunctions {
 		if strings.Contains(formulaUpper, fn) {
-			// Further check for array patterns like ranges or multiple criteria
-			if strings.Contains(formula, ":") || strings.Count(formula, ",") > 2 {
-				return true
-			}
+			return true
 		}
 	}
+
+	// More conservative detection for regular functions
+	// Only consider it an array formula if it has multiple complex range references
+	// or multiple ranges in the same function
+	rangeCount := strings.Count(formula, ":")
+	commaCount := strings.Count(formula, ",")
+
+	// Array formulas typically have multiple ranges or complex patterns
+	if rangeCount > 1 && commaCount > 2 {
+		return true
+	}
+
 	return false
 }
 
@@ -96,7 +115,7 @@ func (c *converter) extractEnhancedFormulaInfo(f *excelize.File, sheetName, cell
 func parseNumber(value string) (float64, error) {
 	num, err := strconv.ParseFloat(value, 64)
 	if err != nil {
-		return 0, utils.WrapError(err, utils.ErrorTypeConverter, "parseNumber", 
+		return 0, utils.WrapError(err, utils.ErrorTypeConverter, "parseNumber",
 			fmt.Sprintf("failed to parse number from value: %s", value))
 	}
 	return num, nil
@@ -115,10 +134,10 @@ func (c *converter) extractCellStyle(f *excelize.File, styleID int) *models.Cell
 	// TODO: Implement comprehensive style extraction
 	// Currently excelize doesn't provide direct access to all style properties
 	// This would require parsing the underlying XML or using enhanced excelize methods
-	
+
 	// Placeholder implementation - would need actual excelize style API enhancement
 	c.logger.Debugf("Style extraction for ID %d - limited implementation", styleID)
-	
+
 	// For now, return basic style structure
 	// This would be enhanced when excelize provides better style introspection
 	return style
@@ -141,7 +160,7 @@ func (c *converter) extractFullCellStyle(f *excelize.File, sheetName, cellRef st
 	// TODO: Implement font extraction when excelize supports it
 	style.Font = &models.Font{
 		Name: "Calibri", // Default - would extract actual font
-		Size: 11,       // Default - would extract actual size
+		Size: 11,        // Default - would extract actual size
 	}
 
 	// Extract fill information
@@ -150,7 +169,7 @@ func (c *converter) extractFullCellStyle(f *excelize.File, sheetName, cellRef st
 	// Extract border information
 	// TODO: Implement border extraction when excelize supports it
 
-	// Extract alignment information  
+	// Extract alignment information
 	// TODO: Implement alignment extraction when excelize supports it
 
 	c.logger.Debugf("Extracted style for cell %s - placeholder implementation", cellRef)
@@ -168,18 +187,32 @@ func formatCommitMessage(template string, replacements map[string]string) string
 
 // extractProperties converts excelize document properties to our model
 func (c *converter) extractProperties(props interface{}) models.DocumentProperties {
-	// TODO: Implement property extraction
-	// This is a placeholder that will be implemented when we have the full converter
+	if props == nil {
+		return models.DocumentProperties{}
+	}
+
+	// Type assert to excelize.DocProperties
+	if docProps, ok := props.(*excelize.DocProperties); ok {
+		return models.DocumentProperties{
+			Title:       docProps.Title,
+			Subject:     docProps.Subject,
+			Author:      docProps.Creator,
+			Company:     docProps.Category,
+			Keywords:    docProps.Keywords,
+			Description: docProps.Description,
+		}
+	}
+
 	return models.DocumentProperties{}
 }
 
 // cellReference converts column and row indices to Excel cell reference (e.g., "A1")
 func cellReference(col, row int) (string, error) {
 	if col < 1 || row < 1 {
-		return "", utils.NewError(utils.ErrorTypeValidation, "cellReference", 
+		return "", utils.NewError(utils.ErrorTypeValidation, "cellReference",
 			fmt.Sprintf("invalid cell coordinates: col=%d, row=%d", col, row))
 	}
-	
+
 	// Convert column number to letter(s)
 	colName := ""
 	for col > 0 {
@@ -187,7 +220,7 @@ func cellReference(col, row int) (string, error) {
 		colName = string(rune('A'+col%26)) + colName
 		col /= 26
 	}
-	
+
 	return fmt.Sprintf("%s%d", colName, row), nil
 }
 
@@ -203,7 +236,7 @@ type MemoryStats struct {
 func GetMemoryStats() *MemoryStats {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	
+
 	return &MemoryStats{
 		CurrentMemory: m.Alloc,
 		PeakMemory:    m.TotalAlloc,
@@ -219,15 +252,15 @@ func ForceGC() *MemoryStats {
 
 // StreamingConfig defines configuration for streaming processing
 type StreamingConfig struct {
-	ChunkSize        int     // Number of rows to process at once
-	MemoryThreshold  uint64  // Memory threshold in bytes to trigger GC
+	ChunkSize        int    // Number of rows to process at once
+	MemoryThreshold  uint64 // Memory threshold in bytes to trigger GC
 	ProgressCallback func(processed, total int)
 }
 
 // DefaultStreamingConfig returns sensible defaults for streaming
 func DefaultStreamingConfig() *StreamingConfig {
 	return &StreamingConfig{
-		ChunkSize:       1000,   // Process 1000 rows at a time
+		ChunkSize:       1000,      // Process 1000 rows at a time
 		MemoryThreshold: 100 << 20, // 100MB threshold
 	}
 }
@@ -254,19 +287,19 @@ func (pb *ProgressBar) Update(stage string, current, total int) {
 	pb.current = current
 	pb.total = total
 	pb.stage = stage
-	
+
 	// Calculate percentage
 	percentage := float64(current) / float64(total) * 100
 	if total == 0 {
 		percentage = 100
 	}
-	
+
 	// Calculate filled portion of bar
 	filled := int(float64(current) / float64(total) * float64(pb.width))
 	if filled > pb.width {
 		filled = pb.width
 	}
-	
+
 	// Build progress bar string
 	bar := "["
 	for i := 0; i < pb.width; i++ {
@@ -279,10 +312,10 @@ func (pb *ProgressBar) Update(stage string, current, total int) {
 		}
 	}
 	bar += "]"
-	
+
 	// Print progress (use \r to overwrite previous line)
 	fmt.Printf("\r%s %s %.1f%% (%d/%d)", stage, bar, percentage, current, total)
-	
+
 	// Print newline when complete
 	if current >= total {
 		fmt.Println()
@@ -301,11 +334,11 @@ func (c *converter) extractCharts(f interface{}, sheetName string) ([]models.Cha
 	// Note: excelize has limited chart support, this would need to be enhanced
 	// or use a different library for full chart extraction
 	charts := []models.Chart{}
-	
+
 	// Placeholder implementation - would need actual excelize chart API
 	// This is a framework for when chart extraction is fully supported
 	c.logger.Debug("Chart extraction not yet fully implemented - placeholder only")
-	
+
 	return charts, nil
 }
 
@@ -314,10 +347,10 @@ func (c *converter) extractPivotTables(f interface{}, sheetName string) ([]model
 	// TODO: Implement pivot table extraction using excelize
 	// Note: excelize has limited pivot table support, this would need to be enhanced
 	pivotTables := []models.PivotTable{}
-	
+
 	// Placeholder implementation - would need actual excelize pivot table API
 	// This is a framework for when pivot table extraction is fully supported
 	c.logger.Debug("Pivot table extraction not yet fully implemented - placeholder only")
-	
+
 	return pivotTables, nil
 }

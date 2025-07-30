@@ -34,14 +34,14 @@ const (
 
 // LogConfig configures logger behavior
 type LogConfig struct {
-	Level      LogLevel
-	Format     LogFormat
-	Output     io.Writer
-	File       string
-	MaxSize    int64  // Max file size in bytes
-	MaxAge     int    // Max age in days
-	AddSource  bool   // Add source file and line
-	NoColors   bool   // Disable colors in text format
+	Level     LogLevel
+	Format    LogFormat
+	Output    io.Writer
+	File      string
+	MaxSize   int64 // Max file size in bytes
+	MaxAge    int   // Max age in days
+	AddSource bool  // Add source file and line
+	NoColors  bool  // Disable colors in text format
 }
 
 // DefaultLogConfig returns sensible defaults
@@ -253,19 +253,19 @@ func LoggerWithFields(logger *logrus.Logger, fields logrus.Fields) *logrus.Entry
 // LogError logs an error with appropriate context
 func LogError(logger *logrus.Logger, err error, operation string, context map[string]interface{}) {
 	entry := logger.WithField("operation", operation)
-	
+
 	if context != nil {
 		entry = entry.WithFields(logrus.Fields(context))
 	}
-	
+
 	if ssErr, ok := err.(*SheetSyncError); ok {
 		entry = entry.WithFields(logrus.Fields{
-			"error_type":   ssErr.Type,
-			"recoverable":  ssErr.IsRecoverable(),
-			"file":         ssErr.File,
+			"error_type":  ssErr.Type,
+			"recoverable": ssErr.IsRecoverable(),
+			"file":        ssErr.File,
 		})
 	}
-	
+
 	entry.Error(err.Error())
 }
 
@@ -303,18 +303,18 @@ func NewProgress(logger *logrus.Logger, name string, total int) *Progress {
 func (p *Progress) Update(done int) {
 	oldPercent := (p.done * 100) / p.total
 	newPercent := (done * 100) / p.total
-	
+
 	p.done = done
-	
+
 	// Log every 10% or at completion
 	if newPercent-oldPercent >= 10 || done >= p.total {
-		p.logger.WithField("done", done).Infof("%s progress: %d%% (%d/%d)", 
+		p.logger.WithField("done", done).Infof("%s progress: %d%% (%d/%d)",
 			p.name, newPercent, done, p.total)
 	}
 }
 
 // Finish marks the progress as complete
 func (p *Progress) Finish() {
-	p.logger.WithField("done", p.total).Infof("%s completed: 100%% (%d/%d)", 
+	p.logger.WithField("done", p.total).Infof("%s completed: 100%% (%d/%d)",
 		p.name, p.total, p.total)
 }

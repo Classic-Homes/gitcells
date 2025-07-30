@@ -25,9 +25,9 @@ func TestFullConversionWorkflow(t *testing.T) {
 	logger := logrus.New()
 	logger.SetLevel(logrus.WarnLevel)
 	conv := converter.NewConverter(logger)
-	
+
 	tempDir := t.TempDir()
-	
+
 	// Test Excel -> JSON -> Excel workflow
 	originalFile := "testdata/sample_files/complex.xlsx"
 	jsonFile := filepath.Join(tempDir, "complex.json")
@@ -46,7 +46,7 @@ func TestFullConversionWorkflow(t *testing.T) {
 	// Step 2: Save JSON to file
 	jsonData, err := json.MarshalIndent(doc, "", "  ")
 	require.NoError(t, err)
-	
+
 	err = os.WriteFile(jsonFile, jsonData, 0644)
 	require.NoError(t, err)
 
@@ -54,7 +54,7 @@ func TestFullConversionWorkflow(t *testing.T) {
 	var loadedDoc models.ExcelDocument
 	jsonData, err = os.ReadFile(jsonFile)
 	require.NoError(t, err)
-	
+
 	err = json.Unmarshal(jsonData, &loadedDoc)
 	require.NoError(t, err)
 
@@ -92,7 +92,7 @@ func TestConfigurationLoading(t *testing.T) {
 
 	// Create a test config file
 	configContent := `
-version: 1.0
+version: "1.0"
 git:
   branch: test-branch
   auto_push: true
@@ -152,8 +152,8 @@ func TestDiffGeneration(t *testing.T) {
 				Index: 0,
 				Cells: map[string]models.Cell{
 					"A1": {Value: "Hello", Type: models.CellTypeString},
-					"A2": {Value: float64(20), Type: models.CellTypeNumber}, // Changed value
-					"A3": {Value: "New Value", Type: models.CellTypeString}, // Changed value
+					"A2": {Value: float64(20), Type: models.CellTypeNumber},  // Changed value
+					"A3": {Value: "New Value", Type: models.CellTypeString},  // Changed value
 					"A4": {Value: "Added Cell", Type: models.CellTypeString}, // New cell
 				},
 			},

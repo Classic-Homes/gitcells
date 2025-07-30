@@ -32,24 +32,24 @@ type DocumentProperties struct {
 }
 
 type Sheet struct {
-	Name               string                 `json:"name"`
-	Index              int                    `json:"index"`
-	Cells              map[string]Cell        `json:"cells"`
-	MergedCells        []MergedCell           `json:"merged_cells,omitempty"`
-	RowHeights         map[int]float64        `json:"row_heights,omitempty"`
-	ColumnWidths       map[string]float64     `json:"column_widths,omitempty"`
-	Hidden             bool                   `json:"hidden"`
-	Protection         *SheetProtection       `json:"protection,omitempty"`
-	ConditionalFormats []ConditionalFormat    `json:"conditional_formats,omitempty"`
-	Charts             []Chart                `json:"charts,omitempty"`
-	PivotTables        []PivotTable           `json:"pivot_tables,omitempty"`
+	Name               string              `json:"name"`
+	Index              int                 `json:"index"`
+	Cells              map[string]Cell     `json:"cells"`
+	MergedCells        []MergedCell        `json:"merged_cells,omitempty"`
+	RowHeights         map[int]float64     `json:"row_heights,omitempty"`
+	ColumnWidths       map[string]float64  `json:"column_widths,omitempty"`
+	Hidden             bool                `json:"hidden"`
+	Protection         *SheetProtection    `json:"protection,omitempty"`
+	ConditionalFormats []ConditionalFormat `json:"conditional_formats,omitempty"`
+	Charts             []Chart             `json:"charts,omitempty"`
+	PivotTables        []PivotTable        `json:"pivot_tables,omitempty"`
 }
 
 type Cell struct {
 	Value          interface{}     `json:"value"`
 	Formula        string          `json:"formula,omitempty"`
-	FormulaR1C1    string          `json:"formula_r1c1,omitempty"`    // R1C1 reference style
-	ArrayFormula   *ArrayFormula   `json:"array_formula,omitempty"`   // Array formula details
+	FormulaR1C1    string          `json:"formula_r1c1,omitempty"`  // R1C1 reference style
+	ArrayFormula   *ArrayFormula   `json:"array_formula,omitempty"` // Array formula details
 	Style          *CellStyle      `json:"style,omitempty"`
 	Type           CellType        `json:"type"`
 	Comment        *Comment        `json:"comment,omitempty"`
@@ -60,19 +60,19 @@ type Cell struct {
 type CellType string
 
 const (
-	CellTypeString      CellType = "string"
-	CellTypeNumber      CellType = "number"
-	CellTypeBoolean     CellType = "boolean"
-	CellTypeDate        CellType = "date"
-	CellTypeError       CellType = "error"
-	CellTypeFormula     CellType = "formula"
+	CellTypeString       CellType = "string"
+	CellTypeNumber       CellType = "number"
+	CellTypeBoolean      CellType = "boolean"
+	CellTypeDate         CellType = "date"
+	CellTypeError        CellType = "error"
+	CellTypeFormula      CellType = "formula"
 	CellTypeArrayFormula CellType = "array_formula"
 )
 
 // ArrayFormula represents an Excel array formula
 type ArrayFormula struct {
 	Formula string `json:"formula"`
-	Range   string `json:"range"` // The range the array formula covers
+	Range   string `json:"range"`  // The range the array formula covers
 	IsCSE   bool   `json:"is_cse"` // Ctrl+Shift+Enter array formula
 }
 
@@ -82,11 +82,11 @@ type MergedCell struct {
 }
 
 type CellStyle struct {
-	Font         *Font         `json:"font,omitempty"`
-	Fill         *Fill         `json:"fill,omitempty"`
-	Border       *Border       `json:"border,omitempty"`
-	NumberFormat string        `json:"number_format,omitempty"`
-	Alignment    *Alignment    `json:"alignment,omitempty"`
+	Font         *Font      `json:"font,omitempty"`
+	Fill         *Fill      `json:"fill,omitempty"`
+	Border       *Border    `json:"border,omitempty"`
+	NumberFormat string     `json:"number_format,omitempty"`
+	Alignment    *Alignment `json:"alignment,omitempty"`
 }
 
 type Font struct {
@@ -130,58 +130,58 @@ type Comment struct {
 }
 
 type DataValidation struct {
-	Type             string      `json:"type"`
-	Operator         string      `json:"operator,omitempty"`
-	Formula1         string      `json:"formula1,omitempty"`
-	Formula2         string      `json:"formula2,omitempty"`
-	AllowBlank       bool        `json:"allow_blank,omitempty"`
-	ShowInputMessage bool        `json:"show_input_message,omitempty"`
-	ShowErrorMessage bool        `json:"show_error_message,omitempty"`
-	ErrorTitle       string      `json:"error_title,omitempty"`
-	Error            string      `json:"error,omitempty"`
-	PromptTitle      string      `json:"prompt_title,omitempty"`
-	Prompt           string      `json:"prompt,omitempty"`
+	Type             string `json:"type"`
+	Operator         string `json:"operator,omitempty"`
+	Formula1         string `json:"formula1,omitempty"`
+	Formula2         string `json:"formula2,omitempty"`
+	AllowBlank       bool   `json:"allow_blank,omitempty"`
+	ShowInputMessage bool   `json:"show_input_message,omitempty"`
+	ShowErrorMessage bool   `json:"show_error_message,omitempty"`
+	ErrorTitle       string `json:"error_title,omitempty"`
+	Error            string `json:"error,omitempty"`
+	PromptTitle      string `json:"prompt_title,omitempty"`
+	Prompt           string `json:"prompt,omitempty"`
 }
 
 type SheetProtection struct {
-	Password               string `json:"password,omitempty"`
-	EditObjects            bool   `json:"edit_objects,omitempty"`
-	EditScenarios          bool   `json:"edit_scenarios,omitempty"`
-	FormatCells            bool   `json:"format_cells,omitempty"`
-	FormatColumns          bool   `json:"format_columns,omitempty"`
-	FormatRows             bool   `json:"format_rows,omitempty"`
-	InsertColumns          bool   `json:"insert_columns,omitempty"`
-	InsertRows             bool   `json:"insert_rows,omitempty"`
-	InsertHyperlinks       bool   `json:"insert_hyperlinks,omitempty"`
-	DeleteColumns          bool   `json:"delete_columns,omitempty"`
-	DeleteRows             bool   `json:"delete_rows,omitempty"`
-	SelectLockedCells      bool   `json:"select_locked_cells,omitempty"`
-	SelectUnlockedCells    bool   `json:"select_unlocked_cells,omitempty"`
-	Sort                   bool   `json:"sort,omitempty"`
-	AutoFilter             bool   `json:"auto_filter,omitempty"`
-	PivotTables            bool   `json:"pivot_tables,omitempty"`
+	Password            string `json:"password,omitempty"`
+	EditObjects         bool   `json:"edit_objects,omitempty"`
+	EditScenarios       bool   `json:"edit_scenarios,omitempty"`
+	FormatCells         bool   `json:"format_cells,omitempty"`
+	FormatColumns       bool   `json:"format_columns,omitempty"`
+	FormatRows          bool   `json:"format_rows,omitempty"`
+	InsertColumns       bool   `json:"insert_columns,omitempty"`
+	InsertRows          bool   `json:"insert_rows,omitempty"`
+	InsertHyperlinks    bool   `json:"insert_hyperlinks,omitempty"`
+	DeleteColumns       bool   `json:"delete_columns,omitempty"`
+	DeleteRows          bool   `json:"delete_rows,omitempty"`
+	SelectLockedCells   bool   `json:"select_locked_cells,omitempty"`
+	SelectUnlockedCells bool   `json:"select_unlocked_cells,omitempty"`
+	Sort                bool   `json:"sort,omitempty"`
+	AutoFilter          bool   `json:"auto_filter,omitempty"`
+	PivotTables         bool   `json:"pivot_tables,omitempty"`
 }
 
 type ConditionalFormat struct {
-	Range     string                   `json:"range"`
-	Type      string                   `json:"type"`
-	Criteria  string                   `json:"criteria,omitempty"`
-	Value     interface{}              `json:"value,omitempty"`
-	Minimum   interface{}              `json:"minimum,omitempty"`
-	Maximum   interface{}              `json:"maximum,omitempty"`
-	Format    *CellStyle               `json:"format,omitempty"`
+	Range    string      `json:"range"`
+	Type     string      `json:"type"`
+	Criteria string      `json:"criteria,omitempty"`
+	Value    interface{} `json:"value,omitempty"`
+	Minimum  interface{} `json:"minimum,omitempty"`
+	Maximum  interface{} `json:"maximum,omitempty"`
+	Format   *CellStyle  `json:"format,omitempty"`
 }
 
 // Chart represents an Excel chart object
 type Chart struct {
-	ID         string          `json:"id"`
-	Type       string          `json:"type"` // bar, line, pie, scatter, etc.
-	Title      string          `json:"title,omitempty"`
-	Position   ChartPosition   `json:"position"`
-	Series     []ChartSeries   `json:"series"`
-	Legend     *ChartLegend    `json:"legend,omitempty"`
-	Axes       *ChartAxes      `json:"axes,omitempty"`
-	Style      *ChartStyle     `json:"style,omitempty"`
+	ID       string        `json:"id"`
+	Type     string        `json:"type"` // bar, line, pie, scatter, etc.
+	Title    string        `json:"title,omitempty"`
+	Position ChartPosition `json:"position"`
+	Series   []ChartSeries `json:"series"`
+	Legend   *ChartLegend  `json:"legend,omitempty"`
+	Axes     *ChartAxes    `json:"axes,omitempty"`
+	Style    *ChartStyle   `json:"style,omitempty"`
 }
 
 type ChartPosition struct {
@@ -209,11 +209,11 @@ type ChartAxes struct {
 }
 
 type ChartAxis struct {
-	Title      string  `json:"title,omitempty"`
-	Min        *float64 `json:"min,omitempty"`
-	Max        *float64 `json:"max,omitempty"`
-	MajorUnit  *float64 `json:"major_unit,omitempty"`
-	MinorUnit  *float64 `json:"minor_unit,omitempty"`
+	Title     string   `json:"title,omitempty"`
+	Min       *float64 `json:"min,omitempty"`
+	Max       *float64 `json:"max,omitempty"`
+	MajorUnit *float64 `json:"major_unit,omitempty"`
+	MinorUnit *float64 `json:"minor_unit,omitempty"`
 }
 
 type ChartStyle struct {
@@ -223,15 +223,15 @@ type ChartStyle struct {
 
 // PivotTable represents an Excel pivot table
 type PivotTable struct {
-	ID            string              `json:"id"`
-	Name          string              `json:"name"`
-	SourceRange   string              `json:"source_range"`   // Range reference like "Sheet1!A1:D100"
-	TargetRange   string              `json:"target_range"`   // Where pivot table is placed
-	RowFields     []PivotField        `json:"row_fields,omitempty"`
-	ColumnFields  []PivotField        `json:"column_fields,omitempty"`
-	DataFields    []PivotDataField    `json:"data_fields,omitempty"`
-	FilterFields  []PivotField        `json:"filter_fields,omitempty"`
-	Settings      *PivotTableSettings `json:"settings,omitempty"`
+	ID           string              `json:"id"`
+	Name         string              `json:"name"`
+	SourceRange  string              `json:"source_range"` // Range reference like "Sheet1!A1:D100"
+	TargetRange  string              `json:"target_range"` // Where pivot table is placed
+	RowFields    []PivotField        `json:"row_fields,omitempty"`
+	ColumnFields []PivotField        `json:"column_fields,omitempty"`
+	DataFields   []PivotDataField    `json:"data_fields,omitempty"`
+	FilterFields []PivotField        `json:"filter_fields,omitempty"`
+	Settings     *PivotTableSettings `json:"settings,omitempty"`
 }
 
 type PivotField struct {
@@ -241,9 +241,9 @@ type PivotField struct {
 }
 
 type PivotDataField struct {
-	Name        string `json:"name"`
-	Function    string `json:"function"` // SUM, COUNT, AVERAGE, etc.
-	DisplayName string `json:"display_name,omitempty"`
+	Name         string `json:"name"`
+	Function     string `json:"function"` // SUM, COUNT, AVERAGE, etc.
+	DisplayName  string `json:"display_name,omitempty"`
 	NumberFormat string `json:"number_format,omitempty"`
 }
 

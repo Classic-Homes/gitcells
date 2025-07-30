@@ -310,7 +310,7 @@ func TestRetry_AllAttemptsFail(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Equal(t, 3, attempts)
-	
+
 	// Should be wrapped with retry context
 	ssErr, ok := err.(*SheetSyncError)
 	require.True(t, ok)
@@ -372,7 +372,7 @@ func TestValidationErrors(t *testing.T) {
 	errors.Add("age", -1, "must be positive")
 
 	assert.True(t, errors.HasErrors())
-	
+
 	errorStr := errors.Error()
 	assert.Contains(t, errorStr, "2 validation errors:")
 	assert.Contains(t, errorStr, "validation failed for field 'name'")
@@ -402,7 +402,7 @@ func TestDefaultRetryConfig(t *testing.T) {
 	// Test with SheetSyncError
 	recoverableErr := &SheetSyncError{Recoverable: true}
 	nonRecoverableErr := &SheetSyncError{Recoverable: false}
-	
+
 	assert.True(t, config.ShouldRetry(recoverableErr))
 	assert.False(t, config.ShouldRetry(nonRecoverableErr))
 }

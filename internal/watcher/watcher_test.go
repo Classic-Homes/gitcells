@@ -52,7 +52,7 @@ func TestFileWatcher_AddDirectory(t *testing.T) {
 
 	// Create a temporary directory
 	tempDir := t.TempDir()
-	
+
 	// Create subdirectories
 	subDir := filepath.Join(tempDir, "subdir")
 	err = os.MkdirAll(subDir, 0755)
@@ -204,7 +204,7 @@ func TestFileWatcher_Integration(t *testing.T) {
 
 	// Create a temporary directory
 	tempDir := t.TempDir()
-	
+
 	// Add directory to watcher
 	err = fw.AddDirectory(tempDir)
 	require.NoError(t, err)

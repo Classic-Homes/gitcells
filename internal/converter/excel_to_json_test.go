@@ -36,19 +36,19 @@ func TestExcelToJSON(t *testing.T) {
 				assert.NotEmpty(t, doc.Metadata.Checksum)
 				assert.Equal(t, "sheetsync-0.1.0", doc.Metadata.AppVersion)
 				assert.Len(t, doc.Sheets, 1)
-				
+
 				sheet := doc.Sheets[0]
 				assert.Equal(t, "Sheet1", sheet.Name)
 				assert.Equal(t, 0, sheet.Index)
-				
+
 				// Check specific cells
 				assert.Equal(t, "Name", sheet.Cells["A1"].Value)
 				assert.Equal(t, models.CellTypeString, sheet.Cells["A1"].Type)
-				
+
 				assert.Equal(t, "Age", sheet.Cells["B1"].Value)
 				assert.Equal(t, float64(25), sheet.Cells["B2"].Value)
 				assert.Equal(t, models.CellTypeNumber, sheet.Cells["B2"].Type)
-				
+
 				// Check formula
 				if formulaCell, exists := sheet.Cells["B4"]; exists {
 					assert.Equal(t, "=SUM(B2:B3)", formulaCell.Formula)
@@ -67,11 +67,11 @@ func TestExcelToJSON(t *testing.T) {
 			},
 			validate: func(t *testing.T, doc *models.ExcelDocument) {
 				assert.Len(t, doc.Sheets, 2)
-				
+
 				// Check first sheet
 				sheet1 := doc.Sheets[0]
 				assert.Equal(t, "Sheet1", sheet1.Name)
-				
+
 				// Check merged cells
 				assert.NotEmpty(t, sheet1.MergedCells)
 				found := false
@@ -82,11 +82,11 @@ func TestExcelToJSON(t *testing.T) {
 					}
 				}
 				assert.True(t, found, "Expected to find merged cell A5:D5")
-				
+
 				// Check formula cells
 				assert.Equal(t, "=B2*C2", sheet1.Cells["D2"].Formula)
 				assert.Equal(t, models.CellTypeFormula, sheet1.Cells["D2"].Type)
-				
+
 				// Check second sheet
 				sheet2 := doc.Sheets[1]
 				assert.Equal(t, "Summary", sheet2.Name)
@@ -139,7 +139,7 @@ func TestExcelToJSON(t *testing.T) {
 			doc, err := conv.ExcelToJSON(tt.file, tt.options)
 			require.NoError(t, err)
 			require.NotNil(t, doc)
-			
+
 			tt.validate(t, doc)
 		})
 	}
@@ -219,7 +219,7 @@ func TestExtractProperties(t *testing.T) {
 	}
 
 	extracted := conv.extractProperties(props)
-	
+
 	assert.Equal(t, "Test Document", extracted.Title)
 	assert.Equal(t, "Testing", extracted.Subject)
 	assert.Equal(t, "Test Author", extracted.Author)
@@ -235,7 +235,7 @@ func TestProcessSheet_ErrorHandling(t *testing.T) {
 	// This test is more challenging as we need to mock excelize.File
 	// For now, we'll test that the function handles errors gracefully
 	// by testing with invalid sheet names in a real file
-	
+
 	f, err := excelize.OpenFile("../../test/testdata/sample_files/simple.xlsx")
 	require.NoError(t, err)
 	defer f.Close()

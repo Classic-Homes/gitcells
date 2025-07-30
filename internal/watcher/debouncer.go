@@ -7,9 +7,9 @@ import (
 
 // Debouncer prevents rapid successive calls by delaying execution
 type Debouncer struct {
-	delay   time.Duration
-	timers  sync.Map
-	mu      sync.Mutex
+	delay  time.Duration
+	timers sync.Map
+	mu     sync.Mutex
 }
 
 // NewDebouncer creates a new debouncer with the specified delay

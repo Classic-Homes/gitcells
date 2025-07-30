@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Classic-Homes/sheetsync/internal/utils"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/sirupsen/logrus"
-	"github.com/Classic-Homes/sheetsync/internal/utils"
 )
 
 type Client struct {
@@ -21,19 +21,19 @@ type Client struct {
 }
 
 type Config struct {
-	UserName        string
-	UserEmail       string
-	CommitTemplate  string
-	AutoPush        bool
-	AutoPull        bool
-	Branch          string
+	UserName       string
+	UserEmail      string
+	CommitTemplate string
+	AutoPush       bool
+	AutoPull       bool
+	Branch         string
 }
 
 func NewClient(repoPath string, config *Config, logger *logrus.Logger) (*Client, error) {
 	repo, err := git.PlainOpenWithOptions(repoPath, &git.PlainOpenOptions{
 		DetectDotGit: true,
 	})
-	
+
 	if err == git.ErrRepositoryNotExists {
 		// Initialize new repository
 		repo, err = git.PlainInit(repoPath, false)
@@ -107,7 +107,7 @@ func (c *Client) AutoCommit(files []string, metadata map[string]string) error {
 func (c *Client) formatCommitMessage(files []string, metadata map[string]string) string {
 	// Use template with variable substitution
 	message := c.config.CommitTemplate
-	
+
 	// Replace variables
 	replacements := map[string]string{
 		"{timestamp}": time.Now().Format(time.RFC3339),
@@ -130,7 +130,7 @@ func (c *Client) Push() error {
 	err := c.repo.Push(&git.PushOptions{
 		RemoteName: "origin",
 	})
-	
+
 	if err != nil {
 		if err == git.NoErrAlreadyUpToDate {
 			c.logger.Debug("Repository already up to date")
@@ -147,7 +147,7 @@ func (c *Client) Pull() error {
 	err := c.worktree.Pull(&git.PullOptions{
 		RemoteName: "origin",
 	})
-	
+
 	if err != nil {
 		if err == git.NoErrAlreadyUpToDate {
 			c.logger.Debug("Repository already up to date")
@@ -180,7 +180,7 @@ func (c *Client) GetHistory(limit int) ([]*object.Commit, error) {
 
 	var commits []*object.Commit
 	count := 0
-	
+
 	err = iter.ForEach(func(commit *object.Commit) error {
 		if limit > 0 && count >= limit {
 			return nil
@@ -231,7 +231,7 @@ func (c *Client) CheckoutBranch(name string) error {
 		Branch: plumbing.NewBranchReferenceName(name),
 	})
 	if err != nil {
-		return utils.WrapError(err, utils.ErrorTypeGit, "checkoutBranch", 
+		return utils.WrapError(err, utils.ErrorTypeGit, "checkoutBranch",
 			fmt.Sprintf("failed to checkout branch %s", name))
 	}
 

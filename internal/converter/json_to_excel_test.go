@@ -124,7 +124,7 @@ func TestJSONToExcel(t *testing.T) {
 				// Check formula
 				formula, err := f.GetCellFormula("Sheet1", "A3")
 				assert.NoError(t, err)
-				assert.Equal(t, "A1+A2", formula) // excelize strips the = prefix
+				assert.Equal(t, "=A1+A2", formula) // excelize preserves the = prefix
 			},
 		},
 		{
@@ -160,7 +160,7 @@ func TestJSONToExcel(t *testing.T) {
 				mergedCells, err := f.GetMergeCells("Sheet1")
 				assert.NoError(t, err)
 				assert.Len(t, mergedCells, 1)
-				
+
 				if len(mergedCells) > 0 {
 					startAxis := mergedCells[0].GetStartAxis()
 					endAxis := mergedCells[0].GetEndAxis()
@@ -255,7 +255,7 @@ func TestJSONToExcel(t *testing.T) {
 				// Check comments
 				comments, err := f.GetComments("Sheet1")
 				assert.NoError(t, err)
-				
+
 				found := false
 				for _, comment := range comments {
 					if comment.Cell == "A1" {
@@ -322,7 +322,7 @@ func TestRoundTripConversion(t *testing.T) {
 	// Test round-trip conversion: Excel -> JSON -> Excel
 	originalFile := "../../test/testdata/sample_files/simple.xlsx"
 	tempDir := t.TempDir()
-	
+
 	// Convert Excel to JSON
 	doc, err := conv.ExcelToJSON(originalFile, ConvertOptions{
 		PreserveFormulas: true,

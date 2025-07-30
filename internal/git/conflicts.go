@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/go-git/go-git/v5"
 	"github.com/Classic-Homes/sheetsync/pkg/models"
+	"github.com/go-git/go-git/v5"
 )
 
 // ConflictMarker represents different types of conflict markers
@@ -179,13 +179,13 @@ func (c *Client) ResolveConflict(filePath string, strategy ConflictResolutionStr
 type ConflictResolutionStrategy string
 
 const (
-	ResolveOurs         ConflictResolutionStrategy = "ours"         // Keep our changes
-	ResolveTheirs       ConflictResolutionStrategy = "theirs"       // Keep their changes
-	ResolveBoth         ConflictResolutionStrategy = "both"         // Keep both (ours first)
-	ResolveManual       ConflictResolutionStrategy = "manual"       // Require manual resolution
-	ResolveSmartMerge   ConflictResolutionStrategy = "smart"        // Intelligent merge for Excel JSON
-	ResolveNewestValue  ConflictResolutionStrategy = "newest"       // Use the most recent timestamp
-	ResolveInteractive  ConflictResolutionStrategy = "interactive"  // Prompt user for each conflict
+	ResolveOurs        ConflictResolutionStrategy = "ours"        // Keep our changes
+	ResolveTheirs      ConflictResolutionStrategy = "theirs"      // Keep their changes
+	ResolveBoth        ConflictResolutionStrategy = "both"        // Keep both (ours first)
+	ResolveManual      ConflictResolutionStrategy = "manual"      // Require manual resolution
+	ResolveSmartMerge  ConflictResolutionStrategy = "smart"       // Intelligent merge for Excel JSON
+	ResolveNewestValue ConflictResolutionStrategy = "newest"      // Use the most recent timestamp
+	ResolveInteractive ConflictResolutionStrategy = "interactive" // Prompt user for each conflict
 )
 
 func (c *Client) applyResolutionStrategy(ourCode, theirCode []string, strategy ConflictResolutionStrategy) []string {
@@ -351,7 +351,7 @@ func (c *Client) mergeSheetsIntelligently(ours, theirs *models.Sheet) *models.Sh
 	// Add/override with their cells
 	for cellRef, theirCell := range theirs.Cells {
 		ourCell, exists := merged.Cells[cellRef]
-		
+
 		if !exists {
 			// New cell, add it
 			merged.Cells[cellRef] = theirCell
@@ -488,40 +488,40 @@ func (c *Client) resolveInteractively(ourCode, theirCode []string) []string {
 	fmt.Println("\n" + strings.Repeat("=", 80))
 	fmt.Println("INTERACTIVE CONFLICT RESOLUTION")
 	fmt.Println(strings.Repeat("=", 80))
-	
+
 	// Try to parse as Excel JSON to provide better context
 	ourJSON := strings.Join(ourCode, "\n")
 	theirJSON := strings.Join(theirCode, "\n")
-	
+
 	var ourDoc, theirDoc models.ExcelDocument
 	ourErr := json.Unmarshal([]byte(ourJSON), &ourDoc)
 	theirErr := json.Unmarshal([]byte(theirJSON), &theirDoc)
-	
+
 	if ourErr == nil && theirErr == nil {
 		// Both are valid Excel JSON - show detailed diff
 		fmt.Println("📊 Excel Document Conflict Detected")
 		fmt.Printf("Your version: Modified %s\n", ourDoc.Metadata.Modified.Format("2006-01-02 15:04:05"))
 		fmt.Printf("Their version: Modified %s\n", theirDoc.Metadata.Modified.Format("2006-01-02 15:04:05"))
-		
+
 		// Show sheet differences
 		c.showExcelConflictSummary(&ourDoc, &theirDoc)
 	} else {
 		// Generic conflict display
 		fmt.Println("📄 File Conflict Detected")
 	}
-	
+
 	fmt.Println("\nYOUR VERSION (HEAD):")
 	fmt.Println(strings.Repeat("-", 40))
 	for i, line := range ourCode {
 		fmt.Printf("%3d: %s\n", i+1, line)
 	}
-	
+
 	fmt.Println("\nTHEIR VERSION (incoming):")
 	fmt.Println(strings.Repeat("-", 40))
 	for i, line := range theirCode {
 		fmt.Printf("%3d: %s\n", i+1, line)
 	}
-	
+
 	fmt.Println("\nRESOLUTION OPTIONS:")
 	fmt.Println("1. Keep your version (y/yours)")
 	fmt.Println("2. Keep their version (t/theirs)")
@@ -530,14 +530,14 @@ func (c *Client) resolveInteractively(ourCode, theirCode []string) []string {
 	fmt.Println("5. Use newest timestamp (n/newest)")
 	fmt.Println("6. Edit manually (e/edit)")
 	fmt.Println("7. Skip this conflict (skip)")
-	
+
 	for {
 		fmt.Print("\nChoose resolution [1-7, or y/t/b/s/n/e/skip]: ")
-		
+
 		var choice string
 		fmt.Scanln(&choice)
 		choice = strings.ToLower(strings.TrimSpace(choice))
-		
+
 		switch choice {
 		case "1", "y", "yours":
 			fmt.Println("✅ Keeping your version")
@@ -578,23 +578,23 @@ func (c *Client) resolveInteractively(ourCode, theirCode []string) []string {
 // showExcelConflictSummary shows a summary of differences between two Excel documents
 func (c *Client) showExcelConflictSummary(ours, theirs *models.ExcelDocument) {
 	fmt.Println("\n📋 CONFLICT SUMMARY:")
-	
+
 	// Compare sheet counts
 	if len(ours.Sheets) != len(theirs.Sheets) {
 		fmt.Printf("• Sheet count differs: yours=%d, theirs=%d\n", len(ours.Sheets), len(theirs.Sheets))
 	}
-	
+
 	// Create sheet maps
 	ourSheets := make(map[string]*models.Sheet)
 	theirSheets := make(map[string]*models.Sheet)
-	
+
 	for i := range ours.Sheets {
 		ourSheets[ours.Sheets[i].Name] = &ours.Sheets[i]
 	}
 	for i := range theirs.Sheets {
 		theirSheets[theirs.Sheets[i].Name] = &theirs.Sheets[i]
 	}
-	
+
 	// Find sheet differences
 	allSheets := make(map[string]bool)
 	for name := range ourSheets {
@@ -603,11 +603,11 @@ func (c *Client) showExcelConflictSummary(ours, theirs *models.ExcelDocument) {
 	for name := range theirSheets {
 		allSheets[name] = true
 	}
-	
+
 	for sheetName := range allSheets {
 		ourSheet, hasOur := ourSheets[sheetName]
 		theirSheet, hasTheir := theirSheets[sheetName]
-		
+
 		if hasOur && hasTheir {
 			ourCells := len(ourSheet.Cells)
 			theirCells := len(theirSheet.Cells)
@@ -620,7 +620,7 @@ func (c *Client) showExcelConflictSummary(ours, theirs *models.ExcelDocument) {
 			fmt.Printf("• Sheet '%s': only in their version\n", sheetName)
 		}
 	}
-	
+
 	// Compare defined names
 	if len(ours.DefinedNames) != len(theirs.DefinedNames) {
 		fmt.Printf("• Defined names count differs: yours=%d, theirs=%d\n", len(ours.DefinedNames), len(theirs.DefinedNames))
@@ -634,16 +634,16 @@ func (c *Client) editManually(ourCode, theirCode []string) []string {
 	fmt.Println("Type 'END' on a line by itself to finish.")
 	fmt.Println("Type 'CANCEL' to abort manual editing.")
 	fmt.Println(strings.Repeat("-", 50))
-	
+
 	var lines []string
 	scanner := bufio.NewScanner(os.Stdin)
-	
+
 	for {
 		fmt.Print(">>> ")
 		if !scanner.Scan() {
 			break
 		}
-		
+
 		line := scanner.Text()
 		if line == "END" {
 			break
@@ -658,15 +658,15 @@ func (c *Client) editManually(ourCode, theirCode []string) []string {
 			result = append(result, string(ConflictEnd)+"incoming")
 			return result
 		}
-		
+
 		lines = append(lines, line)
 	}
-	
+
 	if len(lines) == 0 {
 		fmt.Println("⚠️  No content entered, falling back to smart merge")
 		return c.smartMergeExcelJSON(ourCode, theirCode)
 	}
-	
+
 	fmt.Printf("✅ Manual resolution complete (%d lines)\n", len(lines))
 	return lines
 }
@@ -687,24 +687,24 @@ func (icr *InteractiveConflictResolver) ResolveAllConflicts() error {
 	if err != nil {
 		return fmt.Errorf("failed to get conflicted files: %w", err)
 	}
-	
+
 	if len(conflictedFiles) == 0 {
 		fmt.Println("✅ No conflicts found!")
 		return nil
 	}
-	
+
 	fmt.Printf("\n🔧 Found %d conflicted file(s):\n", len(conflictedFiles))
 	for i, file := range conflictedFiles {
 		fmt.Printf("%d. %s\n", i+1, file)
 	}
-	
+
 	fmt.Println("\nResolving conflicts interactively...")
-	
+
 	for i, file := range conflictedFiles {
 		fmt.Printf("\n" + strings.Repeat("=", 80))
 		fmt.Printf("RESOLVING CONFLICT %d/%d: %s", i+1, len(conflictedFiles), file)
 		fmt.Printf("\n" + strings.Repeat("=", 80))
-		
+
 		if filepath.Ext(file) == ".json" {
 			err := icr.client.ResolveConflict(file, ResolveInteractive)
 			if err != nil {
@@ -715,7 +715,7 @@ func (icr *InteractiveConflictResolver) ResolveAllConflicts() error {
 			fmt.Printf("⏭️  Skipping non-JSON file: %s\n", file)
 		}
 	}
-	
+
 	fmt.Println("\n🎉 Interactive conflict resolution complete!")
 	return nil
 }

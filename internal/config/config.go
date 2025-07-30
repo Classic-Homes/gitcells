@@ -1,15 +1,15 @@
 package config
 
 import (
-	"time"
 	"github.com/spf13/viper"
+	"time"
 )
 
 type Config struct {
-	Version   string           `yaml:"version"`
-	Git       GitConfig        `yaml:"git"`
-	Watcher   WatcherConfig    `yaml:"watcher"`
-	Converter ConverterConfig  `yaml:"converter"`
+	Version   string          `yaml:"version"`
+	Git       GitConfig       `yaml:"git"`
+	Watcher   WatcherConfig   `yaml:"watcher"`
+	Converter ConverterConfig `yaml:"converter"`
 }
 
 type GitConfig struct {
@@ -40,7 +40,7 @@ type ConverterConfig struct {
 
 func Load(configPath string) (*Config, error) {
 	v := viper.New()
-	
+
 	// Set defaults
 	v.SetDefault("version", "1.0")
 	v.SetDefault("git.branch", "main")
@@ -106,22 +106,22 @@ func Load(configPath string) (*Config, error) {
 
 // ConvertOptions defines options for conversion (will be moved to converter package)
 type ConvertOptions struct {
-	PreserveFormulas   bool
-	PreserveStyles     bool
-	PreserveComments   bool
-	CompactJSON        bool
-	IgnoreEmptyCells   bool
-	MaxCellsPerSheet   int
+	PreserveFormulas bool
+	PreserveStyles   bool
+	PreserveComments bool
+	CompactJSON      bool
+	IgnoreEmptyCells bool
+	MaxCellsPerSheet int
 }
 
 // ToOptions converts config to converter options
 func (c *ConverterConfig) ToOptions() ConvertOptions {
 	return ConvertOptions{
-		PreserveFormulas:   c.PreserveFormulas,
-		PreserveStyles:     c.PreserveStyles,
-		PreserveComments:   c.PreserveComments,
-		CompactJSON:        c.CompactJSON,
-		IgnoreEmptyCells:   c.IgnoreEmptyCells,
-		MaxCellsPerSheet:   c.MaxCellsPerSheet,
+		PreserveFormulas: c.PreserveFormulas,
+		PreserveStyles:   c.PreserveStyles,
+		PreserveComments: c.PreserveComments,
+		CompactJSON:      c.CompactJSON,
+		IgnoreEmptyCells: c.IgnoreEmptyCells,
+		MaxCellsPerSheet: c.MaxCellsPerSheet,
 	}
 }

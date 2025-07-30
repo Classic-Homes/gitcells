@@ -11,7 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	
+
 	"github.com/Classic-Homes/sheetsync/pkg/models"
 )
 
@@ -230,12 +230,12 @@ func TestSmartMergeExcelJSON_ValidDocuments(t *testing.T) {
 	// Verify merge results
 	assert.True(t, mergedDoc.Metadata.Modified.After(doc1.Metadata.Modified) || mergedDoc.Metadata.Modified.Equal(doc2.Metadata.Modified)) // Should use newer timestamp
 	require.Len(t, mergedDoc.Sheets, 1)
-	
+
 	// Check merged cells
 	cells := mergedDoc.Sheets[0].Cells
 	// Note: Our merge logic keeps "ours" when both have values, "theirs" only when ours is empty
-	assert.Equal(t, "old_value", cells["A1"].Value)       // Ours kept (both non-empty)
-	assert.Equal(t, "shared_value", cells["B1"].Value)    // Shared value
+	assert.Equal(t, "old_value", cells["A1"].Value)        // Ours kept (both non-empty)
+	assert.Equal(t, "shared_value", cells["B1"].Value)     // Shared value
 	assert.Equal(t, "additional_value", cells["C1"].Value) // Additional from theirs
 
 	// Check merged defined names
@@ -323,7 +323,7 @@ func TestMergeSheetsIntelligently(t *testing.T) {
 			"C1": {Value: "filled_value", Type: models.CellTypeString}, // Filled value
 			"D1": {Value: "new_cell", Type: models.CellTypeString},     // New cell
 		},
-		RowHeights:   map[int]float64{1: 25.0, 2: 15.0}, // Larger height + new row
+		RowHeights:   map[int]float64{1: 25.0, 2: 15.0},         // Larger height + new row
 		ColumnWidths: map[string]float64{"A": 80.0, "B": 120.0}, // Smaller A, new B
 		MergedCells: []models.MergedCell{
 			{Range: "A1:A2"},
@@ -345,7 +345,7 @@ func TestMergeSheetsIntelligently(t *testing.T) {
 
 	// Check column widths - should use larger values
 	assert.Equal(t, 100.0, merged.ColumnWidths["A"]) // Larger from ours
-	assert.Equal(t, 120.0, merged.ColumnWidths["B"])  // New from theirs
+	assert.Equal(t, 120.0, merged.ColumnWidths["B"]) // New from theirs
 
 	// Check merged cells - should combine unique ranges
 	assert.Len(t, merged.MergedCells, 2)
@@ -444,7 +444,7 @@ func BenchmarkComputeDiff_LargeDocument(b *testing.B) {
 	// Create large documents for benchmarking
 	doc1 := createLargeTestDocument(1000, 100) // 1000 sheets, 100 cells each
 	doc2 := createLargeTestDocument(1000, 100)
-	
+
 	// Modify some cells in doc2
 	doc2.Sheets[0].Cells["A1"] = models.Cell{
 		Value: "modified",

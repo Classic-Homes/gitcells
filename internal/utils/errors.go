@@ -19,42 +19,42 @@ type SheetSyncError struct {
 type ErrorType string
 
 const (
-	ErrorTypeConverter    ErrorType = "CONVERTER"
-	ErrorTypeGit          ErrorType = "GIT"
-	ErrorTypeWatcher      ErrorType = "WATCHER"
-	ErrorTypeConfig       ErrorType = "CONFIG"
-	ErrorTypeValidation   ErrorType = "VALIDATION"
-	ErrorTypeFileSystem   ErrorType = "FILESYSTEM"
-	ErrorTypeNetwork      ErrorType = "NETWORK"
-	ErrorTypeConflict     ErrorType = "CONFLICT"
-	ErrorTypePermission   ErrorType = "PERMISSION"
-	ErrorTypeCorruption   ErrorType = "CORRUPTION"
+	ErrorTypeConverter  ErrorType = "CONVERTER"
+	ErrorTypeGit        ErrorType = "GIT"
+	ErrorTypeWatcher    ErrorType = "WATCHER"
+	ErrorTypeConfig     ErrorType = "CONFIG"
+	ErrorTypeValidation ErrorType = "VALIDATION"
+	ErrorTypeFileSystem ErrorType = "FILESYSTEM"
+	ErrorTypeNetwork    ErrorType = "NETWORK"
+	ErrorTypeConflict   ErrorType = "CONFLICT"
+	ErrorTypePermission ErrorType = "PERMISSION"
+	ErrorTypeCorruption ErrorType = "CORRUPTION"
 )
 
 // Error implements the error interface
 func (e *SheetSyncError) Error() string {
 	var parts []string
-	
+
 	if e.Type != "" {
 		parts = append(parts, fmt.Sprintf("[%s]", e.Type))
 	}
-	
+
 	if e.Operation != "" {
 		parts = append(parts, fmt.Sprintf("operation=%s", e.Operation))
 	}
-	
+
 	if e.File != "" {
 		parts = append(parts, fmt.Sprintf("file=%s", e.File))
 	}
-	
+
 	if e.Message != "" {
 		parts = append(parts, e.Message)
 	}
-	
+
 	if e.Cause != nil {
 		parts = append(parts, fmt.Sprintf("cause: %v", e.Cause))
 	}
-	
+
 	return strings.Join(parts, " ")
 }
 
@@ -83,12 +83,12 @@ func WrapError(err error, errorType ErrorType, operation string, message string)
 	if err == nil {
 		return nil
 	}
-	
+
 	return &SheetSyncError{
-		Type:      errorType,
-		Operation: operation,
-		Message:   message,
-		Cause:     err,
+		Type:        errorType,
+		Operation:   operation,
+		Message:     message,
+		Cause:       err,
 		Recoverable: isRecoverableError(err),
 	}
 }
@@ -98,7 +98,7 @@ func WrapFileError(err error, errorType ErrorType, operation string, file string
 	if err == nil {
 		return nil
 	}
-	
+
 	return &SheetSyncError{
 		Type:        errorType,
 		Operation:   operation,
@@ -114,26 +114,26 @@ func isRecoverableError(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	errStr := strings.ToLower(err.Error())
-	
+
 	// Network-related errors are often recoverable
 	if strings.Contains(errStr, "network") || strings.Contains(errStr, "timeout") ||
 		strings.Contains(errStr, "connection") || strings.Contains(errStr, "dns") {
 		return true
 	}
-	
+
 	// File system temporary issues
 	if strings.Contains(errStr, "temporary") || strings.Contains(errStr, "busy") ||
 		strings.Contains(errStr, "locked") {
 		return true
 	}
-	
+
 	// Git-related recoverable errors
 	if strings.Contains(errStr, "merge conflict") || strings.Contains(errStr, "diverged") {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -197,14 +197,14 @@ func (ec *ErrorCollector) Error() string {
 	if len(ec.errors) == 0 {
 		return "no errors"
 	}
-	
+
 	if len(ec.errors) == 1 {
 		return ec.errors[0].Error()
 	}
-	
+
 	var summary strings.Builder
 	summary.WriteString(fmt.Sprintf("%d errors occurred:\n", len(ec.errors)))
-	
+
 	for i, err := range ec.errors {
 		if i >= 5 { // Limit detailed output
 			summary.WriteString(fmt.Sprintf("... and %d more errors\n", len(ec.errors)-i))
@@ -212,7 +212,7 @@ func (ec *ErrorCollector) Error() string {
 		}
 		summary.WriteString(fmt.Sprintf("  %d. %s\n", i+1, err.Error()))
 	}
-	
+
 	return summary.String()
 }
 
@@ -247,30 +247,30 @@ func Retry(operation RetryableOperation, config *RetryConfig) error {
 	if config == nil {
 		config = DefaultRetryConfig()
 	}
-	
+
 	var lastErr error
-	
+
 	for attempt := 1; attempt <= config.MaxAttempts; attempt++ {
 		err := operation()
 		if err == nil {
 			return nil // Success
 		}
-		
+
 		lastErr = err
-		
+
 		// Don't retry on the last attempt or if error is not retryable
 		if attempt >= config.MaxAttempts || !config.ShouldRetry(err) {
 			break
 		}
-		
+
 		// Call retry callback
 		if config.OnRetry != nil {
 			config.OnRetry(err, attempt)
 		}
 	}
-	
+
 	// Wrap the final error with retry context
-	return WrapError(lastErr, ErrorTypeConverter, "retry", 
+	return WrapError(lastErr, ErrorTypeConverter, "retry",
 		fmt.Sprintf("operation failed after %d attempts", config.MaxAttempts))
 }
 
@@ -294,18 +294,18 @@ func (ve ValidationErrors) Error() string {
 	if len(ve) == 0 {
 		return "no validation errors"
 	}
-	
+
 	if len(ve) == 1 {
 		return ve[0].Error()
 	}
-	
+
 	var summary strings.Builder
 	summary.WriteString(fmt.Sprintf("%d validation errors:\n", len(ve)))
-	
+
 	for _, err := range ve {
 		summary.WriteString(fmt.Sprintf("  - %s\n", err.Error()))
 	}
-	
+
 	return summary.String()
 }
 

@@ -392,9 +392,9 @@ func TestDiffString(t *testing.T) {
 			name: "mixed changes",
 			diff: &ExcelDiff{
 				Summary: DiffSummary{
-					TotalChanges:   1,
-					AddedSheets:    1,
-					CellChanges:    3,
+					TotalChanges: 1,
+					AddedSheets:  1,
+					CellChanges:  3,
 				},
 			},
 			expected: "1 sheet(s) added, 3 cell(s) changed",

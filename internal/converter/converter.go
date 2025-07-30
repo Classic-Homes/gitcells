@@ -11,16 +11,16 @@ type Converter interface {
 }
 
 type ConvertOptions struct {
-	PreserveFormulas     bool
-	PreserveStyles       bool
-	PreserveComments     bool
-	PreserveCharts       bool // New: Extract chart information
-	PreservePivotTables  bool // New: Extract pivot table structure
-	CompactJSON          bool
-	IgnoreEmptyCells     bool
-	MaxCellsPerSheet     int // Prevent memory issues with huge files
-	ProgressCallback     func(stage string, current, total int) // Progress reporting
-	ShowProgressBar      bool // Enable built-in progress display
+	PreserveFormulas    bool
+	PreserveStyles      bool
+	PreserveComments    bool
+	PreserveCharts      bool // New: Extract chart information
+	PreservePivotTables bool // New: Extract pivot table structure
+	CompactJSON         bool
+	IgnoreEmptyCells    bool
+	MaxCellsPerSheet    int                                    // Prevent memory issues with huge files
+	ProgressCallback    func(stage string, current, total int) // Progress reporting
+	ShowProgressBar     bool                                   // Enable built-in progress display
 }
 
 type converter struct {

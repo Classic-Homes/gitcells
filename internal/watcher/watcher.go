@@ -195,7 +195,7 @@ func (fw *FileWatcher) shouldProcessFile(path string) bool {
 
 func (fw *FileWatcher) shouldIgnorePath(path string) bool {
 	base := filepath.Base(path)
-	
+
 	// Always ignore Excel temp files
 	if strings.HasPrefix(base, "~$") {
 		return true
@@ -203,6 +203,11 @@ func (fw *FileWatcher) shouldIgnorePath(path string) bool {
 
 	// Always ignore hidden files and directories
 	if strings.HasPrefix(base, ".") {
+		return true
+	}
+
+	// Check if path contains .git directory
+	if strings.Contains(path, "/.git/") || strings.Contains(path, "\\.git\\") {
 		return true
 	}
 
@@ -214,6 +219,17 @@ func (fw *FileWatcher) shouldIgnorePath(path string) bool {
 		// Also check the full path
 		if matched, _ := filepath.Match(pattern, path); matched {
 			return true
+		}
+		// Check if pattern contains directory separators and match path components
+		if strings.Contains(pattern, "/") || strings.Contains(pattern, "\\") {
+			// Convert pattern to work with paths
+			cleanPattern := strings.ReplaceAll(pattern, "\\", "/")
+			cleanPath := strings.ReplaceAll(path, "\\", "/")
+
+			// Check if path matches pattern or contains pattern as a component
+			if strings.Contains(cleanPath, cleanPattern) {
+				return true
+			}
 		}
 	}
 

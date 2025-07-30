@@ -12,22 +12,22 @@ import (
 func TestNewDebouncer(t *testing.T) {
 	delay := 100 * time.Millisecond
 	debouncer := NewDebouncer(delay)
-	
+
 	assert.NotNil(t, debouncer)
 	assert.Equal(t, delay, debouncer.delay)
 }
 
 func TestDebouncer_SingleCall(t *testing.T) {
 	debouncer := NewDebouncer(100 * time.Millisecond)
-	
+
 	called := false
 	debouncer.Debounce("test", func() {
 		called = true
 	})
-	
+
 	// Should not be called immediately
 	assert.False(t, called)
-	
+
 	// Wait for debounce delay
 	time.Sleep(150 * time.Millisecond)
 	assert.True(t, called)
@@ -35,31 +35,31 @@ func TestDebouncer_SingleCall(t *testing.T) {
 
 func TestDebouncer_MultipleCalls(t *testing.T) {
 	debouncer := NewDebouncer(200 * time.Millisecond)
-	
+
 	callCount := 0
 	var mu sync.Mutex
-	
+
 	fn := func() {
 		mu.Lock()
 		callCount++
 		mu.Unlock()
 	}
-	
+
 	// Make multiple rapid calls with same key
 	debouncer.Debounce("test", fn)
 	time.Sleep(50 * time.Millisecond)
 	debouncer.Debounce("test", fn)
 	time.Sleep(50 * time.Millisecond)
 	debouncer.Debounce("test", fn)
-	
+
 	// Should not be called yet
 	mu.Lock()
 	assert.Equal(t, 0, callCount)
 	mu.Unlock()
-	
+
 	// Wait for debounce delay
 	time.Sleep(300 * time.Millisecond)
-	
+
 	// Should be called only once (last call)
 	mu.Lock()
 	assert.Equal(t, 1, callCount)
@@ -68,30 +68,30 @@ func TestDebouncer_MultipleCalls(t *testing.T) {
 
 func TestDebouncer_DifferentKeys(t *testing.T) {
 	debouncer := NewDebouncer(100 * time.Millisecond)
-	
+
 	call1Count := 0
 	call2Count := 0
 	var mu sync.Mutex
-	
+
 	fn1 := func() {
 		mu.Lock()
 		call1Count++
 		mu.Unlock()
 	}
-	
+
 	fn2 := func() {
 		mu.Lock()
 		call2Count++
 		mu.Unlock()
 	}
-	
+
 	// Make calls with different keys
 	debouncer.Debounce("key1", fn1)
 	debouncer.Debounce("key2", fn2)
-	
+
 	// Wait for debounce delay
 	time.Sleep(150 * time.Millisecond)
-	
+
 	// Both should be called once
 	mu.Lock()
 	assert.Equal(t, 1, call1Count)
@@ -101,24 +101,24 @@ func TestDebouncer_DifferentKeys(t *testing.T) {
 
 func TestDebouncer_Cancellation(t *testing.T) {
 	debouncer := NewDebouncer(200 * time.Millisecond)
-	
+
 	firstCalled := false
 	secondCalled := false
-	
+
 	// First call
 	debouncer.Debounce("test", func() {
 		firstCalled = true
 	})
-	
+
 	// Wait a bit, then make second call (should cancel first)
 	time.Sleep(100 * time.Millisecond)
 	debouncer.Debounce("test", func() {
 		secondCalled = true
 	})
-	
+
 	// Wait for debounce delay
 	time.Sleep(250 * time.Millisecond)
-	
+
 	// Only second should be called
 	assert.False(t, firstCalled)
 	assert.True(t, secondCalled)
@@ -126,11 +126,11 @@ func TestDebouncer_Cancellation(t *testing.T) {
 
 func TestDebouncer_ConcurrentAccess(t *testing.T) {
 	debouncer := NewDebouncer(50 * time.Millisecond)
-	
+
 	var callCount int
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-	
+
 	// Concurrent calls with same key
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
@@ -143,12 +143,12 @@ func TestDebouncer_ConcurrentAccess(t *testing.T) {
 			})
 		}()
 	}
-	
+
 	wg.Wait()
-	
+
 	// Wait for debounce delay
 	time.Sleep(100 * time.Millisecond)
-	
+
 	// Should be called only once despite concurrent calls
 	mu.Lock()
 	assert.Equal(t, 1, callCount)
@@ -157,12 +157,12 @@ func TestDebouncer_ConcurrentAccess(t *testing.T) {
 
 func TestDebouncer_ZeroDelay(t *testing.T) {
 	debouncer := NewDebouncer(0)
-	
+
 	called := false
 	debouncer.Debounce("test", func() {
 		called = true
 	})
-	
+
 	// With zero delay, should be called almost immediately
 	time.Sleep(10 * time.Millisecond)
 	assert.True(t, called)
@@ -170,10 +170,10 @@ func TestDebouncer_ZeroDelay(t *testing.T) {
 
 func TestDebouncer_MultipleKeysRapidFire(t *testing.T) {
 	debouncer := NewDebouncer(100 * time.Millisecond)
-	
+
 	results := make(map[string]int)
 	var mu sync.Mutex
-	
+
 	// Rapidly fire calls for multiple keys
 	for i := 0; i < 5; i++ {
 		for j := 0; j < 3; j++ {
@@ -185,10 +185,10 @@ func TestDebouncer_MultipleKeysRapidFire(t *testing.T) {
 			})
 		}
 	}
-	
+
 	// Wait for all debounced calls
 	time.Sleep(200 * time.Millisecond)
-	
+
 	// Each key should have been called exactly once
 	mu.Lock()
 	for i := 0; i < 5; i++ {
@@ -200,7 +200,7 @@ func TestDebouncer_MultipleKeysRapidFire(t *testing.T) {
 
 func TestDebouncer_TimerCleanup(t *testing.T) {
 	debouncer := NewDebouncer(50 * time.Millisecond)
-	
+
 	// Make calls that should complete
 	for i := 0; i < 10; i++ {
 		key := fmt.Sprintf("key%d", i)
@@ -208,17 +208,17 @@ func TestDebouncer_TimerCleanup(t *testing.T) {
 			// Do nothing
 		})
 	}
-	
+
 	// Wait for all timers to complete
 	time.Sleep(100 * time.Millisecond)
-	
+
 	// Verify timers are cleaned up (indirectly by checking no panic occurs)
 	// and that new calls still work
 	called := false
 	debouncer.Debounce("new-key", func() {
 		called = true
 	})
-	
+
 	time.Sleep(100 * time.Millisecond)
 	assert.True(t, called)
 }

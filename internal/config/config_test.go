@@ -31,7 +31,7 @@ func TestLoadConfigFromFile(t *testing.T) {
 	// Create temporary config file
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, ".sheetsync.yaml")
-	
+
 	configContent := `version: "2.0"
 git:
   branch: develop
@@ -41,7 +41,7 @@ converter:
   preserve_formulas: false
   max_cells_per_sheet: 5000
 `
-	
+
 	err := os.WriteFile(configPath, []byte(configContent), 0644)
 	require.NoError(t, err)
 
@@ -81,7 +81,7 @@ func TestToConverterOptions(t *testing.T) {
 	}
 
 	opts := cfg.ToOptions()
-	
+
 	assert.Equal(t, cfg.PreserveFormulas, opts.PreserveFormulas)
 	assert.Equal(t, cfg.PreserveStyles, opts.PreserveStyles)
 	assert.Equal(t, cfg.PreserveComments, opts.PreserveComments)
