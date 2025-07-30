@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Classic-Homes/sheetsync/pkg/models"
+	"github.com/Classic-Homes/gitcells/pkg/models"
 	"github.com/go-git/go-git/v5"
 )
 

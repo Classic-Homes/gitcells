@@ -1,13 +1,13 @@
-# SheetSync API Documentation
+# GitCells API Documentation
 
-This document describes the internal API architecture and data structures used by SheetSync.
+This document describes the internal API architecture and data structures used by GitCells.
 
 ## Architecture Overview
 
-SheetSync follows a clean architecture pattern with clear separation of concerns:
+GitCells follows a clean architecture pattern with clear separation of concerns:
 
 ```
-cmd/sheetsync/          # CLI commands and entry points
+cmd/gitcells/          # CLI commands and entry points
 ├── main.go            # Application entry point
 ├── init.go            # Initialize command
 ├── convert.go         # Convert command
@@ -43,7 +43,7 @@ type ExcelDocument struct {
 ```
 
 **Fields:**
-- `Version`: SheetSync format version (e.g., "1.0")
+- `Version`: GitCells format version (e.g., "1.0")
 - `Metadata`: File metadata including checksums and timestamps
 - `Sheets`: Array of worksheet data
 - `DefinedNames`: Excel named ranges and definitions
@@ -67,7 +67,7 @@ type DocumentMetadata struct {
 **Fields:**
 - `Created`: When the JSON was first created
 - `Modified`: Last modification time of the Excel file
-- `AppVersion`: Version of SheetSync that created this JSON
+- `AppVersion`: Version of GitCells that created this JSON
 - `OriginalFile`: Path to the original Excel file
 - `FileSize`: Size of the original Excel file in bytes
 - `Checksum`: SHA256 hash of the original Excel file
@@ -178,7 +178,7 @@ package main
 
 import (
     "github.com/sirupsen/logrus"
-    "github.com/Classic-Homes/sheetsync/internal/converter"
+    "github.com/Classic-Homes/gitcells/internal/converter"
 )
 
 func main() {
@@ -254,7 +254,7 @@ package main
 import (
     "time"
     "github.com/sirupsen/logrus"
-    "github.com/Classic-Homes/sheetsync/internal/watcher"
+    "github.com/Classic-Homes/gitcells/internal/watcher"
 )
 
 func main() {
@@ -329,9 +329,9 @@ func (c *Client) GetStatus() (*Status, error)
 
 ```go
 gitConfig := &git.Config{
-    UserName:       "SheetSync",
-    UserEmail:      "sheetsync@example.com",
-    CommitTemplate: "SheetSync: {action} {filename} at {timestamp}",
+    UserName:       "GitCells",
+    UserEmail:      "gitcells@example.com",
+    CommitTemplate: "GitCells: {action} {filename} at {timestamp}",
     AutoPush:       false,
     AutoPull:       true,
     Branch:         "main",
@@ -378,9 +378,9 @@ git:
   branch: main
   auto_push: false
   auto_pull: true
-  user_name: "SheetSync"
-  user_email: "sheetsync@example.com"
-  commit_template: "SheetSync: {action} {filename} at {timestamp}"
+  user_name: "GitCells"
+  user_email: "gitcells@example.com"
+  commit_template: "GitCells: {action} {filename} at {timestamp}"
 
 watcher:
   directories: ["./data"]
@@ -437,10 +437,10 @@ for _, sheetDiff := range diff.SheetDiffs {
 
 ## Error Handling
 
-SheetSync uses structured error handling with custom error types:
+GitCells uses structured error handling with custom error types:
 
 ```go
-type SheetSyncError struct {
+type GitCellsError struct {
     Type      ErrorType
     Operation string
     File      string
@@ -449,9 +449,9 @@ type SheetSyncError struct {
     Retryable bool
 }
 
-func (e *SheetSyncError) Error() string
-func (e *SheetSyncError) Unwrap() error
-func (e *SheetSyncError) IsRecoverable() bool
+func (e *GitCellsError) Error() string
+func (e *GitCellsError) Unwrap() error
+func (e *GitCellsError) IsRecoverable() bool
 ```
 
 ### Error Types
@@ -472,7 +472,7 @@ const (
 ### Usage Example
 
 ```go
-import "github.com/Classic-Homes/sheetsync/internal/utils"
+import "github.com/Classic-Homes/gitcells/internal/utils"
 
 // Create a structured error
 err := utils.NewError(
@@ -493,7 +493,7 @@ if utils.IsRecoverableError(err) {
 
 ## Testing
 
-SheetSync includes comprehensive testing utilities:
+GitCells includes comprehensive testing utilities:
 
 ### Test Data
 
@@ -551,7 +551,7 @@ go tool cover -html=coverage.txt
 
 ## Extensibility
 
-SheetSync is designed to be extensible:
+GitCells is designed to be extensible:
 
 ### Custom Converters
 
@@ -589,10 +589,10 @@ func NotificationHandler(event watcher.FileEvent) error {
 
 ### Plugin Architecture
 
-While not yet implemented, SheetSync is designed to support plugins for:
+While not yet implemented, GitCells is designed to support plugins for:
 - Custom file format support
 - Additional version control systems
 - Integration with external services
 - Custom conflict resolution strategies
 
-This API documentation provides a comprehensive overview of SheetSync's internal architecture and public interfaces. For more specific implementation details, refer to the source code and inline documentation.
+This API documentation provides a comprehensive overview of GitCells's internal architecture and public interfaces. For more specific implementation details, refer to the source code and inline documentation.

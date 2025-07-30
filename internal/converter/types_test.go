@@ -3,7 +3,7 @@ package converter
 import (
 	"testing"
 
-	"github.com/Classic-Homes/sheetsync/pkg/models"
+	"github.com/Classic-Homes/gitcells/pkg/models"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )

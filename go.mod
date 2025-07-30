@@ -1,4 +1,4 @@
-module github.com/Classic-Homes/sheetsync
+module github.com/Classic-Homes/gitcells
 
 go 1.23.0
 

@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# SheetSync Uninstallation Script
-# This script removes SheetSync from your system
+# GitCells Uninstallation Script
+# This script removes GitCells from your system
 
 set -e
 
 # Configuration
-BINARY_NAME="sheetsync"
+BINARY_NAME="gitcells"
 INSTALL_PATHS=(
     "/usr/local/bin/${BINARY_NAME}"
     "/usr/bin/${BINARY_NAME}"
@@ -14,8 +14,8 @@ INSTALL_PATHS=(
     "$HOME/bin/${BINARY_NAME}"
 )
 CONFIG_DIRS=(
-    "$HOME/.config/sheetsync"
-    "$HOME/.sheetsync"
+    "$HOME/.config/gitcells"
+    "$HOME/.gitcells"
 )
 
 # Colors for output
@@ -127,7 +127,7 @@ remove_config() {
 
 # Show help
 show_help() {
-    echo "SheetSync Uninstallation Script"
+    echo "GitCells Uninstallation Script"
     echo ""
     echo "Usage: $0 [options]"
     echo ""
@@ -137,7 +137,7 @@ show_help() {
     echo "  -h, --help       Show this help message"
     echo ""
     echo "This script will remove:"
-    echo "  - SheetSync binary from common installation locations"
+    echo "  - GitCells binary from common installation locations"
     echo "  - Configuration files (unless --keep-config is specified)"
     echo ""
 }
@@ -206,7 +206,7 @@ main() {
         esac
     done
     
-    log "Starting SheetSync uninstallation..."
+    log "Starting GitCells uninstallation..."
     
     if [ "$dry_run_mode" = true ]; then
         dry_run
@@ -218,9 +218,9 @@ main() {
     mapfile -t binaries < <(find_binary)
     
     if [ ${#binaries[@]} -eq 0 ]; then
-        log "No SheetSync binaries found"
+        log "No GitCells binaries found"
     else
-        log "Found ${#binaries[@]} SheetSync installation(s)"
+        log "Found ${#binaries[@]} GitCells installation(s)"
         for binary in "${binaries[@]}"; do
             if remove_binary "$binary"; then
                 ((removed_count++))
@@ -238,16 +238,16 @@ main() {
     # Summary
     echo ""
     if [ $removed_count -gt 0 ]; then
-        success "SheetSync uninstallation completed"
+        success "GitCells uninstallation completed"
         echo "Removed $removed_count binary file(s)"
         
         # Check if still in PATH
         if command -v "$BINARY_NAME" >/dev/null 2>&1; then
-            warn "SheetSync is still available in PATH. You may need to restart your shell or update your PATH."
+            warn "GitCells is still available in PATH. You may need to restart your shell or update your PATH."
         fi
     else
-        warn "No SheetSync installations were removed"
-        echo "SheetSync may not have been installed or may be in a location not checked by this script."
+        warn "No GitCells installations were removed"
+        echo "GitCells may not have been installed or may be in a location not checked by this script."
     fi
     
     if [ "$keep_config" = false ]; then
@@ -255,7 +255,7 @@ main() {
     fi
     
     echo ""
-    echo "Thank you for using SheetSync!"
+    echo "Thank you for using GitCells!"
 }
 
 # Run main function

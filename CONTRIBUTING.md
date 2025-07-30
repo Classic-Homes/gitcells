@@ -1,6 +1,6 @@
-# Contributing to SheetSync
+# Contributing to GitCells
 
-Thank you for your interest in contributing to SheetSync! This document provides guidelines and information for contributors.
+Thank you for your interest in contributing to GitCells! This document provides guidelines and information for contributors.
 
 ## Table of Contents
 
@@ -31,12 +31,12 @@ This project adheres to a code of conduct. By participating, you are expected to
 1. Fork the repository on GitHub
 2. Clone your fork locally:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/sheetsync.git
-   cd sheetsync
+   git clone https://github.com/YOUR_USERNAME/gitcells.git
+   cd gitcells
    ```
 3. Add the upstream remote:
    ```bash
-   git remote add upstream https://github.com/chrisloidolt/sheetsync.git
+   git remote add upstream https://github.com/chrisloidolt/gitcells.git
    ```
 
 ## Development Setup
@@ -56,7 +56,7 @@ make build
 
 Or manually:
 ```bash
-go build -o dist/sheetsync cmd/sheetsync/main.go
+go build -o dist/gitcells cmd/gitcells/main.go
 ```
 
 ### Run Tests
@@ -119,7 +119,7 @@ git checkout -b feature/your-feature-name
 #### Project Structure
 
 ```
-cmd/sheetsync/          # CLI entry points and commands
+cmd/gitcells/          # CLI entry points and commands
 internal/               # Private application code
 ├── config/            # Configuration management
 ├── converter/         # Excel↔JSON conversion logic
@@ -146,8 +146,8 @@ import (
     "github.com/spf13/cobra"
     "github.com/xuri/excelize/v2"
 
-    "github.com/chrisloidolt/sheetsync/internal/config"
-    "github.com/chrisloidolt/sheetsync/pkg/models"
+    "github.com/chrisloidolt/gitcells/internal/config"
+    "github.com/chrisloidolt/gitcells/pkg/models"
 )
 ```
 
@@ -374,4 +374,4 @@ Contributors are recognized in:
 - Release notes
 - Project documentation
 
-Thank you for contributing to SheetSync! 🎉
+Thank you for contributing to GitCells! 🎉

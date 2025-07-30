@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Classic-Homes/sheetsync/internal/utils"
+	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"

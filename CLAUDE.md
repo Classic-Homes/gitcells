@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-SheetSync is a Go application that bridges Excel and Git by converting Excel files to human-readable JSON for version control. The project is in early development stage with only the initial module setup completed.
+GitCells is a Go application that bridges Excel and Git by converting Excel files to human-readable JSON for version control. The project is in early development stage with only the initial module setup completed.
 
 ## Build and Development Commands
 
@@ -13,7 +13,7 @@ SheetSync is a Go application that bridges Excel and Git by converting Excel fil
 go mod tidy
 
 # Build the application (once main.go exists)
-go build -o dist/sheetsync cmd/sheetsync/main.go
+go build -o dist/gitcells cmd/gitcells/main.go
 
 # Cross-platform builds (from planned Makefile)
 make build    # Builds for Mac, Windows, and Linux
@@ -29,7 +29,7 @@ make clean
 
 The planned architecture follows Go best practices with clear separation of concerns:
 
-- **cmd/sheetsync/**: Entry point and CLI commands using Cobra framework
+- **cmd/gitcells/**: Entry point and CLI commands using Cobra framework
 - **internal/**: Private application code
   - **converter/**: Excel↔JSON conversion logic (core functionality)
   - **git/**: Git operations wrapper using go-git

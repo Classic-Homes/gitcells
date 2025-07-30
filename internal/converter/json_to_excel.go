@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Classic-Homes/sheetsync/internal/utils"
-	"github.com/Classic-Homes/sheetsync/pkg/models"
+	"github.com/Classic-Homes/gitcells/internal/utils"
+	"github.com/Classic-Homes/gitcells/pkg/models"
 	"github.com/xuri/excelize/v2"
 )
 

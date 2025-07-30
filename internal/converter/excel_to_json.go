@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/Classic-Homes/sheetsync/pkg/models"
+	"github.com/Classic-Homes/gitcells/pkg/models"
 	"github.com/xuri/excelize/v2"
 )
 

@@ -5,9 +5,9 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 BUILD_TIME := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 COMMIT_HASH := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 LDFLAGS := -s -w -X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -X main.commitHash=$(COMMIT_HASH)
-BINARY := sheetsync
+BINARY := gitcells
 DOCKER_REGISTRY ?= classichomes
-DOCKER_IMAGE := $(DOCKER_REGISTRY)/sheetsync
+DOCKER_IMAGE := $(DOCKER_REGISTRY)/gitcells
 
 # Go configuration
 GOCMD := go
@@ -19,7 +19,7 @@ GOMOD := $(GOCMD) mod
 
 # Installation paths
 INSTALL_PATH := /usr/local/bin
-CONFIG_PATH := ~/.config/sheetsync
+CONFIG_PATH := ~/.config/gitcells
 
 # Default target
 all: test build
@@ -28,25 +28,25 @@ all: test build
 
 # Build for current platform
 build:
-	@echo "🔨 Building SheetSync $(VERSION) for $(shell go env GOOS)/$(shell go env GOARCH)..."
+	@echo "🔨 Building GitCells $(VERSION) for $(shell go env GOOS)/$(shell go env GOARCH)..."
 	@mkdir -p dist
-	CGO_ENABLED=0 $(GOBUILD) -ldflags "$(LDFLAGS)" -o dist/$(BINARY) ./cmd/sheetsync
+	CGO_ENABLED=0 $(GOBUILD) -ldflags "$(LDFLAGS)" -o dist/$(BINARY) ./cmd/gitcells
 	@echo "✅ Binary built: dist/$(BINARY)"
 
 # Build for all supported platforms
 build-all:
-	@echo "🔨 Building SheetSync $(VERSION) for all platforms..."
+	@echo "🔨 Building GitCells $(VERSION) for all platforms..."
 	@mkdir -p dist
 	@echo "Building for Darwin amd64..."
-	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 $(GOBUILD) -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-darwin-amd64 ./cmd/sheetsync
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 $(GOBUILD) -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-darwin-amd64 ./cmd/gitcells
 	@echo "Building for Darwin arm64..."
-	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 $(GOBUILD) -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-darwin-arm64 ./cmd/sheetsync
+	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 $(GOBUILD) -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-darwin-arm64 ./cmd/gitcells
 	@echo "Building for Linux amd64..."
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 $(GOBUILD) -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-linux-amd64 ./cmd/sheetsync
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 $(GOBUILD) -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-linux-amd64 ./cmd/gitcells
 	@echo "Building for Linux arm64..."
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 $(GOBUILD) -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-linux-arm64 ./cmd/sheetsync
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 $(GOBUILD) -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-linux-arm64 ./cmd/gitcells
 	@echo "Building for Windows amd64..."
-	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 $(GOBUILD) -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-windows-amd64.exe ./cmd/sheetsync
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 $(GOBUILD) -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-windows-amd64.exe ./cmd/gitcells
 	@echo "✅ All binaries built in dist/"
 
 # Create release archives
@@ -126,7 +126,7 @@ deps-clean:
 
 # Install for development (in GOPATH/bin or current directory)
 install-dev: build
-	@echo "🔧 Installing SheetSync for development..."
+	@echo "🔧 Installing GitCells for development..."
 	@if [ -n "$(GOPATH)" ]; then \
 		cp dist/$(BINARY) $(GOPATH)/bin/$(BINARY); \
 		echo "✅ Installed to $(GOPATH)/bin/$(BINARY)"; \
@@ -136,7 +136,7 @@ install-dev: build
 
 # Install system-wide (requires sudo)
 install: build
-	@echo "🔧 Installing SheetSync system-wide..."
+	@echo "🔧 Installing GitCells system-wide..."
 	@if [ "$(shell id -u)" != "0" ]; then \
 		echo "⚠️  System installation requires sudo. Run: sudo make install"; \
 		exit 1; \
@@ -148,7 +148,7 @@ install: build
 
 # Uninstall system-wide
 uninstall:
-	@echo "🗑️  Uninstalling SheetSync..."
+	@echo "🗑️  Uninstalling GitCells..."
 	@if [ "$(shell id -u)" != "0" ]; then \
 		echo "⚠️  System uninstall requires sudo. Run: sudo make uninstall"; \
 		exit 1; \
@@ -189,7 +189,7 @@ clean:
 
 # Run the binary (for testing)
 run: build
-	@echo "🚀 Running SheetSync..."
+	@echo "🚀 Running GitCells..."
 	./dist/$(BINARY) --help
 
 # Show version information
@@ -210,7 +210,7 @@ dev-setup:
 
 # Show help
 help:
-	@echo "SheetSync Build System"
+	@echo "GitCells Build System"
 	@echo ""
 	@echo "Usage: make [target]"
 	@echo ""

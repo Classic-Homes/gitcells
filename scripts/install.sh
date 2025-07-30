@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# SheetSync Installation Script
-# This script downloads and installs the latest release of SheetSync
+# GitCells Installation Script
+# This script downloads and installs the latest release of GitCells
 
 set -e
 
 # Configuration
-REPO="Classic-Homes/sheetsync"
-BINARY_NAME="sheetsync"
+REPO="Classic-Homes/gitcells"
+BINARY_NAME="gitcells"
 INSTALL_DIR="/usr/local/bin"
-CONFIG_DIR="$HOME/.config/sheetsync"
+CONFIG_DIR="$HOME/.config/gitcells"
 
 # Colors for output
 RED='\033[0;31m'
@@ -175,9 +175,9 @@ git:
   branch: main
   auto_push: false
   auto_pull: true
-  user_name: "SheetSync"
-  user_email: "sheetsync@localhost"
-  commit_template: "SheetSync: {action} {filename} at {timestamp}"
+  user_name: "GitCells"
+  user_email: "gitcells@localhost"
+  commit_template: "GitCells: {action} {filename} at {timestamp}"
 
 watcher:
   directories: []
@@ -212,16 +212,16 @@ verify_installation() {
     if command -v "$BINARY_NAME" >/dev/null 2>&1; then
         local version
         version=$("$BINARY_NAME" --version 2>/dev/null | head -n1 || echo "unknown")
-        success "SheetSync installed successfully: $version"
+        success "GitCells installed successfully: $version"
         
         echo ""
         echo "To get started:"
-        echo "  sheetsync --help"
-        echo "  sheetsync init"
+        echo "  gitcells --help"
+        echo "  gitcells init"
         echo ""
         echo "Documentation: https://github.com/${REPO}#readme"
     else
-        warn "SheetSync was installed but is not in PATH"
+        warn "GitCells was installed but is not in PATH"
         echo "Add $INSTALL_DIR to your PATH or run:"
         echo "  export PATH=\"$INSTALL_DIR:\$PATH\""
     fi
@@ -237,7 +237,7 @@ cleanup() {
 
 # Main installation function
 main() {
-    log "Starting SheetSync installation..."
+    log "Starting GitCells installation..."
     
     # Set up cleanup trap
     trap cleanup EXIT
@@ -283,7 +283,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         -h|--help)
-            echo "SheetSync Installation Script"
+            echo "GitCells Installation Script"
             echo ""
             echo "Usage: $0 [options]"
             echo ""

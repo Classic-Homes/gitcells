@@ -1,6 +1,6 @@
-# SheetSync
+# GitCells
 
-SheetSync seamlessly bridges Excel and Git, enabling true version control for spreadsheets. It automatically converts Excel files to human-readable JSON for diffing and merging, then restores them to native Excel format for editing. No more binary conflicts, lost formulas, or overwritten work.
+GitCells seamlessly bridges Excel and Git, enabling true version control for spreadsheets. It automatically converts Excel files to human-readable JSON for diffing and merging, then restores them to native Excel format for editing. No more binary conflicts, lost formulas, or overwritten work.
 
 ## Features
 
@@ -16,19 +16,19 @@ SheetSync seamlessly bridges Excel and Git, enabling true version control for sp
 
 ### Pre-built Binaries
 
-Download the latest release for your platform from [GitHub Releases](https://github.com/Classic-Homes/sheetsync/releases).
+Download the latest release for your platform from [GitHub Releases](https://github.com/Classic-Homes/gitcells/releases).
 
 ### From Source
 
 ```bash
-go install github.com/Classic-Homes/sheetsync/cmd/sheetsync@latest
+go install github.com/Classic-Homes/gitcells/cmd/gitcells@latest
 ```
 
 ### Build from Repository
 
 ```bash
-git clone https://github.com/Classic-Homes/sheetsync.git
-cd sheetsync
+git clone https://github.com/Classic-Homes/gitcells.git
+cd gitcells
 make build
 
 # Install locally
@@ -37,56 +37,56 @@ make install
 
 ## Quick Start
 
-### 1. Initialize SheetSync in your project
+### 1. Initialize GitCells in your project
 
 ```bash
 cd your-excel-project
-sheetsync init
+gitcells init
 ```
 
-This creates a `.sheetsync.yaml` configuration file and sets up Git if needed.
+This creates a `.gitcells.yaml` configuration file and sets up Git if needed.
 
 ### 2. Convert Excel files to JSON
 
 ```bash
 # Convert a single file
-sheetsync convert spreadsheet.xlsx
+gitcells convert spreadsheet.xlsx
 
 # Convert multiple files
-sheetsync convert *.xlsx
+gitcells convert *.xlsx
 
 # Convert with options
-sheetsync convert --preserve-styles --preserve-comments data.xlsx
+gitcells convert --preserve-styles --preserve-comments data.xlsx
 ```
 
 ### 3. Watch directories for automatic conversion
 
 ```bash
 # Watch current directory
-sheetsync watch .
+gitcells watch .
 
 # Watch specific directories
-sheetsync watch ./data ./reports
+gitcells watch ./data ./reports
 
 # Watch with auto-commit to Git
-sheetsync watch --auto-commit ./spreadsheets
+gitcells watch --auto-commit ./spreadsheets
 ```
 
 ### 4. Check synchronization status
 
 ```bash
-sheetsync status
+gitcells status
 ```
 
 ### 5. Manually sync with Git
 
 ```bash
-sheetsync sync
+gitcells sync
 ```
 
 ## Configuration
 
-SheetSync uses a `.sheetsync.yaml` configuration file. Here's a comprehensive example:
+GitCells uses a `.gitcells.yaml` configuration file. Here's a comprehensive example:
 
 ```yaml
 version: 1.0
@@ -95,9 +95,9 @@ git:
   branch: main
   auto_push: false
   auto_pull: true
-  user_name: "SheetSync"
-  user_email: "sheetsync@yourcompany.com"
-  commit_template: "SheetSync: {action} {filename} at {timestamp}"
+  user_name: "GitCells"
+  user_email: "gitcells@yourcompany.com"
+  commit_template: "GitCells: {action} {filename} at {timestamp}"
 
 watcher:
   directories:
@@ -126,29 +126,29 @@ converter:
 
 ### Global Options
 
-- `--config`: Specify config file path (default: `.sheetsync.yaml`)
+- `--config`: Specify config file path (default: `.gitcells.yaml`)
 - `--verbose`: Enable verbose logging
 - `--help`: Show help information
 
 ### Commands
 
-#### `sheetsync init`
+#### `gitcells init`
 
-Initialize SheetSync in the current directory.
+Initialize GitCells in the current directory.
 
 ```bash
-sheetsync init [flags]
+gitcells init [flags]
 ```
 
 **Options:**
 - `--force`: Overwrite existing configuration
 
-#### `sheetsync convert`
+#### `gitcells convert`
 
 Convert Excel files to JSON format.
 
 ```bash
-sheetsync convert [files...] [flags]
+gitcells convert [files...] [flags]
 ```
 
 **Options:**
@@ -160,17 +160,17 @@ sheetsync convert [files...] [flags]
 
 **Examples:**
 ```bash
-sheetsync convert data.xlsx
-sheetsync convert --preserve-styles *.xlsx
-sheetsync convert --output-dir ./json-output reports.xlsx
+gitcells convert data.xlsx
+gitcells convert --preserve-styles *.xlsx
+gitcells convert --output-dir ./json-output reports.xlsx
 ```
 
-#### `sheetsync watch`
+#### `gitcells watch`
 
 Watch directories for Excel file changes and automatically convert them.
 
 ```bash
-sheetsync watch [directories...] [flags]
+gitcells watch [directories...] [flags]
 ```
 
 **Options:**
@@ -179,37 +179,37 @@ sheetsync watch [directories...] [flags]
 
 **Examples:**
 ```bash
-sheetsync watch .
-sheetsync watch --auto-commit ./data ./reports
-sheetsync watch --debounce 5s ./spreadsheets
+gitcells watch .
+gitcells watch --auto-commit ./data ./reports
+gitcells watch --debounce 5s ./spreadsheets
 ```
 
-#### `sheetsync sync`
+#### `gitcells sync`
 
 Manually synchronize Excel files with Git repository.
 
 ```bash
-sheetsync sync [flags]
+gitcells sync [flags]
 ```
 
 **Options:**
 - `--push`: Push changes to remote repository
 - `--pull`: Pull changes from remote repository
 
-#### `sheetsync status`
+#### `gitcells status`
 
 Show the current synchronization status.
 
 ```bash
-sheetsync status [flags]
+gitcells status [flags]
 ```
 
-#### `sheetsync diff`
+#### `gitcells diff`
 
 Show differences between Excel file versions.
 
 ```bash
-sheetsync diff [file] [flags]
+gitcells diff [file] [flags]
 ```
 
 **Options:**
@@ -218,7 +218,7 @@ sheetsync diff [file] [flags]
 
 ## Excel File Support
 
-SheetSync supports the following Excel features:
+GitCells supports the following Excel features:
 
 ### ✅ Supported Features
 
@@ -243,7 +243,7 @@ SheetSync supports the following Excel features:
 
 ## JSON Format
 
-SheetSync converts Excel files to a structured JSON format that preserves all sheet data:
+GitCells converts Excel files to a structured JSON format that preserves all sheet data:
 
 ```json
 {
@@ -251,7 +251,7 @@ SheetSync converts Excel files to a structured JSON format that preserves all sh
   "metadata": {
     "created": "2024-01-15T10:30:00Z",
     "modified": "2024-01-15T15:45:00Z",
-    "app_version": "sheetsync-0.1.0",
+    "app_version": "gitcells-0.1.0",
     "original_file": "data.xlsx",
     "file_size": 45678,
     "checksum": "abc123def456..."
@@ -285,14 +285,14 @@ SheetSync converts Excel files to a structured JSON format that preserves all sh
 
 ## Git Integration
 
-SheetSync provides seamless Git integration for version control:
+GitCells provides seamless Git integration for version control:
 
 ### Automatic Commits
 
-When watching directories, SheetSync can automatically commit changes:
+When watching directories, GitCells can automatically commit changes:
 
 ```bash
-sheetsync watch --auto-commit ./data
+gitcells watch --auto-commit ./data
 ```
 
 ### Commit Messages
@@ -301,7 +301,7 @@ Customize commit messages using templates in your config:
 
 ```yaml
 git:
-  commit_template: "SheetSync: {action} {filename} at {timestamp}"
+  commit_template: "GitCells: {action} {filename} at {timestamp}"
 ```
 
 Available variables:
@@ -312,7 +312,7 @@ Available variables:
 
 ### Conflict Resolution
 
-SheetSync includes intelligent conflict resolution for concurrent edits:
+GitCells includes intelligent conflict resolution for concurrent edits:
 
 1. **Smart Merge**: Attempts to merge non-conflicting changes automatically
 2. **Timestamp Resolution**: Uses the most recent version when smart merge fails
@@ -322,7 +322,7 @@ SheetSync includes intelligent conflict resolution for concurrent edits:
 
 ### CI/CD Pipelines
 
-Use SheetSync in GitHub Actions:
+Use GitCells in GitHub Actions:
 
 ```yaml
 name: Excel Sync
@@ -337,12 +337,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Download SheetSync
+      - name: Download GitCells
         run: |
-          curl -L https://github.com/Classic-Homes/sheetsync/releases/latest/download/sheetsync-linux-amd64 -o sheetsync
-          chmod +x sheetsync
+          curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-linux-amd64 -o gitcells
+          chmod +x gitcells
       - name: Convert Excel files
-        run: ./sheetsync convert *.xlsx
+        run: ./gitcells convert *.xlsx
       - name: Commit changes
         run: |
           git config --local user.email "action@github.com"
@@ -354,15 +354,15 @@ jobs:
 
 ### Pre-commit Hooks
 
-Add SheetSync to your pre-commit configuration:
+Add GitCells to your pre-commit configuration:
 
 ```yaml
 repos:
   - repo: local
     hooks:
-      - id: sheetsync
-        name: SheetSync Excel Converter
-        entry: sheetsync convert
+      - id: gitcells
+        name: GitCells Excel Converter
+        entry: gitcells convert
         language: system
         files: \.(xlsx|xls|xlsm)$
 ```
@@ -373,7 +373,7 @@ repos:
 
 ```
 project/
-├── .sheetsync.yaml
+├── .gitcells.yaml
 ├── data/
 │   ├── sales.xlsx
 │   ├── sales.xlsx.json      # Auto-generated
@@ -398,8 +398,8 @@ project/
 
 1. **Single Source of Truth**: Keep Excel files as the primary source
 2. **Review JSON Changes**: Use Git to review what actually changed
-3. **Merge Conflicts**: Let SheetSync handle automatic resolution
-4. **Regular Syncing**: Use `sheetsync sync` before major changes
+3. **Merge Conflicts**: Let GitCells handle automatic resolution
+4. **Regular Syncing**: Use `gitcells sync` before major changes
 
 ### 4. Performance Tips
 
@@ -413,8 +413,8 @@ project/
 
 **1. Permission Denied**
 ```bash
-# Solution: Ensure sheetsync is executable
-chmod +x sheetsync
+# Solution: Ensure gitcells is executable
+chmod +x gitcells
 ```
 
 **2. Excel File Locked**
@@ -423,7 +423,7 @@ Error: failed to open Excel file: file is locked
 ```
 ```bash
 # Solution: Close Excel application or wait for auto-save
-# SheetSync automatically ignores temp files like ~$filename.xlsx
+# GitCells automatically ignores temp files like ~$filename.xlsx
 ```
 
 **3. Large File Memory Issues**
@@ -431,7 +431,7 @@ Error: failed to open Excel file: file is locked
 Error: out of memory processing large file
 ```
 ```yaml
-# Solution: Adjust limits in .sheetsync.yaml
+# Solution: Adjust limits in .gitcells.yaml
 converter:
   max_cells_per_sheet: 100000
   ignore_empty_cells: true
@@ -439,8 +439,8 @@ converter:
 
 **4. Git Conflicts**
 ```bash
-# Solution: Use SheetSync's conflict resolution
-sheetsync sync --resolve-conflicts
+# Solution: Use GitCells's conflict resolution
+gitcells sync --resolve-conflicts
 ```
 
 ### Debug Mode
@@ -448,14 +448,14 @@ sheetsync sync --resolve-conflicts
 Enable verbose logging for troubleshooting:
 
 ```bash
-sheetsync --verbose watch .
+gitcells --verbose watch .
 ```
 
 ### Log Files
 
-SheetSync logs are written to:
-- Linux/macOS: `~/.local/share/sheetsync/logs/`
-- Windows: `%APPDATA%/sheetsync/logs/`
+GitCells logs are written to:
+- Linux/macOS: `~/.local/share/gitcells/logs/`
+- Windows: `%APPDATA%/gitcells/logs/`
 
 ## Contributing
 
@@ -464,8 +464,8 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 ### Development Setup
 
 ```bash
-git clone https://github.com/Classic-Homes/sheetsync.git
-cd sheetsync
+git clone https://github.com/Classic-Homes/gitcells.git
+cd gitcells
 go mod tidy
 make test
 ```
@@ -480,13 +480,13 @@ make test-coverage          # Generate coverage report
 
 ## License
 
-SheetSync is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+GitCells is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ## Support
 
-- **Documentation**: [GitHub Wiki](https://github.com/Classic-Homes/sheetsync/wiki)
-- **Issues**: [GitHub Issues](https://github.com/Classic-Homes/sheetsync/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/Classic-Homes/sheetsync/discussions)
+- **Documentation**: [GitHub Wiki](https://github.com/Classic-Homes/gitcells/wiki)
+- **Issues**: [GitHub Issues](https://github.com/Classic-Homes/gitcells/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Classic-Homes/gitcells/discussions)
 
 ---
 

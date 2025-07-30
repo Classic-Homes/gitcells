@@ -1,17 +1,17 @@
-# SheetSync PowerShell Installation Script
-# This script downloads and installs the latest release of SheetSync on Windows
+# GitCells PowerShell Installation Script
+# This script downloads and installs the latest release of GitCells on Windows
 
 param(
-    [string]$InstallDir = "$env:LOCALAPPDATA\Programs\SheetSync",
+    [string]$InstallDir = "$env:LOCALAPPDATA\Programs\GitCells",
     [string]$Version = "latest",
     [switch]$AddToPath = $true,
     [switch]$Help
 )
 
 # Configuration
-$Repo = "Classic-Homes/sheetsync"
-$BinaryName = "sheetsync.exe"
-$ConfigDir = "$env:APPDATA\sheetsync"
+$Repo = "Classic-Homes/gitcells"
+$BinaryName = "gitcells.exe"
+$ConfigDir = "$env:APPDATA\gitcells"
 
 # Helper functions
 function Write-Log {
@@ -34,19 +34,19 @@ function Write-Error-And-Exit {
 
 function Show-Help {
     Write-Host @"
-SheetSync PowerShell Installation Script
+GitCells PowerShell Installation Script
 
 Usage: .\install.ps1 [options]
 
 Options:
-  -InstallDir DIR     Installation directory (default: $env:LOCALAPPDATA\Programs\SheetSync)
+  -InstallDir DIR     Installation directory (default: $env:LOCALAPPDATA\Programs\GitCells)
   -Version VERSION    Specific version to install (default: latest)
   -AddToPath          Add installation directory to PATH (default: true)
   -Help              Show this help message
 
 Examples:
   .\install.ps1                                    # Install latest version
-  .\install.ps1 -InstallDir "C:\Tools\SheetSync"  # Install to custom directory
+  .\install.ps1 -InstallDir "C:\Tools\GitCells"  # Install to custom directory
   .\install.ps1 -Version "v1.0.0"                 # Install specific version
   .\install.ps1 -AddToPath:`$false                # Don't add to PATH
 
@@ -74,7 +74,7 @@ function Download-Binary {
     Write-Log "Created temporary directory: $tempDir"
     
     # Construct download URL
-    $filename = "sheetsync-$Version-windows-amd64.zip"
+    $filename = "gitcells-$Version-windows-amd64.zip"
     $downloadUrl = "https://github.com/$Repo/releases/download/$Version/$filename"
     $tempFile = Join-Path $tempDir $filename
     
@@ -96,7 +96,7 @@ function Download-Binary {
         Expand-Archive -Path $tempFile -DestinationPath $tempDir -Force
         
         # Find the binary
-        $binaryPath = Join-Path $tempDir "sheetsync-windows-amd64.exe"
+        $binaryPath = Join-Path $tempDir "gitcells-windows-amd64.exe"
         if (-not (Test-Path $binaryPath)) {
             Write-Error-And-Exit "Binary not found in archive: $binaryPath"
         }
@@ -185,9 +185,9 @@ git:
   branch: main
   auto_push: false
   auto_pull: true
-  user_name: "SheetSync"
-  user_email: "sheetsync@localhost"
-  commit_template: "SheetSync: {action} {filename} at {timestamp}"
+  user_name: "GitCells"
+  user_email: "gitcells@localhost"
+  commit_template: "GitCells: {action} {filename} at {timestamp}"
 
 watcher:
   directories: []
@@ -231,12 +231,12 @@ function Test-Installation {
     if (Test-Path $InstallPath) {
         try {
             $version = & $InstallPath --version 2>$null | Select-Object -First 1
-            Write-Log "SheetSync installed successfully: $version" "SUCCESS"
+            Write-Log "GitCells installed successfully: $version" "SUCCESS"
             
             Write-Host ""
             Write-Host "To get started:" -ForegroundColor Green
-            Write-Host "  sheetsync --help"
-            Write-Host "  sheetsync init"
+            Write-Host "  gitcells --help"
+            Write-Host "  gitcells init"
             Write-Host ""
             Write-Host "Documentation: https://github.com/$Repo#readme"
             
@@ -268,8 +268,8 @@ function Remove-TempDirectory {
 }
 
 # Main installation function
-function Install-SheetSync {
-    Write-Log "Starting SheetSync installation..."
+function Install-GitCells {
+    Write-Log "Starting GitCells installation..."
     
     # Resolve version
     $targetVersion = if ($Version -eq "latest") { Get-LatestVersion } else { $Version }
@@ -327,7 +327,7 @@ if ($InstallDir.StartsWith($env:ProgramFiles) -and -not $isAdmin) {
 
 # Run installation
 try {
-    Install-SheetSync
+    Install-GitCells
 }
 catch {
     Write-Error-And-Exit "Installation failed: $($_.Exception.Message)"

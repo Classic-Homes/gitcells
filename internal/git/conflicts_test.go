@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Classic-Homes/sheetsync/pkg/models"
+	"github.com/Classic-Homes/gitcells/pkg/models"
 )
 
 func TestDetectConflicts_NoConflicts(t *testing.T) {

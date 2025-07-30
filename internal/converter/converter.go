@@ -2,7 +2,7 @@
 package converter
 
 import (
-	"github.com/Classic-Homes/sheetsync/pkg/models"
+	"github.com/Classic-Homes/gitcells/pkg/models"
 	"github.com/sirupsen/logrus"
 )
 

@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/xuri/excelize/v2"
 
-	"github.com/Classic-Homes/sheetsync/internal/config"
-	"github.com/Classic-Homes/sheetsync/internal/converter"
-	"github.com/Classic-Homes/sheetsync/pkg/models"
+	"github.com/Classic-Homes/gitcells/internal/config"
+	"github.com/Classic-Homes/gitcells/internal/converter"
+	"github.com/Classic-Homes/gitcells/pkg/models"
 )
 
 func TestFullConversionWorkflow(t *testing.T) {
