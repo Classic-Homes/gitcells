@@ -37,6 +37,11 @@ func (c *converter) detectCellType(value interface{}) models.CellType {
 	}
 }
 
+// parseNumber converts a string to a number (float64) if possible
+func parseNumber(value string) (float64, error) {
+	return strconv.ParseFloat(value, 64)
+}
+
 // parseStyleID extracts style information from Excel style ID
 func (c *converter) extractCellStyle(f interface{}, styleID int) *models.CellStyle {
 	// TODO: Implement style extraction using excelize

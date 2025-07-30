@@ -1,0 +1,101 @@
+name: Feature Request
+description: Suggest an idea for SheetSync
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+assignees:
+  - chrisloidolt
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! Please provide as much detail as possible about your idea.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Description
+      description: Is your feature request related to a problem? Please describe.
+      placeholder: "I'm always frustrated when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like to see implemented.
+      placeholder: "I would like to see..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Solutions
+      description: Describe any alternative solutions or features you've considered.
+      placeholder: "Other approaches could be..."
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature Category
+      description: What category does this feature fall into?
+      options:
+        - Excel Processing
+        - Git Integration
+        - CLI Interface
+        - File Watching
+        - Configuration
+        - Performance
+        - Security
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority Level
+      description: How important is this feature to you?
+      options:
+        - Low - Nice to have
+        - Medium - Would improve workflow
+        - High - Critical for my use case
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: Describe your specific use case and how this feature would help.
+      placeholder: "In my workflow, I need to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation-ideas
+    attributes:
+      label: Implementation Ideas
+      description: If you have ideas about how this could be implemented, please share them.
+      placeholder: "This could be implemented by..."
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our Code of Conduct
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true
+
+  - type: checkboxes
+    id: search
+    attributes:
+      label: Existing Issues
+      description: Please confirm you have searched for similar feature requests
+      options:
+        - label: I have searched for similar feature requests and found none
+          required: true

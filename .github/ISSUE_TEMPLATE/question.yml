@@ -1,0 +1,74 @@
+name: Question
+description: Ask a question about SheetSync usage or functionality
+title: "[Question]: "
+labels: ["question", "triage"]
+assignees:
+  - chrisloidolt
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question about SheetSync? We're here to help! Please provide as much context as possible.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Question Category
+      description: What is your question about?
+      options:
+        - Installation & Setup
+        - Usage & Configuration
+        - Excel File Compatibility
+        - Git Integration
+        - Troubleshooting
+        - Performance
+        - Development
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know?
+      placeholder: "How do I..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Provide any relevant context about your setup, files, or workflow.
+      placeholder: |
+        - SheetSync version: 
+        - Operating system: 
+        - What you're trying to achieve: 
+        - Any relevant file details:
+
+  - type: textarea
+    id: attempted
+    attributes:
+      label: What Have You Tried?
+      description: What solutions have you already attempted?
+      placeholder: "I tried..."
+
+  - type: checkboxes
+    id: documentation
+    attributes:
+      label: Documentation Check
+      description: Please confirm you have checked the available documentation
+      options:
+        - label: I have checked the README and documentation
+          required: true
+
+  - type: checkboxes
+    id: search
+    attributes:
+      label: Existing Issues
+      description: Please confirm you have searched for similar questions
+      options:
+        - label: I have searched for similar questions and found none
+          required: true

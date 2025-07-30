@@ -96,23 +96,37 @@ func (c *converter) processSheet(f *excelize.File, sheetName string, index int, 
 
 			cellRef, _ := excelize.CoordinatesToCellName(colIndex+1, rowIndex+1)
 			
-			// Skip empty cells if option is set
-			if options.IgnoreEmptyCells && cellValue == "" {
+			// Get formula if exists - check this first
+			var formula string
+			if options.PreserveFormulas {
+				formula, _ = f.GetCellFormula(sheetName, cellRef)
+			}
+
+			// Skip empty cells if option is set, BUT NOT if cell has a formula
+			if options.IgnoreEmptyCells && cellValue == "" && formula == "" {
 				continue
 			}
 
-			cell := models.Cell{
-				Value: cellValue,
-				Type:  c.detectCellType(cellValue),
+			// Start with string value from rows
+			var cellVal interface{} = cellValue
+			cellType := c.detectCellType(cellValue)
+
+			// Formula takes precedence over detected type
+			if formula != "" {
+				cellType = models.CellTypeFormula
 			}
 
-			// Get formula if exists
-			if options.PreserveFormulas {
-				formula, _ := f.GetCellFormula(sheetName, cellRef)
-				if formula != "" {
-					cell.Formula = formula
-					cell.Type = models.CellTypeFormula
+			// Convert numeric strings to actual numbers if it's a number type
+			if cellType == models.CellTypeNumber && formula == "" {
+				if numVal, err := parseNumber(cellValue); err == nil {
+					cellVal = numVal
 				}
+			}
+
+			cell := models.Cell{
+				Value:   cellVal,
+				Type:    cellType,
+				Formula: formula,
 			}
 
 			// Get style if requested

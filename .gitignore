@@ -26,8 +26,13 @@ sheetsync
 ~$*.xlsx
 ~$*.xls
 ~$*.xlsm
+~$*.xlsb
+~$*.doc*
+~$*.ppt*
+*.xlk
 *.tmp
 .~lock.*
+~WRL*.tmp
 
 # OS files
 .DS_Store
@@ -40,6 +45,27 @@ Thumbs.db
 *.swo
 *~
 
+# Configuration files (if they contain sensitive data)
+config.yml
+config.yaml
+.env
+.env.local
+.env.production
+
 # SheetSync specific
 .sheetsync.cache/
 .sheetsync.log
+
+# Profiling files
+*.prof
+mem.prof
+cpu.prof
+
+# Development certificates
+*.pem
+*.key
+*.crt
+
+# Backup files
+*.bak
+*.backup
