@@ -187,6 +187,64 @@ clean:
 	$(GOCLEAN)
 	@echo "✅ Clean complete"
 
+## Documentation targets
+
+.PHONY: docs docs-install docs-build docs-serve docs-deploy docs-open
+
+# Build and serve documentation
+docs: docs-build docs-serve
+
+# Install documentation dependencies
+docs-install:
+	@echo "📚 Setting up documentation environment..."
+	@if [ ! -d venv ]; then \
+		python3 -m venv venv; \
+	fi
+	@. venv/bin/activate && pip install -r requirements.txt
+	@echo "✅ Documentation dependencies installed in venv/"
+	@echo "💡 To activate: source venv/bin/activate"
+
+# Build documentation site
+docs-build:
+	@echo "📚 Building documentation with MkDocs..."
+	@if [ -d venv ]; then \
+		. venv/bin/activate && mkdocs build; \
+	else \
+		echo "⚠️  Virtual environment not found. Run 'make docs-install' first"; \
+		exit 1; \
+	fi
+	@echo "✅ Documentation built in site/ directory"
+
+# Serve documentation locally
+docs-serve:
+	@echo "🌐 Starting MkDocs development server..."
+	@if [ -d venv ]; then \
+		. venv/bin/activate && mkdocs serve; \
+	else \
+		echo "⚠️  Virtual environment not found. Run 'make docs-install' first"; \
+		exit 1; \
+	fi
+
+# Deploy documentation
+docs-deploy:
+	@echo "🚀 Deploying documentation..."
+	@if [ -d venv ]; then \
+		. venv/bin/activate && mkdocs gh-deploy --clean; \
+	else \
+		echo "⚠️  Virtual environment not found. Run 'make docs-install' first"; \
+		exit 1; \
+	fi
+
+# Open documentation
+docs-open:
+	@if [ -d site ]; then \
+		python3 -c "import webbrowser; webbrowser.open('file://$(shell pwd)/site/index.html')"; \
+		echo "📄 Opened documentation in browser"; \
+	else \
+		echo "⚠️  Documentation not built. Run 'make docs-build' first"; \
+		exit 1; \
+	fi
+
 # Run the binary (for testing)
 run: build
 	@echo "🚀 Running GitCells..."
@@ -243,6 +301,14 @@ help:
 	@echo "  docker-build  Build Docker image"
 	@echo "  docker-run    Run Docker container"
 	@echo "  docker-push   Push Docker image to registry"
+	@echo ""
+	@echo "Documentation Targets:"
+	@echo "  docs         Build and serve documentation with MkDocs"
+	@echo "  docs-install Install MkDocs and dependencies"
+	@echo "  docs-build   Build static documentation site"
+	@echo "  docs-serve   Serve documentation locally with live reload"
+	@echo "  docs-deploy  Deploy documentation to GitHub Pages"
+	@echo "  docs-open    Open built documentation in browser"
 	@echo ""
 	@echo "Utility Targets:"
 	@echo "  clean      Clean build artifacts"

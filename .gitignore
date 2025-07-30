@@ -69,3 +69,7 @@ cpu.prof
 # Backup files
 *.bak
 *.backup
+
+# Documentation
+venv/
+site/
