@@ -55,13 +55,25 @@ release: build-all
 	@mkdir -p dist/releases
 	@cd dist && \
 	for binary in $(BINARY)-*; do \
+		platform=$${binary#$(BINARY)-}; \
 		if [[ $$binary == *.exe ]]; then \
-			zip -q releases/$${binary%.*}.zip $$binary; \
+			platform=$${platform%.exe}; \
+			zip -q releases/$(BINARY)-$(VERSION)-$$platform.zip $$binary; \
 		else \
-			tar -czf releases/$$binary.tar.gz $$binary; \
+			tar -czf releases/$(BINARY)-$(VERSION)-$$platform.tar.gz $$binary; \
 		fi; \
 	done
 	@echo "✅ Release archives created in dist/releases/"
+
+# Test release binaries and archives
+test-releases:
+	@echo "🧪 Testing release binaries and archives..."
+	@./scripts/test-releases.sh
+
+# Validate GitHub Actions workflows
+validate-workflows:
+	@echo "🔍 Validating GitHub Actions workflows..."
+	@./scripts/validate-workflows.sh
 
 ## Test targets
 
@@ -273,9 +285,11 @@ help:
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Build Targets:"
-	@echo "  build      Build binary for current platform"
-	@echo "  build-all  Build binaries for all platforms"
-	@echo "  release    Create release archives"
+	@echo "  build              Build binary for current platform"
+	@echo "  build-all          Build binaries for all platforms"
+	@echo "  release            Create release archives"
+	@echo "  test-releases      Test release binaries and archives"
+	@echo "  validate-workflows Validate GitHub Actions workflows"
 	@echo ""
 	@echo "Test Targets:"
 	@echo "  test           Run all tests with coverage"

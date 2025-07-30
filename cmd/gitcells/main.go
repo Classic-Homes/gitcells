@@ -18,9 +18,9 @@ func main() {
 	logger = setupLogger()
 
 	rootCmd := &cobra.Command{
-		Use:     "sheetsync",
+		Use:     "gitcells",
 		Short:   "Version control for Excel files",
-		Long:    `SheetSync converts Excel files to JSON for version control and collaboration`,
+		Long:    `GitCells converts Excel files to JSON for version control and collaboration`,
 		Version: fmt.Sprintf("%s (built %s)", version, buildTime),
 	}
 
@@ -35,7 +35,7 @@ func main() {
 	)
 
 	// Global flags
-	rootCmd.PersistentFlags().String("config", "", "config file (default: .sheetsync.yaml)")
+	rootCmd.PersistentFlags().String("config", "", "config file (default: .gitcells.yaml)")
 	rootCmd.PersistentFlags().Bool("verbose", false, "enable verbose logging")
 
 	// Handle verbose flag

@@ -18,13 +18,13 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.22'
+        go-version: '1.23'
         
     - name: Download dependencies
-      run: go mod download
+      run: make deps
       
     - name: Run tests
-      run: go test -v -race ./...
+      run: make test
       
   lint:
     name: Lint
@@ -37,21 +37,17 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.22'
+        go-version: '1.23'
         
-    - name: Run go fmt
+    - name: Install golangci-lint
       run: |
-        if [ -n "$(gofmt -l .)" ]; then
-          echo "Go code is not formatted:"
-          gofmt -d .
-          exit 1
-        fi
+        go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
         
-    - name: Run go vet
-      run: go vet ./...
+    - name: Run formatting and linting
+      run: make check
       
-  build-packages:
-    name: Build Packages
+  build:
+    name: Build Binaries
     runs-on: ubuntu-latest
     needs: [test, lint]
     
@@ -62,96 +58,20 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.22'
+        go-version: '1.23'
         
-    - name: Install packaging tools
-      run: |
-        # Install nfpm for Linux packages
-        echo "Installing nfpm..."
-        curl -sfL https://github.com/goreleaser/nfpm/releases/download/v2.35.3/nfpm_2.35.3_Linux_x86_64.tar.gz | tar xz -C /tmp
-        sudo mv /tmp/nfpm /usr/local/bin/
+    - name: Build all platforms
+      run: make build-all
         
-        # Install makensis for Windows installer
-        sudo apt-get update
-        sudo apt-get install -y nsis nsis-pluginapi
+    - name: Create release archives
+      run: make release
         
-    - name: Build binaries
-      run: |
-        mkdir -p dist
+    - name: Test release artifacts
+      run: make test-releases
         
-        # Linux
-        GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/gitcells-linux-amd64 ./cmd/gitcells
-        
-        # Windows
-        GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o dist/gitcells-windows-amd64.exe ./cmd/gitcells
-        
-        # macOS
-        GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/gitcells-darwin-amd64 ./cmd/gitcells
-        GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/gitcells-darwin-arm64 ./cmd/gitcells
-        
-    - name: Create Linux packages
-      run: |
-        # Create .deb package
-        VERSION="0.1.0" ARCH="amd64" nfpm package -f build/package/nfpm.yaml -p deb -t dist/
-        
-        # Create .rpm package  
-        VERSION="0.1.0" ARCH="amd64" nfpm package -f build/package/nfpm.yaml -p rpm -t dist/
-        
-    - name: Create Windows installer
-      run: |
-        # Create NSIS installer script
-        cat > build/package/installer.nsi << 'EOF'
-        !define PRODUCT_NAME "GitCells"
-        !define PRODUCT_VERSION "0.1.0"
-        !define PRODUCT_PUBLISHER "GitCells Team"
-        
-        Name "${PRODUCT_NAME}"
-        OutFile "../../dist/gitcells-setup-windows-amd64.exe"
-        InstallDir "$PROGRAMFILES64\${PRODUCT_NAME}"
-        RequestExecutionLevel admin
-        
-        Section "Install"
-          SetOutPath $INSTDIR
-          File "../../dist/gitcells-windows-amd64.exe"
-          
-          ; Add to PATH
-          EnVar::SetHKLM
-          EnVar::AddValue "PATH" "$INSTDIR"
-          
-          ; Create uninstaller
-          WriteUninstaller "$INSTDIR\uninstall.exe"
-          
-          ; Create Start Menu shortcuts
-          CreateDirectory "$SMPROGRAMS\${PRODUCT_NAME}"
-          CreateShortcut "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk" "$INSTDIR\gitcells-windows-amd64.exe"
-          CreateShortcut "$SMPROGRAMS\${PRODUCT_NAME}\Uninstall.lnk" "$INSTDIR\uninstall.exe"
-        SectionEnd
-        
-        Section "Uninstall"
-          ; Remove from PATH
-          EnVar::SetHKLM
-          EnVar::DeleteValue "PATH" "$INSTDIR"
-          
-          Delete "$INSTDIR\gitcells-windows-amd64.exe"
-          Delete "$INSTDIR\uninstall.exe"
-          RMDir "$INSTDIR"
-          
-          Delete "$SMPROGRAMS\${PRODUCT_NAME}\*.*"
-          RMDir "$SMPROGRAMS\${PRODUCT_NAME}"
-        SectionEnd
-        EOF
-        
-        # Build installer (use basic NSIS without EnvVar plugin)
-        cd build/package
-        makensis installer.nsi || echo "NSIS build failed, continuing..."
-        
-    - name: Create macOS package
-      run: |
-        # For CI, we'll just create a simple tar.gz
-        # Full .pkg creation requires macOS runner
-        cd dist
-        tar -czf gitcells-macos-amd64.tar.gz gitcells-darwin-amd64
-        tar -czf gitcells-macos-arm64.tar.gz gitcells-darwin-arm64
-        
-    - name: List packages
-      run: ls -la dist/
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: binaries
+        path: dist/
+        retention-days: 7
