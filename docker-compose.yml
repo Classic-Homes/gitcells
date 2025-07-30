@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  docs:
+    image: squidfunk/mkdocs-material:latest
+    container_name: gitcells-docs
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/docs
+    command: serve --dev-addr=0.0.0.0:8000
+    environment:
+      - GOOGLE_ANALYTICS_KEY=${GOOGLE_ANALYTICS_KEY:-}
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gitcells-docs.rule=Host(`docs.localhost`)"
+      - "traefik.http.services.gitcells-docs.loadbalancer.server.port=8000"

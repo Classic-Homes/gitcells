@@ -478,13 +478,36 @@ make test-short             # Skip integration tests
 make test-coverage          # Generate coverage report
 ```
 
+### Local Documentation
+
+The complete documentation is available as a MkDocs site. You can run it locally using Docker:
+
+```bash
+# Start the documentation server
+./scripts/serve-docs.sh
+
+# Or use Docker Compose directly
+docker-compose up docs
+
+# Stop the server
+./scripts/serve-docs.sh stop
+```
+
+The documentation will be available at [http://localhost:8000](http://localhost:8000).
+
+**Available commands:**
+- `./scripts/serve-docs.sh` - Start the documentation server
+- `./scripts/serve-docs.sh stop` - Stop the server
+- `./scripts/serve-docs.sh restart` - Restart the server
+- `./scripts/serve-docs.sh logs` - View server logs
+
 ## License
 
 GitCells is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ## Support
 
-- **Documentation**: [GitHub Wiki](https://github.com/Classic-Homes/gitcells/wiki)
+- **Documentation**: [Full Documentation](https://gitcells.com/docs) | Run locally: `./scripts/serve-docs.sh`
 - **Issues**: [GitHub Issues](https://github.com/Classic-Homes/gitcells/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/Classic-Homes/gitcells/discussions)
 
