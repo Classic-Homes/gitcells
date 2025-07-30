@@ -1,0 +1,29 @@
+version: 1.0
+
+git:
+  branch: main
+  auto_push: false
+  auto_pull: true
+  user_name: "SheetSync"
+  user_email: "sheetsync@localhost"
+  commit_template: "SheetSync: {action} {filename} at {timestamp}"
+
+watcher:
+  directories: []
+  ignore_patterns:
+    - "~$*"
+    - "*.tmp"
+    - ".~lock.*"
+  debounce_delay: 2s
+  file_extensions:
+    - ".xlsx"
+    - ".xls"
+    - ".xlsm"
+
+converter:
+  preserve_formulas: true
+  preserve_styles: true
+  preserve_comments: true
+  compact_json: false
+  ignore_empty_cells: true
+  max_cells_per_sheet: 1000000
