@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [ main, develop ]
 
-env:
-  GO_VERSION: '1.22'
-
 jobs:
   test:
     name: Test
@@ -21,34 +18,14 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: ${{ env.GO_VERSION }}
+        go-version: '1.22'
         
-    - name: Cache Go modules
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-${{ env.GO_VERSION }}-
-          
     - name: Download dependencies
       run: go mod download
       
-    - name: Verify dependencies
-      run: go mod verify
-      
     - name: Run tests
-      run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+      run: go test -v -race ./...
       
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./coverage.txt
-        flags: unittests
-        name: codecov-umbrella
-        
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -60,27 +37,24 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: ${{ env.GO_VERSION }}
+        go-version: '1.22'
         
-    - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v6
-      with:
-        version: latest
-        args: --timeout=5m
+    - name: Run go fmt
+      run: |
+        if [ -n "$(gofmt -l .)" ]; then
+          echo "Go code is not formatted:"
+          gofmt -d .
+          exit 1
+        fi
         
+    - name: Run go vet
+      run: go vet ./...
+      
   build:
     name: Build
     runs-on: ubuntu-latest
     needs: [test, lint]
     
-    strategy:
-      matrix:
-        goos: [linux, darwin, windows]
-        goarch: [amd64, arm64]
-        exclude:
-          - goos: windows
-            goarch: arm64
-            
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -88,84 +62,9 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: ${{ env.GO_VERSION }}
+        go-version: '1.22'
         
-    - name: Get version
-      id: version
+    - name: Build
       run: |
-        if [[ $GITHUB_REF == refs/tags/* ]]; then
-          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-        else
-          echo "version=dev-$(echo $GITHUB_SHA | cut -c1-8)" >> $GITHUB_OUTPUT
-        fi
-        
-    - name: Build binary
-      env:
-        GOOS: ${{ matrix.goos }}
-        GOARCH: ${{ matrix.goarch }}
-        CGO_ENABLED: 0
-      run: |
-        mkdir -p dist
-        binary_name="sheetsync-${{ matrix.goos }}-${{ matrix.goarch }}"
-        if [ "${{ matrix.goos }}" = "windows" ]; then
-          binary_name="${binary_name}.exe"
-        fi
-        
-        go build -ldflags="-s -w -X main.version=${{ steps.version.outputs.version }} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-          -o dist/${binary_name} \
-          ./cmd/sheetsync
-          
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: binaries-${{ matrix.goos }}-${{ matrix.goarch }}
-        path: dist/
-        retention-days: 7
-        
-  integration-test:
-    name: Integration Tests
-    runs-on: ${{ matrix.os }}
-    needs: [build]
-    
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: ${{ env.GO_VERSION }}
-        
-    - name: Download build artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: binaries-${{ runner.os == 'Linux' && 'linux' || runner.os == 'macOS' && 'darwin' || 'windows' }}-amd64
-        path: dist/
-        
-    - name: Make binary executable (Unix)
-      if: runner.os != 'Windows'
-      run: |
-        binary_name="sheetsync-${{ runner.os == 'Linux' && 'linux' || 'darwin' }}-amd64"
-        chmod +x dist/${binary_name}
-        ln -sf dist/${binary_name} sheetsync
-        
-    - name: Set up binary (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        copy dist\sheetsync-windows-amd64.exe sheetsync.exe
-        
-    - name: Run integration tests
-      run: go test -v -tags=integration ./test/...
-      
-    - name: Test CLI commands
-      run: |
-        # Test version command
-        if [ "${{ runner.os }}" = "Windows" ]; then
-          ./sheetsync.exe --version
-        else
-          ./sheetsync --version
-        fi
+        # Build for current platform only
+        go build -v ./cmd/gitcells

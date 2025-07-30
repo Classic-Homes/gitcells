@@ -7,16 +7,14 @@ on:
   workflow_dispatch:
 
 jobs:
-  update-go-dependencies:
-    name: Update Go Dependencies
+  update-dependencies:
+    name: Update Dependencies
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        
+      
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
@@ -30,55 +28,16 @@ jobs:
     - name: Run tests
       run: go test ./...
       
-    - name: Check for changes
-      id: changes
-      run: |
-        if git diff --quiet go.mod go.sum; then
-          echo "changed=false" >> $GITHUB_OUTPUT
-        else
-          echo "changed=true" >> $GITHUB_OUTPUT
-        fi
-        
     - name: Create Pull Request
-      if: steps.changes.outputs.changed == 'true'
-      uses: peter-evans/create-pull-request@v5
+      uses: peter-evans/create-pull-request@v6
       with:
-        token: ${{ secrets.GITHUB_TOKEN }}
         commit-message: 'chore: update Go dependencies'
         title: 'chore: update Go dependencies'
         body: |
           This PR updates Go dependencies to their latest versions.
           
-          Changes:
           - Updated all Go modules to latest versions
           - Ran `go mod tidy` to clean up dependencies
           - All tests pass with updated dependencies
-          
-          Please review the changes and merge if everything looks good.
         branch: deps/update-go-dependencies
         delete-branch: true
-        
-  update-github-actions:
-    name: Update GitHub Actions
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        
-    - name: Update GitHub Actions
-      uses: rhyeal/github-action-updater@v1
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        commit-message: 'chore: update GitHub Actions to latest versions'
-        pr-title: 'chore: update GitHub Actions'
-        pr-body: |
-          This PR updates GitHub Actions to their latest versions.
-          
-          All workflow files have been updated to use the latest action versions
-          while maintaining compatibility with existing configurations.
-          
-          Please review and merge if everything looks good.
-        branch-name: deps/update-github-actions
