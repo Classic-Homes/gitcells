@@ -43,7 +43,12 @@ func (c *Client) DetectConflicts(filePath string) (*ConflictInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file %s: %w", filePath, err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			// Log the error but don't override the main function's error
+			fmt.Printf("Warning: failed to close file %s: %v\n", filePath, closeErr)
+		}
+	}()
 
 	info := &ConflictInfo{
 		FilePath:  filePath,
@@ -535,7 +540,11 @@ func (c *Client) resolveInteractively(ourCode, theirCode []string) []string {
 		fmt.Print("\nChoose resolution [1-7, or y/t/b/s/n/e/skip]: ")
 
 		var choice string
-		fmt.Scanln(&choice)
+		_, err := fmt.Scanln(&choice)
+		if err != nil {
+			fmt.Printf("Error reading input: %v\n", err)
+			continue
+		}
 		choice = strings.ToLower(strings.TrimSpace(choice))
 
 		switch choice {
@@ -649,7 +658,7 @@ func (c *Client) editManually(ourCode, theirCode []string) []string {
 			break
 		}
 		if line == "CANCEL" {
-			fmt.Println("❌ Manual editing cancelled, keeping original conflict")
+			fmt.Println("❌ Manual editing canceled, keeping original conflict")
 			result := make([]string, 0, len(ourCode)+len(theirCode)+3)
 			result = append(result, string(ConflictStart)+"HEAD")
 			result = append(result, ourCode...)

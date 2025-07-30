@@ -198,32 +198,32 @@ func compareCells(oldCells, newCells map[string]Cell) []CellChange {
 }
 
 // cellsAreDifferent checks if two cells are different
-func cellsAreDifferent(old, new *Cell) bool {
+func cellsAreDifferent(old, updated *Cell) bool {
 	// Compare values
-	if !reflect.DeepEqual(old.Value, new.Value) {
+	if !reflect.DeepEqual(old.Value, updated.Value) {
 		return true
 	}
 
 	// Compare formulas
-	if old.Formula != new.Formula {
+	if old.Formula != updated.Formula {
 		return true
 	}
 
 	// Compare types
-	if old.Type != new.Type {
+	if old.Type != updated.Type {
 		return true
 	}
 
 	// Compare comments
-	if (old.Comment == nil) != (new.Comment == nil) {
+	if (old.Comment == nil) != (updated.Comment == nil) {
 		return true
 	}
-	if old.Comment != nil && new.Comment != nil && old.Comment.Text != new.Comment.Text {
+	if old.Comment != nil && updated.Comment != nil && old.Comment.Text != updated.Comment.Text {
 		return true
 	}
 
 	// Compare hyperlinks
-	if old.Hyperlink != new.Hyperlink {
+	if old.Hyperlink != updated.Hyperlink {
 		return true
 	}
 
@@ -300,30 +300,52 @@ func (d *ExcelDiff) HasChanges() bool {
 	return d.Summary.TotalChanges > 0 || d.Summary.CellChanges > 0
 }
 
+// formatSummaryParts creates summary parts for the diff
+func (d *ExcelDiff) formatSummaryParts(colorized bool) []string {
+	var parts []string
+
+	if d.Summary.AddedSheets > 0 {
+		if colorized {
+			parts = append(parts, fmt.Sprintf("\033[32m+%d sheet(s) added\033[0m", d.Summary.AddedSheets)) // Green
+		} else {
+			parts = append(parts, fmt.Sprintf("%d sheet(s) added", d.Summary.AddedSheets))
+		}
+	}
+
+	if d.Summary.ModifiedSheets > 0 {
+		if colorized {
+			parts = append(parts, fmt.Sprintf("\033[33m~%d sheet(s) modified\033[0m", d.Summary.ModifiedSheets)) // Yellow
+		} else {
+			parts = append(parts, fmt.Sprintf("%d sheet(s) modified", d.Summary.ModifiedSheets))
+		}
+	}
+
+	if d.Summary.DeletedSheets > 0 {
+		if colorized {
+			parts = append(parts, fmt.Sprintf("\033[31m-%d sheet(s) deleted\033[0m", d.Summary.DeletedSheets)) // Red
+		} else {
+			parts = append(parts, fmt.Sprintf("%d sheet(s) deleted", d.Summary.DeletedSheets))
+		}
+	}
+
+	if d.Summary.CellChanges > 0 {
+		if colorized {
+			parts = append(parts, fmt.Sprintf("\033[36m%d cell(s) changed\033[0m", d.Summary.CellChanges)) // Cyan
+		} else {
+			parts = append(parts, fmt.Sprintf("%d cell(s) changed", d.Summary.CellChanges))
+		}
+	}
+
+	return parts
+}
+
 // String returns a string representation of the diff
 func (d *ExcelDiff) String() string {
 	if !d.HasChanges() {
 		return "No changes detected"
 	}
 
-	var parts []string
-
-	if d.Summary.AddedSheets > 0 {
-		parts = append(parts, fmt.Sprintf("%d sheet(s) added", d.Summary.AddedSheets))
-	}
-
-	if d.Summary.ModifiedSheets > 0 {
-		parts = append(parts, fmt.Sprintf("%d sheet(s) modified", d.Summary.ModifiedSheets))
-	}
-
-	if d.Summary.DeletedSheets > 0 {
-		parts = append(parts, fmt.Sprintf("%d sheet(s) deleted", d.Summary.DeletedSheets))
-	}
-
-	if d.Summary.CellChanges > 0 {
-		parts = append(parts, fmt.Sprintf("%d cell(s) changed", d.Summary.CellChanges))
-	}
-
+	parts := d.formatSummaryParts(false)
 	return strings.Join(parts, ", ")
 }
 
@@ -333,24 +355,7 @@ func (d *ExcelDiff) ToColorizedString() string {
 		return "\033[32mNo changes detected\033[0m" // Green
 	}
 
-	var parts []string
-
-	if d.Summary.AddedSheets > 0 {
-		parts = append(parts, fmt.Sprintf("\033[32m+%d sheet(s) added\033[0m", d.Summary.AddedSheets)) // Green
-	}
-
-	if d.Summary.ModifiedSheets > 0 {
-		parts = append(parts, fmt.Sprintf("\033[33m~%d sheet(s) modified\033[0m", d.Summary.ModifiedSheets)) // Yellow
-	}
-
-	if d.Summary.DeletedSheets > 0 {
-		parts = append(parts, fmt.Sprintf("\033[31m-%d sheet(s) deleted\033[0m", d.Summary.DeletedSheets)) // Red
-	}
-
-	if d.Summary.CellChanges > 0 {
-		parts = append(parts, fmt.Sprintf("\033[36m%d cell(s) changed\033[0m", d.Summary.CellChanges)) // Cyan
-	}
-
+	parts := d.formatSummaryParts(true)
 	return strings.Join(parts, ", ")
 }
 
@@ -473,7 +478,7 @@ func (d *ExcelDiff) ToHTML() string {
 	return result.String()
 }
 
-// GetCSS returns CSS styles for HTML diff display
+// GetDiffCSS returns CSS styles for HTML diff display
 func GetDiffCSS() string {
 	return `
 .excel-diff {

@@ -17,7 +17,11 @@ import (
 
 func TestDetectConflicts_NoConflicts(t *testing.T) {
 	tempFile := createTempFile(t, "no conflicts here\njust regular content\n")
-	defer os.Remove(tempFile)
+	defer func() {
+		if err := os.Remove(tempFile); err != nil {
+			t.Logf("Warning: failed to remove temp file %s: %v", tempFile, err)
+		}
+	}()
 
 	client := createTestClient(t)
 	info, err := client.DetectConflicts(tempFile)
@@ -37,7 +41,11 @@ their changes
 line 2`
 
 	tempFile := createTempFile(t, content)
-	defer os.Remove(tempFile)
+	defer func() {
+		if err := os.Remove(tempFile); err != nil {
+			t.Logf("Warning: failed to remove temp file %s: %v", tempFile, err)
+		}
+	}()
 
 	client := createTestClient(t)
 	info, err := client.DetectConflicts(tempFile)
@@ -69,7 +77,11 @@ second their changes
 last line`
 
 	tempFile := createTempFile(t, content)
-	defer os.Remove(tempFile)
+	defer func() {
+		if err := os.Remove(tempFile); err != nil {
+			t.Logf("Warning: failed to remove temp file %s: %v", tempFile, err)
+		}
+	}()
 
 	client := createTestClient(t)
 	info, err := client.DetectConflicts(tempFile)
@@ -103,7 +115,11 @@ their changes
 line 2`
 
 	tempFile := createTempFile(t, content)
-	defer os.Remove(tempFile)
+	defer func() {
+		if err := os.Remove(tempFile); err != nil {
+			t.Logf("Warning: failed to remove temp file %s: %v", tempFile, err)
+		}
+	}()
 
 	client := createTestClient(t)
 	err := client.ResolveConflict(tempFile, ResolveOurs)
@@ -127,7 +143,11 @@ their changes
 line 2`
 
 	tempFile := createTempFile(t, content)
-	defer os.Remove(tempFile)
+	defer func() {
+		if err := os.Remove(tempFile); err != nil {
+			t.Logf("Warning: failed to remove temp file %s: %v", tempFile, err)
+		}
+	}()
 
 	client := createTestClient(t)
 	err := client.ResolveConflict(tempFile, ResolveTheirs)
@@ -151,7 +171,11 @@ their changes
 line 2`
 
 	tempFile := createTempFile(t, content)
-	defer os.Remove(tempFile)
+	defer func() {
+		if err := os.Remove(tempFile); err != nil {
+			t.Logf("Warning: failed to remove temp file %s: %v", tempFile, err)
+		}
+	}()
 
 	client := createTestClient(t)
 	err := client.ResolveConflict(tempFile, ResolveBoth)

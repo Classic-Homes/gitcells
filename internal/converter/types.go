@@ -2,12 +2,13 @@ package converter
 
 import (
 	"fmt"
-	"github.com/Classic-Homes/sheetsync/internal/utils"
-	"github.com/Classic-Homes/sheetsync/pkg/models"
-	"github.com/xuri/excelize/v2"
 	"runtime"
 	"strconv"
 	"strings"
+
+	"github.com/Classic-Homes/sheetsync/internal/utils"
+	"github.com/Classic-Homes/sheetsync/pkg/models"
+	"github.com/xuri/excelize/v2"
 )
 
 // detectCellType determines the cell type based on its value and formula

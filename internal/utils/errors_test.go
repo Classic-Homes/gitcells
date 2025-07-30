@@ -346,7 +346,7 @@ func TestRetry_OnRetryCallback(t *testing.T) {
 		},
 	}
 
-	Retry(operation, config)
+	_ = Retry(operation, config)
 
 	assert.Equal(t, []int{1, 2}, retryCallbacks)
 }

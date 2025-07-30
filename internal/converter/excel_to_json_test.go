@@ -238,7 +238,11 @@ func TestProcessSheet_ErrorHandling(t *testing.T) {
 
 	f, err := excelize.OpenFile("../../test/testdata/sample_files/simple.xlsx")
 	require.NoError(t, err)
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			t.Logf("Warning: failed to close Excel file: %v", closeErr)
+		}
+	}()
 
 	// Test with non-existent sheet
 	sheet, err := conv.processSheet(f, "NonExistentSheet", 0, ConvertOptions{})

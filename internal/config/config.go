@@ -1,8 +1,10 @@
+// Package config provides configuration management for SheetSync application.
 package config
 
 import (
-	"github.com/spf13/viper"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 type Config struct {

@@ -1,3 +1,4 @@
+// Package models defines data structures for Excel document representation.
 package models
 
 import (

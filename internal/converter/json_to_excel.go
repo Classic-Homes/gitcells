@@ -62,6 +62,7 @@ func (c *converter) JSONToExcel(doc *models.ExcelDocument, outputPath string, op
 			if options.PreserveStyles && cell.Style != nil {
 				// TODO: Apply cell style
 				// This requires creating style from our model
+				_ = cell.Style // Acknowledge we're not using it yet
 			}
 
 			// Set comment if requested

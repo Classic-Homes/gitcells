@@ -1,3 +1,4 @@
+// Package converter handles Excel to JSON conversion and vice versa.
 package converter
 
 import (

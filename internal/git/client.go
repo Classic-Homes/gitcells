@@ -1,3 +1,4 @@
+// Package git provides Git operations and conflict resolution functionality.
 package git
 
 import (

@@ -24,7 +24,11 @@ func (c *converter) ExcelToJSON(filePath string, options ConvertOptions) (*model
 	if err != nil {
 		return nil, fmt.Errorf("failed to open Excel file: %w", err)
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			fmt.Printf("Warning: failed to close Excel file: %v\n", closeErr)
+		}
+	}()
 
 	// Get file info
 	fileInfo, err := os.Stat(filePath)
@@ -231,7 +235,11 @@ func (c *converter) calculateChecksum(filePath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			fmt.Printf("Warning: failed to close file: %v\n", closeErr)
+		}
+	}()
 
 	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {
