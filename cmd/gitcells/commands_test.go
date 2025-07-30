@@ -21,7 +21,7 @@ func TestRootCommand(t *testing.T) {
 	require.NoError(t, err)
 
 	output := buf.String()
-	assert.Contains(t, output, "sheetsync")
+	assert.Contains(t, output, "gitcells")
 	assert.Contains(t, output, "converts Excel files to JSON")
 }
 
@@ -175,16 +175,16 @@ func TestWatchCommand_MissingArgs(t *testing.T) {
 func createRootCommand() *cobra.Command {
 	// Create a simplified version of the root command for testing
 	rootCmd := &cobra.Command{
-		Use:     "sheetsync",
+		Use:     "gitcells",
 		Short:   "Version control for Excel files",
-		Long:    "SheetSync converts Excel files to JSON for version control and collaboration",
+		Long:    "GitCells converts Excel files to JSON for version control and collaboration",
 		Version: "test-version",
 	}
 
 	// Add minimal versions of commands for testing
 	initCmd := &cobra.Command{
 		Use:   "init",
-		Short: "Initialize SheetSync in current directory",
+		Short: "Initialize GitCells in current directory",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return nil // Simplified implementation
 		},
@@ -218,7 +218,7 @@ func createRootCommand() *cobra.Command {
 
 	statusCmd := &cobra.Command{
 		Use:   "status",
-		Short: "Show SheetSync status",
+		Short: "Show GitCells status",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return nil // Simplified implementation
 		},

@@ -8,22 +8,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSheetSyncError_Error(t *testing.T) {
+func TestGitCellsError_Error(t *testing.T) {
 	tests := []struct {
 		name     string
-		err      *SheetSyncError
+		err      *GitCellsError
 		expected string
 	}{
 		{
 			name: "minimal error",
-			err: &SheetSyncError{
+			err: &GitCellsError{
 				Message: "test error",
 			},
 			expected: "test error",
 		},
 		{
 			name: "error with type and operation",
-			err: &SheetSyncError{
+			err: &GitCellsError{
 				Type:      ErrorTypeConverter,
 				Operation: "excel_to_json",
 				Message:   "conversion failed",
@@ -32,7 +32,7 @@ func TestSheetSyncError_Error(t *testing.T) {
 		},
 		{
 			name: "error with file",
-			err: &SheetSyncError{
+			err: &GitCellsError{
 				Type:      ErrorTypeFileSystem,
 				Operation: "read_file",
 				File:      "test.xlsx",
@@ -42,7 +42,7 @@ func TestSheetSyncError_Error(t *testing.T) {
 		},
 		{
 			name: "error with cause",
-			err: &SheetSyncError{
+			err: &GitCellsError{
 				Type:      ErrorTypeGit,
 				Operation: "commit",
 				Message:   "commit failed",
@@ -60,9 +60,9 @@ func TestSheetSyncError_Error(t *testing.T) {
 	}
 }
 
-func TestSheetSyncError_Unwrap(t *testing.T) {
+func TestGitCellsError_Unwrap(t *testing.T) {
 	cause := errors.New("original error")
-	err := &SheetSyncError{
+	err := &GitCellsError{
 		Message: "wrapped",
 		Cause:   cause,
 	}
@@ -70,7 +70,7 @@ func TestSheetSyncError_Unwrap(t *testing.T) {
 	assert.Equal(t, cause, err.Unwrap())
 }
 
-func TestSheetSyncError_IsRecoverable(t *testing.T) {
+func TestGitCellsError_IsRecoverable(t *testing.T) {
 	tests := []struct {
 		name        string
 		recoverable bool
@@ -90,7 +90,7 @@ func TestSheetSyncError_IsRecoverable(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := &SheetSyncError{
+			err := &GitCellsError{
 				Recoverable: tt.recoverable,
 			}
 			assert.Equal(t, tt.expected, err.IsRecoverable())
@@ -312,7 +312,7 @@ func TestRetry_AllAttemptsFail(t *testing.T) {
 	assert.Equal(t, 3, attempts)
 
 	// Should be wrapped with retry context
-	ssErr, ok := err.(*SheetSyncError)
+	ssErr, ok := err.(*GitCellsError)
 	require.True(t, ok)
 	assert.Equal(t, ErrorTypeConverter, ssErr.Type)
 	assert.Equal(t, "retry", ssErr.Operation)
@@ -399,9 +399,9 @@ func TestDefaultRetryConfig(t *testing.T) {
 	assert.True(t, config.ShouldRetry(errors.New("network timeout")))
 	assert.False(t, config.ShouldRetry(errors.New("syntax error")))
 
-	// Test with SheetSyncError
-	recoverableErr := &SheetSyncError{Recoverable: true}
-	nonRecoverableErr := &SheetSyncError{Recoverable: false}
+	// Test with GitCellsError
+	recoverableErr := &GitCellsError{Recoverable: true}
+	nonRecoverableErr := &GitCellsError{Recoverable: false}
 
 	assert.True(t, config.ShouldRetry(recoverableErr))
 	assert.False(t, config.ShouldRetry(nonRecoverableErr))
@@ -418,8 +418,8 @@ func BenchmarkErrorCollector_Add(b *testing.B) {
 	}
 }
 
-func BenchmarkSheetSyncError_Error(b *testing.B) {
-	err := &SheetSyncError{
+func BenchmarkGitCellsError_Error(b *testing.B) {
+	err := &GitCellsError{
 		Type:      ErrorTypeConverter,
 		Operation: "test_operation",
 		File:      "test_file.xlsx",

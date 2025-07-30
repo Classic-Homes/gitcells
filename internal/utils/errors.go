@@ -11,8 +11,8 @@ const (
 	maxErrorDetailLines = 5
 )
 
-// SheetSyncError represents a custom error type for SheetSync operations
-type SheetSyncError struct {
+// GitCellsError represents a custom error type for GitCells operations
+type GitCellsError struct {
 	Type        ErrorType
 	Operation   string
 	File        string
@@ -38,7 +38,7 @@ const (
 )
 
 // Error implements the error interface
-func (e *SheetSyncError) Error() string {
+func (e *GitCellsError) Error() string {
 	var parts []string
 
 	if e.Type != "" {
@@ -65,18 +65,18 @@ func (e *SheetSyncError) Error() string {
 }
 
 // Unwrap returns the underlying error
-func (e *SheetSyncError) Unwrap() error {
+func (e *GitCellsError) Unwrap() error {
 	return e.Cause
 }
 
 // IsRecoverable returns whether the error is recoverable
-func (e *SheetSyncError) IsRecoverable() bool {
+func (e *GitCellsError) IsRecoverable() bool {
 	return e.Recoverable
 }
 
-// NewError creates a new SheetSyncError
-func NewError(errorType ErrorType, operation, message string) *SheetSyncError {
-	return &SheetSyncError{
+// NewError creates a new GitCellsError
+func NewError(errorType ErrorType, operation, message string) *GitCellsError {
+	return &GitCellsError{
 		Type:        errorType,
 		Operation:   operation,
 		Message:     message,
@@ -84,13 +84,13 @@ func NewError(errorType ErrorType, operation, message string) *SheetSyncError {
 	}
 }
 
-// WrapError wraps an existing error with SheetSync context
-func WrapError(err error, errorType ErrorType, operation, message string) *SheetSyncError {
+// WrapError wraps an existing error with GitCells context
+func WrapError(err error, errorType ErrorType, operation, message string) *GitCellsError {
 	if err == nil {
 		return nil
 	}
 
-	return &SheetSyncError{
+	return &GitCellsError{
 		Type:        errorType,
 		Operation:   operation,
 		Message:     message,
@@ -100,12 +100,12 @@ func WrapError(err error, errorType ErrorType, operation, message string) *Sheet
 }
 
 // WrapFileError wraps an error with file context
-func WrapFileError(err error, errorType ErrorType, operation, file, message string) *SheetSyncError {
+func WrapFileError(err error, errorType ErrorType, operation, file, message string) *GitCellsError {
 	if err == nil {
 		return nil
 	}
 
-	return &SheetSyncError{
+	return &GitCellsError{
 		Type:        errorType,
 		Operation:   operation,
 		File:        file,
@@ -237,7 +237,7 @@ func DefaultRetryConfig() *RetryConfig {
 	return &RetryConfig{
 		MaxAttempts: 3,
 		ShouldRetry: func(err error) bool {
-			if ssErr, ok := err.(*SheetSyncError); ok {
+			if ssErr, ok := err.(*GitCellsError); ok {
 				return ssErr.IsRecoverable()
 			}
 			return isRecoverableError(err)

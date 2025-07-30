@@ -98,7 +98,7 @@ func NewLogger(config *LogConfig) *logrus.Logger {
 		})
 	case LogFormatText:
 	default:
-		logger.SetFormatter(&SheetSyncFormatter{
+		logger.SetFormatter(&GitCellsFormatter{
 			DisableColors:   config.NoColors,
 			FullTimestamp:   true,
 			TimestampFormat: "2006-01-02 15:04:05",
@@ -136,8 +136,8 @@ func NewVerboseLogger() *logrus.Logger {
 	})
 }
 
-// SheetSyncFormatter is a custom formatter for SheetSync
-type SheetSyncFormatter struct {
+// GitCellsFormatter is a custom formatter for GitCells
+type GitCellsFormatter struct {
 	DisableColors   bool
 	FullTimestamp   bool
 	TimestampFormat string
@@ -145,7 +145,7 @@ type SheetSyncFormatter struct {
 }
 
 // Format implements the logrus.Formatter interface
-func (f *SheetSyncFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+func (f *GitCellsFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	var b strings.Builder
 
 	// Timestamp
@@ -188,7 +188,7 @@ func (f *SheetSyncFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 }
 
 // getLevelColor returns ANSI color code for the log level
-func (f *SheetSyncFormatter) getLevelColor(level logrus.Level) string {
+func (f *GitCellsFormatter) getLevelColor(level logrus.Level) string {
 	switch level {
 	case logrus.DebugLevel:
 		return "\033[36m" // Cyan
@@ -210,7 +210,7 @@ func (f *SheetSyncFormatter) getLevelColor(level logrus.Level) string {
 }
 
 // writeFields writes structured fields to the log output
-func (f *SheetSyncFormatter) writeFields(b *strings.Builder, fields logrus.Fields) {
+func (f *GitCellsFormatter) writeFields(b *strings.Builder, fields logrus.Fields) {
 	var keys []string
 	for key := range fields {
 		keys = append(keys, key)
@@ -272,7 +272,7 @@ func LogError(logger *logrus.Logger, err error, operation string, context map[st
 		entry = entry.WithFields(logrus.Fields(context))
 	}
 
-	if ssErr, ok := err.(*SheetSyncError); ok {
+	if ssErr, ok := err.(*GitCellsError); ok {
 		entry = entry.WithFields(logrus.Fields{
 			"error_type":  ssErr.Type,
 			"recoverable": ssErr.IsRecoverable(),

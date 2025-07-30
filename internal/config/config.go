@@ -1,4 +1,4 @@
-// Package config provides configuration management for SheetSync application.
+// Package config provides configuration management for GitCells application.
 package config
 
 import (
@@ -53,9 +53,9 @@ func Load(configPath string) (*Config, error) {
 	v.SetDefault("git.branch", "main")
 	v.SetDefault("git.auto_push", false)
 	v.SetDefault("git.auto_pull", true)
-	v.SetDefault("git.user_name", "SheetSync")
-	v.SetDefault("git.user_email", "sheetsync@localhost")
-	v.SetDefault("git.commit_template", "SheetSync: {action} {filename} at {timestamp}")
+	v.SetDefault("git.user_name", "GitCells")
+	v.SetDefault("git.user_email", "gitcells@localhost")
+	v.SetDefault("git.commit_template", "GitCells: {action} {filename} at {timestamp}")
 	v.SetDefault("watcher.debounce_delay", "1s")
 	v.SetDefault("watcher.file_extensions", []string{".xlsx", ".xls", ".xlsm"})
 	v.SetDefault("watcher.ignore_patterns", []string{"~$*", "*.tmp"})
@@ -73,7 +73,7 @@ func Load(configPath string) (*Config, error) {
 			return nil, err
 		}
 	} else {
-		v.SetConfigName(".sheetsync")
+		v.SetConfigName(".gitcells")
 		v.SetConfigType("yaml")
 		v.AddConfigPath(".")
 		// Try to read config, but don't error if not found (use defaults)

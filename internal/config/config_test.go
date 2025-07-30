@@ -21,7 +21,7 @@ func TestLoadDefaultConfig(t *testing.T) {
 	assert.Equal(t, "main", cfg.Git.Branch)
 	assert.Equal(t, false, cfg.Git.AutoPush)
 	assert.Equal(t, true, cfg.Git.AutoPull)
-	assert.Equal(t, "SheetSync", cfg.Git.UserName)
+	assert.Equal(t, "GitCells", cfg.Git.UserName)
 	assert.Equal(t, true, cfg.Converter.PreserveFormulas)
 	assert.Equal(t, 1000000, cfg.Converter.MaxCellsPerSheet)
 	assert.Contains(t, cfg.Watcher.FileExtensions, ".xlsx")
@@ -30,7 +30,7 @@ func TestLoadDefaultConfig(t *testing.T) {
 func TestLoadConfigFromFile(t *testing.T) {
 	// Create temporary config file
 	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, ".sheetsync.yaml")
+	configPath := filepath.Join(tmpDir, ".gitcells.yaml")
 
 	configContent := `version: "2.0"
 git:

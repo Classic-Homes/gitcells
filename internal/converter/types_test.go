@@ -141,14 +141,14 @@ func TestCellReference(t *testing.T) {
 }
 
 func TestFormatCommitMessage(t *testing.T) {
-	template := "SheetSync: {action} {filename} at {timestamp}"
+	template := "GitCells: {action} {filename} at {timestamp}"
 	replacements := map[string]string{
 		"action":    "updated",
 		"filename":  "test.xlsx",
 		"timestamp": "2025-07-30T12:00:00Z",
 	}
 
-	expected := "SheetSync: updated test.xlsx at 2025-07-30T12:00:00Z"
+	expected := "GitCells: updated test.xlsx at 2025-07-30T12:00:00Z"
 	result := formatCommitMessage(template, replacements)
 
 	assert.Equal(t, expected, result)

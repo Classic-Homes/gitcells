@@ -41,7 +41,7 @@ func (c *converter) ExcelToJSON(filePath string, options ConvertOptions) (*model
 		Metadata: models.DocumentMetadata{
 			Created:      time.Now(),
 			Modified:     fileInfo.ModTime(),
-			AppVersion:   "sheetsync-0.1.0",
+			AppVersion:   "gitcells-0.1.0",
 			OriginalFile: filePath,
 			FileSize:     fileInfo.Size(),
 			Checksum:     checksum,

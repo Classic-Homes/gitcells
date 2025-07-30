@@ -4,9 +4,9 @@ git:
   branch: main
   auto_push: false
   auto_pull: true
-  user_name: "SheetSync"
-  user_email: "sheetsync@localhost"
-  commit_template: "SheetSync: {action} {filename} at {timestamp}"
+  user_name: "gitcells"
+  user_email: "gitcells@localhost"
+  commit_template: "gitcells: {action} {filename} at {timestamp}"
 
 watcher:
   directories: []

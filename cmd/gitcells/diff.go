@@ -28,9 +28,9 @@ func newDiffCommand(logger *logrus.Logger) *cobra.Command {
 		Long: `Compare two Excel files or show changes in a file.
 
 Examples:
-  sheetsync diff file1.xlsx file2.xlsx    # Compare two Excel files
-  sheetsync diff file.xlsx                # Compare with JSON version
-  sheetsync diff --json file1.json file2.json  # Compare JSON files directly`,
+  gitcells diff file1.xlsx file2.xlsx    # Compare two Excel files
+  gitcells diff file.xlsx                # Compare with JSON version
+  gitcells diff --json file1.json file2.json  # Compare JSON files directly`,
 		Args: cobra.RangeArgs(minDiffArgs, maxDiffArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDiff(cmd, args, logger)

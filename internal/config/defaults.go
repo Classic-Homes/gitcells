@@ -9,9 +9,9 @@ git:
   branch: main
   auto_push: false
   auto_pull: true
-  user_name: "SheetSync"
-  user_email: "sheetsync@localhost"
-  commit_template: "SheetSync: {action} {filename} at {timestamp}"
+  user_name: "GitCells"
+  user_email: "gitcells@localhost"
+  commit_template: "GitCells: {action} {filename} at {timestamp}"
 
 watcher:
   directories: []
@@ -42,9 +42,9 @@ func GetDefault() *Config {
 			Branch:         "main",
 			AutoPush:       false,
 			AutoPull:       true,
-			UserName:       "SheetSync",
-			UserEmail:      "sheetsync@localhost",
-			CommitTemplate: "SheetSync: {action} {filename} at {timestamp}",
+			UserName:       "GitCells",
+			UserEmail:      "gitcells@localhost",
+			CommitTemplate: "GitCells: {action} {filename} at {timestamp}",
 		},
 		Watcher: WatcherConfig{
 			Directories:    []string{},

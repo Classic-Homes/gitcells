@@ -34,7 +34,7 @@ func TestExcelToJSON(t *testing.T) {
 			validate: func(t *testing.T, doc *models.ExcelDocument) {
 				assert.Equal(t, "1.0", doc.Version)
 				assert.NotEmpty(t, doc.Metadata.Checksum)
-				assert.Equal(t, "sheetsync-0.1.0", doc.Metadata.AppVersion)
+				assert.Equal(t, "gitcells-0.1.0", doc.Metadata.AppVersion)
 				assert.Len(t, doc.Sheets, 1)
 
 				sheet := doc.Sheets[0]

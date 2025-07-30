@@ -15,9 +15,9 @@ git:
   branch: main
   auto_push: false
   auto_pull: true
-  user_name: "SheetSync"
-  user_email: "sheetsync@localhost"
-  commit_template: "SheetSync: {action} {filename} at {timestamp}"
+  user_name: "GitCells"
+  user_email: "gitcells@localhost"
+  commit_template: "GitCells: {action} {filename} at {timestamp}"
 
 watcher:
   directories: []
@@ -43,8 +43,8 @@ converter:
 func newInitCommand(logger *logrus.Logger) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init [directory]",
-		Short: "Initialize SheetSync in a directory",
-		Long:  "Initialize SheetSync configuration and Git repository in the specified directory",
+		Short: "Initialize GitCells in a directory",
+		Long:  "Initialize GitCells configuration and Git repository in the specified directory",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := "."
@@ -58,7 +58,7 @@ func newInitCommand(logger *logrus.Logger) *cobra.Command {
 			}
 
 			// Create config file
-			configPath := filepath.Join(dir, ".sheetsync.yaml")
+			configPath := filepath.Join(dir, ".gitcells.yaml")
 			if _, err := os.Stat(configPath); err == nil {
 				// Config already exists
 				overwrite, _ := cmd.Flags().GetBool("force")
@@ -71,7 +71,7 @@ func newInitCommand(logger *logrus.Logger) *cobra.Command {
 				return fmt.Errorf("failed to write config file: %w", err)
 			}
 
-			logger.Infof("Created SheetSync configuration at %s", configPath)
+			logger.Infof("Created GitCells configuration at %s", configPath)
 
 			// Initialize git repo if requested
 			initGit, _ := cmd.Flags().GetBool("git")
@@ -92,14 +92,14 @@ func newInitCommand(logger *logrus.Logger) *cobra.Command {
 .DS_Store
 Thumbs.db
 
-# SheetSync
-.sheetsync.cache/
+# GitCells
+.gitcells.cache/
 `
 			if err := os.WriteFile(gitignorePath, []byte(gitignoreContent), filePermissions); err != nil {
 				logger.Warnf("Failed to create .gitignore: %v", err)
 			}
 
-			logger.Info("SheetSync initialized successfully!")
+			logger.Info("GitCells initialized successfully!")
 			return nil
 		},
 	}

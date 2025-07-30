@@ -35,7 +35,7 @@ func TestJSONToExcel(t *testing.T) {
 				Metadata: models.DocumentMetadata{
 					Created:      time.Now(),
 					Modified:     time.Now(),
-					AppVersion:   "sheetsync-test",
+					AppVersion:   "gitcells-test",
 					OriginalFile: "test.xlsx",
 					FileSize:     1024,
 					Checksum:     "abc123",
@@ -94,7 +94,7 @@ func TestJSONToExcel(t *testing.T) {
 				Metadata: models.DocumentMetadata{
 					Created:    time.Now(),
 					Modified:   time.Now(),
-					AppVersion: "sheetsync-test",
+					AppVersion: "gitcells-test",
 				},
 				Sheets: []models.Sheet{
 					{
@@ -134,7 +134,7 @@ func TestJSONToExcel(t *testing.T) {
 				Metadata: models.DocumentMetadata{
 					Created:    time.Now(),
 					Modified:   time.Now(),
-					AppVersion: "sheetsync-test",
+					AppVersion: "gitcells-test",
 				},
 				Sheets: []models.Sheet{
 					{
@@ -176,7 +176,7 @@ func TestJSONToExcel(t *testing.T) {
 				Metadata: models.DocumentMetadata{
 					Created:    time.Now(),
 					Modified:   time.Now(),
-					AppVersion: "sheetsync-test",
+					AppVersion: "gitcells-test",
 				},
 				Sheets: []models.Sheet{
 					{
@@ -224,7 +224,7 @@ func TestJSONToExcel(t *testing.T) {
 				Metadata: models.DocumentMetadata{
 					Created:    time.Now(),
 					Modified:   time.Now(),
-					AppVersion: "sheetsync-test",
+					AppVersion: "gitcells-test",
 				},
 				Sheets: []models.Sheet{
 					{

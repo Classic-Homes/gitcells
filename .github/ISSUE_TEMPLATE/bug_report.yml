@@ -1,5 +1,5 @@
 name: Bug Report
-description: File a bug report to help us improve SheetSync
+description: File a bug report to help us improve GitCells
 title: "[Bug]: "
 labels: ["bug", "triage"]
 assignees:
@@ -14,8 +14,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: SheetSync Version
-      description: What version of SheetSync are you running?
+      label: GitCells Version
+      description: What version of GitCells are you running?
       placeholder: "v1.0.0 or commit hash"
     validations:
       required: true

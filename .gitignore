@@ -20,7 +20,7 @@ go.work
 
 # Build output
 dist/
-sheetsync
+gitcells
 
 # Excel temporary files
 ~$*.xlsx
@@ -52,9 +52,9 @@ config.yaml
 .env.local
 .env.production
 
-# SheetSync specific
-.sheetsync.cache/
-.sheetsync.log
+# gitcells specific
+.gitcells.cache/
+.gitcells.log
 
 # Profiling files
 *.prof
