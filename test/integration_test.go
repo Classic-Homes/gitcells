@@ -47,12 +47,12 @@ func TestFullConversionWorkflow(t *testing.T) {
 	jsonData, err := json.MarshalIndent(doc, "", "  ")
 	require.NoError(t, err)
 
-	err = os.WriteFile(jsonFile, jsonData, 0644)
+	err = os.WriteFile(jsonFile, jsonData, 0600)
 	require.NoError(t, err)
 
 	// Step 3: Load JSON from file
 	var loadedDoc models.ExcelDocument
-	jsonData, err = os.ReadFile(jsonFile)
+	jsonData, err = os.ReadFile(jsonFile) // #nosec G304 - test file path
 	require.NoError(t, err)
 
 	err = json.Unmarshal(jsonData, &loadedDoc)
@@ -69,7 +69,7 @@ func TestFullConversionWorkflow(t *testing.T) {
 	// Step 5: Verify the recreated file
 	f, err := excelize.OpenFile(recreatedFile)
 	require.NoError(t, err)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Check basic structure
 	sheetList := f.GetSheetList()
@@ -107,7 +107,7 @@ converter:
 `
 
 	configFile := filepath.Join(tempDir, "test-config.yaml")
-	err := os.WriteFile(configFile, []byte(configContent), 0644)
+	err := os.WriteFile(configFile, []byte(configContent), 0600)
 	require.NoError(t, err)
 
 	// Load the configuration
@@ -206,14 +206,14 @@ func TestLargeFileHandling(t *testing.T) {
 
 	// Create a file with many cells
 	f := excelize.NewFile()
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Add data to create a reasonably large file
 	for row := 1; row <= 100; row++ {
 		for col := 1; col <= 26; col++ { // A-Z columns
 			cellRef, _ := excelize.CoordinatesToCellName(col, row)
 			value := fmt.Sprintf("Cell_%d_%d", row, col)
-			f.SetCellValue("Sheet1", cellRef, value)
+			_ = f.SetCellValue("Sheet1", cellRef, value)
 		}
 	}
 

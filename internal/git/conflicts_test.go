@@ -15,6 +15,14 @@ import (
 	"github.com/Classic-Homes/gitcells/pkg/models"
 )
 
+const testConflictContent = `line 1
+<<<<<<< HEAD
+our changes
+=======
+their changes
+>>>>>>> branch
+line 2`
+
 func TestDetectConflicts_NoConflicts(t *testing.T) {
 	tempFile := createTempFile(t, "no conflicts here\njust regular content\n")
 	defer func() {
@@ -32,13 +40,7 @@ func TestDetectConflicts_NoConflicts(t *testing.T) {
 }
 
 func TestDetectConflicts_SimpleConflict(t *testing.T) {
-	content := `line 1
-<<<<<<< HEAD
-our changes
-=======
-their changes
->>>>>>> branch
-line 2`
+	content := testConflictContent
 
 	tempFile := createTempFile(t, content)
 	defer func() {
@@ -106,13 +108,7 @@ last line`
 }
 
 func TestResolveConflict_KeepOurs(t *testing.T) {
-	content := `line 1
-<<<<<<< HEAD
-our changes
-=======
-their changes
->>>>>>> branch
-line 2`
+	content := testConflictContent
 
 	tempFile := createTempFile(t, content)
 	defer func() {
@@ -126,7 +122,7 @@ line 2`
 
 	require.NoError(t, err)
 
-	resolvedContent, err := os.ReadFile(tempFile)
+	resolvedContent, err := os.ReadFile(tempFile) // #nosec G304 - test file
 	require.NoError(t, err)
 
 	expected := "line 1\nour changes\nline 2"
@@ -134,13 +130,7 @@ line 2`
 }
 
 func TestResolveConflict_KeepTheirs(t *testing.T) {
-	content := `line 1
-<<<<<<< HEAD
-our changes
-=======
-their changes
->>>>>>> branch
-line 2`
+	content := testConflictContent
 
 	tempFile := createTempFile(t, content)
 	defer func() {
@@ -154,7 +144,7 @@ line 2`
 
 	require.NoError(t, err)
 
-	resolvedContent, err := os.ReadFile(tempFile)
+	resolvedContent, err := os.ReadFile(tempFile) // #nosec G304 - test file
 	require.NoError(t, err)
 
 	expected := "line 1\ntheir changes\nline 2"
@@ -162,13 +152,7 @@ line 2`
 }
 
 func TestResolveConflict_KeepBoth(t *testing.T) {
-	content := `line 1
-<<<<<<< HEAD
-our changes
-=======
-their changes
->>>>>>> branch
-line 2`
+	content := testConflictContent
 
 	tempFile := createTempFile(t, content)
 	defer func() {
@@ -182,7 +166,7 @@ line 2`
 
 	require.NoError(t, err)
 
-	resolvedContent, err := os.ReadFile(tempFile)
+	resolvedContent, err := os.ReadFile(tempFile) // #nosec G304 - test file
 	require.NoError(t, err)
 
 	expected := "line 1\nour changes\ntheir changes\nline 2"
@@ -252,7 +236,9 @@ func TestSmartMergeExcelJSON_ValidDocuments(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify merge results
-	assert.True(t, mergedDoc.Metadata.Modified.After(doc1.Metadata.Modified) || mergedDoc.Metadata.Modified.Equal(doc2.Metadata.Modified)) // Should use newer timestamp
+	// Should use newer timestamp
+	assert.True(t, mergedDoc.Metadata.Modified.After(doc1.Metadata.Modified) ||
+		mergedDoc.Metadata.Modified.Equal(doc2.Metadata.Modified))
 	require.Len(t, mergedDoc.Sheets, 1)
 
 	// Check merged cells
@@ -432,7 +418,7 @@ func TestApplyResolutionStrategy(t *testing.T) {
 
 // Helper functions
 
-func createTestClient(t *testing.T) *Client {
+func createTestClient(_ *testing.T) *Client {
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
 	logger.SetOutput(os.Stdout) // For test visibility

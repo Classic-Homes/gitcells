@@ -1,8 +1,14 @@
+// Package utils provides common utility functions for the GitCells application.
 package utils
 
 import (
 	"fmt"
 	"strings"
+)
+
+const (
+	// maxErrorDetailLines is the maximum number of detailed error lines to show
+	maxErrorDetailLines = 5
 )
 
 // SheetSyncError represents a custom error type for SheetSync operations
@@ -69,7 +75,7 @@ func (e *SheetSyncError) IsRecoverable() bool {
 }
 
 // NewError creates a new SheetSyncError
-func NewError(errorType ErrorType, operation string, message string) *SheetSyncError {
+func NewError(errorType ErrorType, operation, message string) *SheetSyncError {
 	return &SheetSyncError{
 		Type:        errorType,
 		Operation:   operation,
@@ -79,7 +85,7 @@ func NewError(errorType ErrorType, operation string, message string) *SheetSyncE
 }
 
 // WrapError wraps an existing error with SheetSync context
-func WrapError(err error, errorType ErrorType, operation string, message string) *SheetSyncError {
+func WrapError(err error, errorType ErrorType, operation, message string) *SheetSyncError {
 	if err == nil {
 		return nil
 	}
@@ -94,7 +100,7 @@ func WrapError(err error, errorType ErrorType, operation string, message string)
 }
 
 // WrapFileError wraps an error with file context
-func WrapFileError(err error, errorType ErrorType, operation string, file string, message string) *SheetSyncError {
+func WrapFileError(err error, errorType ErrorType, operation, file, message string) *SheetSyncError {
 	if err == nil {
 		return nil
 	}
@@ -206,7 +212,7 @@ func (ec *ErrorCollector) Error() string {
 	summary.WriteString(fmt.Sprintf("%d errors occurred:\n", len(ec.errors)))
 
 	for i, err := range ec.errors {
-		if i >= 5 { // Limit detailed output
+		if i >= maxErrorDetailLines { // Limit detailed output
 			summary.WriteString(fmt.Sprintf("... and %d more errors\n", len(ec.errors)-i))
 			break
 		}

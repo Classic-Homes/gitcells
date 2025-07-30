@@ -9,6 +9,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	extXLSX = ".xlsx"
+	extJSON = ".json"
+)
+
 func newConvertCommand(logger *logrus.Logger) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "convert <file>",
@@ -21,16 +26,16 @@ func newConvertCommand(logger *logrus.Logger) *cobra.Command {
 
 			// Determine conversion direction based on file extension
 			ext := strings.ToLower(filepath.Ext(inputFile))
-			isExcelToJSON := ext == ".xlsx" || ext == ".xls" || ext == ".xlsm"
+			isExcelToJSON := ext == extXLSX || ext == ".xls" || ext == ".xlsm"
 
 			if outputFile == "" {
 				// Auto-generate output filename
 				if isExcelToJSON {
-					outputFile = inputFile + ".json"
-				} else if ext == ".json" {
-					outputFile = strings.TrimSuffix(inputFile, ".json")
-					if !strings.HasSuffix(outputFile, ".xlsx") {
-						outputFile += ".xlsx"
+					outputFile = inputFile + extJSON
+				} else if ext == extJSON {
+					outputFile = strings.TrimSuffix(inputFile, extJSON)
+					if !strings.HasSuffix(outputFile, extXLSX) {
+						outputFile += extXLSX
 					}
 				} else {
 					return fmt.Errorf("unsupported file type: %s", ext)

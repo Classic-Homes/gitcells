@@ -48,14 +48,14 @@ func TestFileWatcher_AddDirectory(t *testing.T) {
 
 	fw, err := NewFileWatcher(config, handler, logger)
 	require.NoError(t, err)
-	defer fw.Stop()
+	defer func() { _ = fw.Stop() }()
 
 	// Create a temporary directory
 	tempDir := t.TempDir()
 
 	// Create subdirectories
 	subDir := filepath.Join(tempDir, "subdir")
-	err = os.MkdirAll(subDir, 0755)
+	err = os.MkdirAll(subDir, 0750)
 	require.NoError(t, err)
 
 	// Add the directory to watcher
@@ -78,7 +78,7 @@ func TestFileWatcher_ShouldProcessFile(t *testing.T) {
 	logger := logrus.New()
 	fw, err := NewFileWatcher(config, handler, logger)
 	require.NoError(t, err)
-	defer fw.Stop()
+	defer func() { _ = fw.Stop() }()
 
 	tests := []struct {
 		name     string
@@ -141,7 +141,7 @@ func TestFileWatcher_ShouldIgnorePath(t *testing.T) {
 	logger := logrus.New()
 	fw, err := NewFileWatcher(config, handler, logger)
 	require.NoError(t, err)
-	defer fw.Stop()
+	defer func() { _ = fw.Stop() }()
 
 	tests := []struct {
 		name     string
@@ -200,7 +200,7 @@ func TestFileWatcher_Integration(t *testing.T) {
 
 	fw, err := NewFileWatcher(config, handler, logger)
 	require.NoError(t, err)
-	defer fw.Stop()
+	defer func() { _ = fw.Stop() }()
 
 	// Create a temporary directory
 	tempDir := t.TempDir()
@@ -218,7 +218,7 @@ func TestFileWatcher_Integration(t *testing.T) {
 
 	// Create a test file
 	testFile := filepath.Join(tempDir, "test.xlsx")
-	err = os.WriteFile(testFile, []byte("test content"), 0644)
+	err = os.WriteFile(testFile, []byte("test content"), 0600)
 	require.NoError(t, err)
 
 	// Wait for event (with timeout)
@@ -233,7 +233,7 @@ func TestFileWatcher_Integration(t *testing.T) {
 	}
 
 	// Modify the file
-	err = os.WriteFile(testFile, []byte("modified content"), 0644)
+	err = os.WriteFile(testFile, []byte("modified content"), 0600)
 	require.NoError(t, err)
 
 	// Wait for modify event
@@ -307,7 +307,7 @@ func TestFileWatcher_HandlerError(t *testing.T) {
 
 	fw, err := NewFileWatcher(config, errorHandler, logger)
 	require.NoError(t, err)
-	defer fw.Stop()
+	defer func() { _ = fw.Stop() }()
 
 	tempDir := t.TempDir()
 	err = fw.AddDirectory(tempDir)
@@ -318,7 +318,7 @@ func TestFileWatcher_HandlerError(t *testing.T) {
 
 	// Create a file that should trigger the error handler
 	testFile := filepath.Join(tempDir, "test.xlsx")
-	err = os.WriteFile(testFile, []byte("test"), 0644)
+	err = os.WriteFile(testFile, []byte("test"), 0600)
 	require.NoError(t, err)
 
 	// Wait a bit for processing

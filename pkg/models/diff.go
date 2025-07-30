@@ -8,6 +8,15 @@ import (
 	"time"
 )
 
+const (
+	noChangesMsg      = "No changes detected"
+	noChangesMsgColor = "\033[32mNo changes detected\033[0m"
+	colorGreen        = "\033[32m"
+	colorYellow       = "\033[33m"
+	colorRed          = "\033[31m"
+	colorReset        = "\033[0m"
+)
+
 type ExcelDiff struct {
 	Timestamp  time.Time   `json:"timestamp"`
 	Summary    DiffSummary `json:"summary"`
@@ -231,56 +240,56 @@ func cellsAreDifferent(old, updated *Cell) bool {
 }
 
 // describeCellChange generates a human-readable description of the change
-func describeCellChange(old, new *Cell) string {
-	if old == nil && new != nil {
-		if new.Formula != "" {
-			return fmt.Sprintf("Added formula: %s", new.Formula)
+func describeCellChange(old, newCell *Cell) string {
+	if old == nil && newCell != nil {
+		if newCell.Formula != "" {
+			return fmt.Sprintf("Added formula: %s", newCell.Formula)
 		}
-		return fmt.Sprintf("Added value: %v", new.Value)
+		return fmt.Sprintf("Added value: %v", newCell.Value)
 	}
 
-	if old != nil && new == nil {
+	if old != nil && newCell == nil {
 		if old.Formula != "" {
 			return fmt.Sprintf("Removed formula: %s", old.Formula)
 		}
 		return fmt.Sprintf("Removed value: %v", old.Value)
 	}
 
-	if old != nil && new != nil {
+	if old != nil && newCell != nil {
 		var changes []string
 
 		// Check value changes
-		if !reflect.DeepEqual(old.Value, new.Value) {
-			changes = append(changes, fmt.Sprintf("value: %v → %v", old.Value, new.Value))
+		if !reflect.DeepEqual(old.Value, newCell.Value) {
+			changes = append(changes, fmt.Sprintf("value: %v → %v", old.Value, newCell.Value))
 		}
 
 		// Check formula changes
-		if old.Formula != new.Formula {
+		if old.Formula != newCell.Formula {
 			if old.Formula == "" {
-				changes = append(changes, fmt.Sprintf("added formula: %s", new.Formula))
-			} else if new.Formula == "" {
+				changes = append(changes, fmt.Sprintf("added formula: %s", newCell.Formula))
+			} else if newCell.Formula == "" {
 				changes = append(changes, fmt.Sprintf("removed formula: %s", old.Formula))
 			} else {
-				changes = append(changes, fmt.Sprintf("formula: %s → %s", old.Formula, new.Formula))
+				changes = append(changes, fmt.Sprintf("formula: %s → %s", old.Formula, newCell.Formula))
 			}
 		}
 
 		// Check comment changes
-		if (old.Comment == nil) != (new.Comment == nil) {
+		if (old.Comment == nil) != (newCell.Comment == nil) {
 			if old.Comment == nil {
 				changes = append(changes, "added comment")
 			} else {
 				changes = append(changes, "removed comment")
 			}
-		} else if old.Comment != nil && new.Comment != nil && old.Comment.Text != new.Comment.Text {
+		} else if old.Comment != nil && newCell.Comment != nil && old.Comment.Text != newCell.Comment.Text {
 			changes = append(changes, "modified comment")
 		}
 
 		// Check hyperlink changes
-		if old.Hyperlink != new.Hyperlink {
+		if old.Hyperlink != newCell.Hyperlink {
 			if old.Hyperlink == "" {
 				changes = append(changes, "added hyperlink")
-			} else if new.Hyperlink == "" {
+			} else if newCell.Hyperlink == "" {
 				changes = append(changes, "removed hyperlink")
 			} else {
 				changes = append(changes, "modified hyperlink")
@@ -342,7 +351,7 @@ func (d *ExcelDiff) formatSummaryParts(colorized bool) []string {
 // String returns a string representation of the diff
 func (d *ExcelDiff) String() string {
 	if !d.HasChanges() {
-		return "No changes detected"
+		return noChangesMsg
 	}
 
 	parts := d.formatSummaryParts(false)
@@ -352,7 +361,7 @@ func (d *ExcelDiff) String() string {
 // ToColorizedString returns a colorized string representation of the diff for terminal display
 func (d *ExcelDiff) ToColorizedString() string {
 	if !d.HasChanges() {
-		return "\033[32mNo changes detected\033[0m" // Green
+		return noChangesMsgColor
 	}
 
 	parts := d.formatSummaryParts(true)
@@ -362,7 +371,7 @@ func (d *ExcelDiff) ToColorizedString() string {
 // ToDetailedString returns a detailed string representation showing all changes
 func (d *ExcelDiff) ToDetailedString() string {
 	if !d.HasChanges() {
-		return "No changes detected"
+		return noChangesMsg
 	}
 
 	var result strings.Builder
@@ -409,13 +418,13 @@ func (d *ExcelDiff) ToColorizedDetailedString() string {
 			var color string
 			switch sheetDiff.Action {
 			case ChangeTypeAdd:
-				color = "\033[32m" // Green
+				color = colorGreen
 			case ChangeTypeModify:
-				color = "\033[33m" // Yellow
+				color = colorYellow
 			case ChangeTypeDelete:
-				color = "\033[31m" // Red
+				color = colorRed
 			default:
-				color = "\033[0m"
+				color = colorReset
 			}
 			result.WriteString(fmt.Sprintf("  Action: %s%s\033[0m\n", color, sheetDiff.Action))
 		}

@@ -22,6 +22,15 @@ const (
 	LogLevelWarn  LogLevel = "warn"
 	LogLevelError LogLevel = "error"
 	LogLevelFatal LogLevel = "fatal"
+
+	// filePermissions is the permission for created files
+	filePermissions = 0600
+	// loggerCallDepth is the call stack depth to skip for logging
+	loggerCallDepth = 8
+
+	// ANSI color codes
+	colorMagenta  = "\033[35m"
+	colorDarkGray = "\033[90m"
 )
 
 // LogFormat represents different log output formats
@@ -87,6 +96,7 @@ func NewLogger(config *LogConfig) *logrus.Logger {
 		logger.SetFormatter(&logrus.JSONFormatter{
 			TimestampFormat: time.RFC3339,
 		})
+	case LogFormatText:
 	default:
 		logger.SetFormatter(&SheetSyncFormatter{
 			DisableColors:   config.NoColors,
@@ -98,7 +108,7 @@ func NewLogger(config *LogConfig) *logrus.Logger {
 
 	// Set output
 	if config.File != "" {
-		file, err := os.OpenFile(config.File, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		file, err := os.OpenFile(config.File, os.O_CREATE|os.O_WRONLY|os.O_APPEND, filePermissions)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to create log file %s: %v\n", config.File, err)
 			logger.SetOutput(config.Output)
@@ -189,7 +199,11 @@ func (f *SheetSyncFormatter) getLevelColor(level logrus.Level) string {
 	case logrus.ErrorLevel:
 		return "\033[31m" // Red
 	case logrus.FatalLevel:
-		return "\033[35m" // Magenta
+		return colorMagenta
+	case logrus.PanicLevel:
+		return colorMagenta
+	case logrus.TraceLevel:
+		return colorDarkGray
 	default:
 		return ""
 	}
@@ -206,7 +220,7 @@ func (f *SheetSyncFormatter) writeFields(b *strings.Builder, fields logrus.Field
 		if i > 0 {
 			b.WriteString(" ")
 		}
-		b.WriteString(fmt.Sprintf("%s=%v", key, fields[key]))
+		fmt.Fprintf(b, "%s=%v", key, fields[key])
 	}
 }
 
@@ -224,7 +238,7 @@ func (hook *ErrorContextHook) Fire(entry *logrus.Entry) error {
 	if entry.Level <= logrus.ErrorLevel {
 		if _, ok := entry.Data["stack"]; !ok {
 			// Add caller information
-			if pc, file, line, ok := runtime.Caller(8); ok { // Skip logrus frames
+			if pc, file, line, ok := runtime.Caller(loggerCallDepth); ok { // Skip logrus frames
 				if details := runtime.FuncForPC(pc); details != nil {
 					entry.Data["func"] = details.Name()
 					entry.Data["file"] = fmt.Sprintf("%s:%d", filepath.Base(file), line)
@@ -270,7 +284,7 @@ func LogError(logger *logrus.Logger, err error, operation string, context map[st
 }
 
 // LogErrorWithRetry logs an error with retry context
-func LogErrorWithRetry(logger *logrus.Logger, err error, attempt int, maxAttempts int) {
+func LogErrorWithRetry(logger *logrus.Logger, err error, attempt, maxAttempts int) {
 	logger.WithFields(logrus.Fields{
 		"attempt":      attempt,
 		"max_attempts": maxAttempts,

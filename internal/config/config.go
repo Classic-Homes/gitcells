@@ -7,6 +7,11 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	// DefaultMaxCellsPerSheet is the default maximum number of cells per sheet
+	DefaultMaxCellsPerSheet = 1000000
+)
+
 type Config struct {
 	Version   string          `yaml:"version"`
 	Git       GitConfig       `yaml:"git"`
@@ -59,7 +64,7 @@ func Load(configPath string) (*Config, error) {
 	v.SetDefault("converter.preserve_comments", true)
 	v.SetDefault("converter.compact_json", false)
 	v.SetDefault("converter.ignore_empty_cells", true)
-	v.SetDefault("converter.max_cells_per_sheet", 1000000)
+	v.SetDefault("converter.max_cells_per_sheet", DefaultMaxCellsPerSheet)
 
 	// Load config file
 	if configPath != "" {

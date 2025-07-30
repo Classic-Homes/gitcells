@@ -42,7 +42,7 @@ converter:
   max_cells_per_sheet: 5000
 `
 
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0600)
 	require.NoError(t, err)
 
 	// Load config

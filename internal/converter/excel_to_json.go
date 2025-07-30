@@ -231,7 +231,7 @@ func (c *converter) processSheet(f *excelize.File, sheetName string, index int, 
 }
 
 func (c *converter) calculateChecksum(filePath string) (string, error) {
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) // #nosec G304 - file path is user input
 	if err != nil {
 		return "", err
 	}

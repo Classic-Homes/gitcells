@@ -34,7 +34,7 @@ func TestInitCommand(t *testing.T) {
 	err = os.Chdir(tempDir)
 	require.NoError(t, err)
 	defer func() {
-		os.Chdir(originalDir)
+		_ = os.Chdir(originalDir)
 	}()
 
 	cmd := createRootCommand()

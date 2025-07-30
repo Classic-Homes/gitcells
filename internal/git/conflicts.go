@@ -16,9 +16,15 @@ import (
 type ConflictMarker string
 
 const (
-	ConflictStart  ConflictMarker = "<<<<<<< "
-	ConflictMiddle ConflictMarker = "======="
-	ConflictEnd    ConflictMarker = ">>>>>>> "
+	ConflictStart         ConflictMarker = "<<<<<<< "
+	ConflictMiddle        ConflictMarker = "======="
+	ConflictEnd           ConflictMarker = ">>>>>>> "
+	extJSON               string         = ".json"
+	filePermissions                      = 0600
+	separatorLength                      = 80
+	shortSeparatorLength                 = 40
+	mediumSeparatorLength                = 50
+	conflictBufferSize                   = 3
 )
 
 // ConflictInfo represents information about a merge conflict
@@ -39,7 +45,7 @@ type Conflict struct {
 
 // DetectConflicts scans a file for merge conflict markers
 func (c *Client) DetectConflicts(filePath string) (*ConflictInfo, error) {
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) // #nosec G304 - file path is from git operations
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file %s: %w", filePath, err)
 	}
@@ -123,7 +129,7 @@ func (c *Client) ResolveConflict(filePath string, strategy ConflictResolutionStr
 	}
 
 	// Read the entire file
-	content, err := os.ReadFile(filePath)
+	content, err := os.ReadFile(filePath) // #nosec G304 - file path is validated
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)
 	}
@@ -172,7 +178,7 @@ func (c *Client) ResolveConflict(filePath string, strategy ConflictResolutionStr
 
 	// Write the resolved content back to the file
 	resolvedContent := strings.Join(resolvedLines, "\n")
-	if err := os.WriteFile(filePath, []byte(resolvedContent), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(resolvedContent), filePermissions); err != nil {
 		return fmt.Errorf("failed to write resolved file: %w", err)
 	}
 
@@ -210,9 +216,11 @@ func (c *Client) applyResolutionStrategy(ourCode, theirCode []string, strategy C
 		return c.resolveByTimestamp(ourCode, theirCode)
 	case ResolveInteractive:
 		return c.resolveInteractively(ourCode, theirCode)
+	case ResolveManual:
+		fallthrough
 	default:
 		// For manual resolution, we'll leave the conflict markers
-		result := make([]string, 0, len(ourCode)+len(theirCode)+3)
+		result := make([]string, 0, len(ourCode)+len(theirCode)+conflictBufferSize)
 		result = append(result, string(ConflictStart)+"HEAD")
 		result = append(result, ourCode...)
 		result = append(result, string(ConflictMiddle))
@@ -462,7 +470,7 @@ func (c *Client) ResolveExcelConflicts(strategy ConflictResolutionStrategy) erro
 
 	for _, file := range conflictedFiles {
 		// Only process JSON files (Excel representations)
-		if filepath.Ext(file) == ".json" {
+		if filepath.Ext(file) == extJSON {
 			c.logger.Infof("Resolving conflicts in %s", file)
 			if err := c.ResolveConflict(file, strategy); err != nil {
 				c.logger.Errorf("Failed to resolve conflicts in %s: %v", file, err)
@@ -490,9 +498,9 @@ func (c *Client) ResolveExcelConflicts(strategy ConflictResolutionStrategy) erro
 
 // resolveInteractively prompts the user to choose how to resolve each conflict
 func (c *Client) resolveInteractively(ourCode, theirCode []string) []string {
-	fmt.Println("\n" + strings.Repeat("=", 80))
+	fmt.Println("\n" + strings.Repeat("=", separatorLength))
 	fmt.Println("INTERACTIVE CONFLICT RESOLUTION")
-	fmt.Println(strings.Repeat("=", 80))
+	fmt.Println(strings.Repeat("=", separatorLength))
 
 	// Try to parse as Excel JSON to provide better context
 	ourJSON := strings.Join(ourCode, "\n")
@@ -516,13 +524,13 @@ func (c *Client) resolveInteractively(ourCode, theirCode []string) []string {
 	}
 
 	fmt.Println("\nYOUR VERSION (HEAD):")
-	fmt.Println(strings.Repeat("-", 40))
+	fmt.Println(strings.Repeat("-", shortSeparatorLength))
 	for i, line := range ourCode {
 		fmt.Printf("%3d: %s\n", i+1, line)
 	}
 
 	fmt.Println("\nTHEIR VERSION (incoming):")
-	fmt.Println(strings.Repeat("-", 40))
+	fmt.Println(strings.Repeat("-", shortSeparatorLength))
 	for i, line := range theirCode {
 		fmt.Printf("%3d: %s\n", i+1, line)
 	}
@@ -571,7 +579,7 @@ func (c *Client) resolveInteractively(ourCode, theirCode []string) []string {
 			return c.editManually(ourCode, theirCode)
 		case "7", "skip":
 			fmt.Println("⏭️  Skipping - leaving conflict markers")
-			result := make([]string, 0, len(ourCode)+len(theirCode)+3)
+			result := make([]string, 0, len(ourCode)+len(theirCode)+conflictBufferSize)
 			result = append(result, string(ConflictStart)+"HEAD")
 			result = append(result, ourCode...)
 			result = append(result, string(ConflictMiddle))
@@ -642,7 +650,7 @@ func (c *Client) editManually(ourCode, theirCode []string) []string {
 	fmt.Println("Enter your resolved content line by line.")
 	fmt.Println("Type 'END' on a line by itself to finish.")
 	fmt.Println("Type 'CANCEL' to abort manual editing.")
-	fmt.Println(strings.Repeat("-", 50))
+	fmt.Println(strings.Repeat("-", mediumSeparatorLength))
 
 	var lines []string
 	scanner := bufio.NewScanner(os.Stdin)
@@ -659,7 +667,7 @@ func (c *Client) editManually(ourCode, theirCode []string) []string {
 		}
 		if line == "CANCEL" {
 			fmt.Println("❌ Manual editing canceled, keeping original conflict")
-			result := make([]string, 0, len(ourCode)+len(theirCode)+3)
+			result := make([]string, 0, len(ourCode)+len(theirCode)+conflictBufferSize)
 			result = append(result, string(ConflictStart)+"HEAD")
 			result = append(result, ourCode...)
 			result = append(result, string(ConflictMiddle))
@@ -710,11 +718,11 @@ func (icr *InteractiveConflictResolver) ResolveAllConflicts() error {
 	fmt.Println("\nResolving conflicts interactively...")
 
 	for i, file := range conflictedFiles {
-		fmt.Printf("\n" + strings.Repeat("=", 80))
+		fmt.Printf("\n" + strings.Repeat("=", separatorLength))
 		fmt.Printf("RESOLVING CONFLICT %d/%d: %s", i+1, len(conflictedFiles), file)
-		fmt.Printf("\n" + strings.Repeat("=", 80))
+		fmt.Printf("\n" + strings.Repeat("=", separatorLength))
 
-		if filepath.Ext(file) == ".json" {
+		if filepath.Ext(file) == extJSON {
 			err := icr.client.ResolveConflict(file, ResolveInteractive)
 			if err != nil {
 				fmt.Printf("❌ Failed to resolve %s: %v\n", file, err)

@@ -147,7 +147,7 @@ func (fw *FileWatcher) processEvents() {
 						fileEvent.Type = EventTypeCreate
 						// If a directory was created, watch it
 						if info, err := os.Stat(event.Name); err == nil && info.IsDir() {
-							fw.AddDirectory(event.Name)
+							_ = fw.AddDirectory(event.Name)
 						}
 					case event.Op&fsnotify.Write == fsnotify.Write:
 						fileEvent.Type = EventTypeModify

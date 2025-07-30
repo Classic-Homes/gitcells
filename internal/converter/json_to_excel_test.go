@@ -65,7 +65,7 @@ func TestJSONToExcel(t *testing.T) {
 				// Open and verify contents
 				f, err := excelize.OpenFile(outputPath)
 				require.NoError(t, err)
-				defer f.Close()
+				defer func() { _ = f.Close() }()
 
 				// Check cell values
 				cellValue, err := f.GetCellValue("Sheet1", "A1")
@@ -119,7 +119,7 @@ func TestJSONToExcel(t *testing.T) {
 			validate: func(t *testing.T, outputPath string) {
 				f, err := excelize.OpenFile(outputPath)
 				require.NoError(t, err)
-				defer f.Close()
+				defer func() { _ = f.Close() }()
 
 				// Check formula
 				formula, err := f.GetCellFormula("Sheet1", "A3")
@@ -154,7 +154,7 @@ func TestJSONToExcel(t *testing.T) {
 			validate: func(t *testing.T, outputPath string) {
 				f, err := excelize.OpenFile(outputPath)
 				require.NoError(t, err)
-				defer f.Close()
+				defer func() { _ = f.Close() }()
 
 				// Check merged cells
 				mergedCells, err := f.GetMergeCells("Sheet1")
@@ -200,7 +200,7 @@ func TestJSONToExcel(t *testing.T) {
 			validate: func(t *testing.T, outputPath string) {
 				f, err := excelize.OpenFile(outputPath)
 				require.NoError(t, err)
-				defer f.Close()
+				defer func() { _ = f.Close() }()
 
 				// Check sheet names
 				sheetList := f.GetSheetList()
@@ -250,7 +250,7 @@ func TestJSONToExcel(t *testing.T) {
 			validate: func(t *testing.T, outputPath string) {
 				f, err := excelize.OpenFile(outputPath)
 				require.NoError(t, err)
-				defer f.Close()
+				defer func() { _ = f.Close() }()
 
 				// Check comments
 				comments, err := f.GetComments("Sheet1")
@@ -341,7 +341,7 @@ func TestRoundTripConversion(t *testing.T) {
 	// Verify the output file exists and can be opened
 	f, err := excelize.OpenFile(outputFile)
 	require.NoError(t, err)
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Basic verification - check that we have at least one sheet with some data
 	sheetList := f.GetSheetList()

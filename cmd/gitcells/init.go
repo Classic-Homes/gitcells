@@ -53,7 +53,7 @@ func newInitCommand(logger *logrus.Logger) *cobra.Command {
 			}
 
 			// Ensure directory exists
-			if err := os.MkdirAll(dir, 0755); err != nil {
+			if err := os.MkdirAll(dir, dirPermissions); err != nil {
 				return fmt.Errorf("failed to create directory: %w", err)
 			}
 
@@ -67,7 +67,7 @@ func newInitCommand(logger *logrus.Logger) *cobra.Command {
 				}
 			}
 
-			if err := os.WriteFile(configPath, []byte(defaultConfig), 0644); err != nil {
+			if err := os.WriteFile(configPath, []byte(defaultConfig), filePermissions); err != nil {
 				return fmt.Errorf("failed to write config file: %w", err)
 			}
 
@@ -95,7 +95,7 @@ Thumbs.db
 # SheetSync
 .sheetsync.cache/
 `
-			if err := os.WriteFile(gitignorePath, []byte(gitignoreContent), 0644); err != nil {
+			if err := os.WriteFile(gitignorePath, []byte(gitignoreContent), filePermissions); err != nil {
 				logger.Warnf("Failed to create .gitignore: %v", err)
 			}
 

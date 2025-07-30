@@ -14,6 +14,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	// minDiffArgs is the minimum number of arguments for diff command
+	minDiffArgs = 1
+	// maxDiffArgs is the maximum number of arguments for diff command
+	maxDiffArgs = 2
+)
+
 func newDiffCommand(logger *logrus.Logger) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "diff <file1> [file2]",
@@ -24,7 +31,7 @@ Examples:
   sheetsync diff file1.xlsx file2.xlsx    # Compare two Excel files
   sheetsync diff file.xlsx                # Compare with JSON version
   sheetsync diff --json file1.json file2.json  # Compare JSON files directly`,
-		Args: cobra.RangeArgs(1, 2),
+		Args: cobra.RangeArgs(minDiffArgs, maxDiffArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDiff(cmd, args, logger)
 		},
@@ -56,7 +63,7 @@ func runDiff(cmd *cobra.Command, args []string, logger *logrus.Logger) error {
 	file1 = args[0]
 
 	// Determine second file
-	if len(args) == 2 {
+	if len(args) == maxDiffArgs {
 		file2 = args[1]
 	} else {
 		// Auto-detect companion file
@@ -119,12 +126,12 @@ func runDiff(cmd *cobra.Command, args []string, logger *logrus.Logger) error {
 	}
 }
 
-func loadDocument(filePath string, jsonMode bool, ignoreFormatting bool, logger *logrus.Logger) (*models.ExcelDocument, error) {
+func loadDocument(filePath string, jsonMode, ignoreFormatting bool, logger *logrus.Logger) (*models.ExcelDocument, error) {
 	ext := strings.ToLower(filepath.Ext(filePath))
 
 	if jsonMode || ext == ".json" {
 		// Load JSON directly
-		data, err := os.ReadFile(filePath)
+		data, err := os.ReadFile(filePath) // #nosec G304 - file path comes from user input
 		if err != nil {
 			return nil, err
 		}
@@ -226,7 +233,7 @@ func outputDiffJSON(diff *models.ExcelDiff) error {
 	return encoder.Encode(diff)
 }
 
-func outputDiffText(diff *models.ExcelDiff, summaryOnly bool, useColor bool) error {
+func outputDiffText(diff *models.ExcelDiff, summaryOnly, useColor bool) error {
 	if !diff.HasChanges() {
 		fmt.Println("No differences found")
 		return nil

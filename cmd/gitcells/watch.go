@@ -80,13 +80,13 @@ func newWatchCommand(logger *logrus.Logger) *cobra.Command {
 
 				// Save JSON file
 				jsonPath := event.Path + ".json"
-				jsonData, err := json.MarshalIndent(doc, "", "  ")
-				if err != nil {
-					return fmt.Errorf("failed to marshal JSON: %w", err)
+				jsonData, jsonErr := json.MarshalIndent(doc, "", "  ")
+				if jsonErr != nil {
+					return fmt.Errorf("failed to marshal JSON: %w", jsonErr)
 				}
 
-				if err := os.WriteFile(jsonPath, jsonData, 0644); err != nil {
-					return fmt.Errorf("failed to write JSON file: %w", err)
+				if writeErr := os.WriteFile(jsonPath, jsonData, filePermissions); writeErr != nil {
+					return fmt.Errorf("failed to write JSON file: %w", writeErr)
 				}
 
 				// Commit changes if auto-commit is enabled

@@ -1,3 +1,4 @@
+// Package watcher provides file system monitoring functionality for the GitCells application.
 package watcher
 
 import (

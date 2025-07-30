@@ -2,7 +2,6 @@ package converter
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/Classic-Homes/gitcells/internal/utils"
@@ -17,10 +16,10 @@ func (c *converter) JSONToExcel(doc *models.ExcelDocument, outputPath string, op
 
 	// Create new Excel file
 	f := excelize.NewFile()
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Remove default sheet
-	f.DeleteSheet("Sheet1")
+	_ = f.DeleteSheet("Sheet1")
 
 	// Process each sheet
 	for _, sheet := range doc.Sheets {
@@ -89,7 +88,8 @@ func (c *converter) JSONToExcel(doc *models.ExcelDocument, outputPath string, op
 		// Apply merged cells
 		for _, mergedCell := range sheet.MergedCells {
 			parts := strings.Split(mergedCell.Range, ":")
-			if len(parts) == 2 {
+			const expectedRangeParts = 2
+			if len(parts) == expectedRangeParts {
 				err = f.MergeCell(sheet.Name, parts[0], parts[1])
 				if err != nil {
 					c.logger.Warnf("Failed to merge cells %s: %v", mergedCell.Range, err)
@@ -148,52 +148,4 @@ func (c *converter) JSONToExcel(doc *models.ExcelDocument, outputPath string, op
 	}
 
 	return nil
-}
-
-// Helper function to convert string column to int
-func columnNameToNumber(name string) (int, error) {
-	if name == "" {
-		return 0, utils.NewError(utils.ErrorTypeValidation, "columnNameToNumber", "column name cannot be empty")
-	}
-
-	col := 0
-	for i := 0; i < len(name); i++ {
-		if name[i] < 'A' || name[i] > 'Z' {
-			return 0, utils.NewError(utils.ErrorTypeValidation, "columnNameToNumber",
-				fmt.Sprintf("invalid column name: %s", name))
-		}
-		col = col*26 + int(name[i]-'A'+1)
-	}
-
-	return col, nil
-}
-
-// Helper function to parse cell reference
-func parseCellReference(ref string) (col, row int, err error) {
-	// Find where letters end and numbers begin
-	i := 0
-	for i < len(ref) && (ref[i] >= 'A' && ref[i] <= 'Z') {
-		i++
-	}
-
-	if i == 0 || i == len(ref) {
-		return 0, 0, utils.NewError(utils.ErrorTypeValidation, "parseCellReference",
-			fmt.Sprintf("invalid cell reference: %s", ref))
-	}
-
-	colName := ref[:i]
-	rowStr := ref[i:]
-
-	col, err = columnNameToNumber(colName)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	row, err = strconv.Atoi(rowStr)
-	if err != nil {
-		return 0, 0, utils.WrapError(err, utils.ErrorTypeValidation, "parseCellReference",
-			fmt.Sprintf("invalid row number in reference %s", ref))
-	}
-
-	return col, row, nil
 }

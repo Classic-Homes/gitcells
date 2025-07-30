@@ -33,7 +33,7 @@ func (c *converter) detectCellType(value interface{}, formula string) models.Cel
 			return models.CellTypeNumber
 		}
 		// Check if it's a boolean
-		if strings.ToLower(v) == "true" || strings.ToLower(v) == "false" {
+		if strings.EqualFold(v, "true") || strings.EqualFold(v, "false") {
 			return models.CellTypeBoolean
 		}
 		// Check if it starts with = (formula) - backup check
@@ -120,28 +120,6 @@ func parseNumber(value string) (float64, error) {
 			fmt.Sprintf("failed to parse number from value: %s", value))
 	}
 	return num, nil
-}
-
-// extractCellStyle extracts style information from Excel style ID
-func (c *converter) extractCellStyle(f *excelize.File, styleID int) *models.CellStyle {
-	if styleID == 0 {
-		return nil // No custom style
-	}
-
-	// Get style information from excelize
-	// Note: excelize has limited style extraction capabilities
-	style := &models.CellStyle{}
-
-	// TODO: Implement comprehensive style extraction
-	// Currently excelize doesn't provide direct access to all style properties
-	// This would require parsing the underlying XML or using enhanced excelize methods
-
-	// Placeholder implementation - would need actual excelize style API enhancement
-	c.logger.Debugf("Style extraction for ID %d - limited implementation", styleID)
-
-	// For now, return basic style structure
-	// This would be enhanced when excelize provides better style introspection
-	return style
 }
 
 // extractFullCellStyle provides comprehensive cell style extraction
@@ -325,12 +303,13 @@ func (pb *ProgressBar) Update(stage string, current, total int) {
 
 // DefaultProgressCallback returns a default progress callback that shows a progress bar
 func DefaultProgressCallback() func(string, int, int) {
-	pb := NewProgressBar(100)
+	const progressBarMax = 100
+	pb := NewProgressBar(progressBarMax)
 	return pb.Update
 }
 
 // extractCharts extracts chart information from Excel sheet
-func (c *converter) extractCharts(f interface{}, sheetName string) ([]models.Chart, error) {
+func (c *converter) extractCharts(_ interface{}, _ string) ([]models.Chart, error) {
 	// TODO: Implement chart extraction using excelize
 	// Note: excelize has limited chart support, this would need to be enhanced
 	// or use a different library for full chart extraction
@@ -344,7 +323,7 @@ func (c *converter) extractCharts(f interface{}, sheetName string) ([]models.Cha
 }
 
 // extractPivotTables extracts pivot table information from Excel sheet
-func (c *converter) extractPivotTables(f interface{}, sheetName string) ([]models.PivotTable, error) {
+func (c *converter) extractPivotTables(_ interface{}, _ string) ([]models.PivotTable, error) {
 	// TODO: Implement pivot table extraction using excelize
 	// Note: excelize has limited pivot table support, this would need to be enhanced
 	pivotTables := []models.PivotTable{}
