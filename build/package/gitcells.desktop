@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=GitCells
+Comment=Excel and Git integration tool
+Exec=/usr/bin/gitcells
+Icon=gitcells
+Terminal=true
+Type=Application
+Categories=Development;Utility;
+Keywords=git;excel;xlsx;version-control;
