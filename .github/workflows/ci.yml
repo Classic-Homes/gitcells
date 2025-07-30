@@ -67,7 +67,9 @@ jobs:
     - name: Install packaging tools
       run: |
         # Install nfpm for Linux packages
-        curl -sfL https://install.goreleaser.com/github.com/goreleaser/nfpm.sh | sh -s -- -b /usr/local/bin
+        echo "Installing nfpm..."
+        curl -sfL https://github.com/goreleaser/nfpm/releases/download/v2.35.3/nfpm_2.35.3_Linux_x86_64.tar.gz | tar xz -C /tmp
+        sudo mv /tmp/nfpm /usr/local/bin/
         
         # Install makensis for Windows installer
         sudo apt-get update
