@@ -10,7 +10,7 @@ type Converter interface {
 	// In-memory operations (used internally)
 	ExcelToJSON(filePath string, options ConvertOptions) (*models.ExcelDocument, error)
 	JSONToExcel(doc *models.ExcelDocument, outputPath string, options ConvertOptions) error
-	
+
 	// File-based operations with automatic chunking
 	ExcelToJSONFile(inputPath, outputPath string, options ConvertOptions) error
 	JSONFileToExcel(inputPath, outputPath string, options ConvertOptions) error

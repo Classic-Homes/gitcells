@@ -1,0 +1,136 @@
+package adapter
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/Classic-Homes/gitcells/internal/converter"
+	"github.com/sirupsen/logrus"
+)
+
+// ConverterAdapter bridges the TUI with the converter package
+type ConverterAdapter struct {
+	converter converter.Converter
+	options   converter.ConvertOptions
+}
+
+func NewConverterAdapter() *ConverterAdapter {
+	logger := logrus.New()
+	return &ConverterAdapter{
+		converter: converter.NewConverter(logger),
+		options: converter.ConvertOptions{
+			PreserveFormulas: true,
+			PreserveStyles:   true,
+			PreserveComments: true,
+			CompactJSON:      false,
+			IgnoreEmptyCells: true,
+		},
+	}
+}
+
+// ConvertFile converts a single Excel file to JSON
+func (ca *ConverterAdapter) ConvertFile(excelPath string) (*ConversionResult, error) {
+	jsonPath := GetJSONPath(excelPath)
+
+	err := ca.converter.ExcelToJSONFile(excelPath, jsonPath, ca.options)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ConversionResult{
+		ExcelPath: excelPath,
+		JSONPath:  jsonPath,
+		Success:   true,
+	}, nil
+}
+
+// GetPendingConversions returns list of Excel files that need conversion
+func (ca *ConverterAdapter) GetPendingConversions(directory string, pattern string) ([]string, error) {
+	// Find Excel files matching pattern
+	files, err := filepath.Glob(filepath.Join(directory, pattern))
+	if err != nil {
+		return nil, err
+	}
+
+	pending := []string{}
+	for _, file := range files {
+		// Check if JSON version exists and is up to date
+		jsonPath := GetJSONPath(file)
+		if !IsUpToDate(file, jsonPath) {
+			pending = append(pending, file)
+		}
+	}
+
+	return pending, nil
+}
+
+// GetConversionStats returns statistics about conversions
+func (ca *ConverterAdapter) GetConversionStats(directory string) (*ConversionStats, error) {
+	// This would analyze the directory for conversion statistics
+	// For now, return mock data
+	return &ConversionStats{
+		TotalExcelFiles:    15,
+		ConvertedFiles:     12,
+		PendingConversions: 3,
+		FailedConversions:  0,
+		TotalJSONSize:      1024 * 1024 * 5, // 5MB
+	}, nil
+}
+
+// ConversionResult contains the result of a conversion operation
+type ConversionResult struct {
+	ExcelPath string
+	JSONPath  string
+	Success   bool
+	Error     error
+}
+
+// ConversionStats contains statistics about conversions
+type ConversionStats struct {
+	TotalExcelFiles    int
+	ConvertedFiles     int
+	PendingConversions int
+	FailedConversions  int
+	TotalJSONSize      int64
+}
+
+// ValidatePattern checks if a file pattern is valid
+func ValidatePattern(pattern string) error {
+	if pattern == "" {
+		return fmt.Errorf("pattern cannot be empty")
+	}
+
+	// Test the pattern
+	_, err := filepath.Match(pattern, "test.xlsx")
+	if err != nil {
+		return fmt.Errorf("invalid pattern: %w", err)
+	}
+
+	return nil
+}
+
+// GetJSONPath returns the JSON output path for an Excel file
+func GetJSONPath(excelPath string) string {
+	dir := filepath.Dir(excelPath)
+	base := filepath.Base(excelPath)
+	ext := filepath.Ext(base)
+	nameWithoutExt := strings.TrimSuffix(base, ext)
+	return filepath.Join(dir, nameWithoutExt+".json")
+}
+
+// IsUpToDate checks if the JSON file is up to date with the Excel file
+func IsUpToDate(excelPath, jsonPath string) bool {
+	excelInfo, err := os.Stat(excelPath)
+	if err != nil {
+		return false
+	}
+
+	jsonInfo, err := os.Stat(jsonPath)
+	if err != nil {
+		return false
+	}
+
+	return jsonInfo.ModTime().After(excelInfo.ModTime())
+}

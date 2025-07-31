@@ -11,13 +11,13 @@ func (c *converter) ExcelToJSONFile(inputPath, outputPath string, options Conver
 	if err != nil {
 		return fmt.Errorf("failed to convert Excel to JSON: %w", err)
 	}
-	
+
 	// Always use chunking strategy for better git performance
 	chunks, err := c.chunkingStrategy.WriteChunks(doc, outputPath, options)
 	if err != nil {
 		return fmt.Errorf("failed to write chunks: %w", err)
 	}
-	
+
 	c.logger.Infof("Successfully wrote %d chunk files for %s", len(chunks), inputPath)
 	return nil
 }
@@ -30,12 +30,11 @@ func (c *converter) JSONFileToExcel(inputPath, outputPath string, options Conver
 		return fmt.Errorf("failed to read chunks: %w", err)
 	}
 	c.logger.Infof("Successfully read chunked JSON files from %s", inputPath)
-	
+
 	// Convert to Excel
 	if err := c.JSONToExcel(doc, outputPath, options); err != nil {
 		return fmt.Errorf("failed to convert JSON to Excel: %w", err)
 	}
-	
+
 	return nil
 }
-

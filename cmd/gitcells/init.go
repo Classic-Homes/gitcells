@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/Classic-Homes/gitcells/internal/tui"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -47,6 +48,13 @@ func newInitCommand(logger *logrus.Logger) *cobra.Command {
 		Long:  "Initialize GitCells configuration and Git repository in the specified directory",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Check if TUI mode is requested
+			useTUI, _ := cmd.Flags().GetBool("tui")
+			if useTUI {
+				logger.Info("Launching setup wizard in TUI mode...")
+				return tui.Run()
+			}
+
 			dir := "."
 			if len(args) > 0 {
 				dir = args[0]
@@ -106,6 +114,7 @@ Thumbs.db
 
 	cmd.Flags().Bool("force", false, "overwrite existing configuration")
 	cmd.Flags().Bool("git", true, "initialize git repository")
+	cmd.Flags().Bool("tui", false, "use TUI setup wizard")
 
 	return cmd
 }

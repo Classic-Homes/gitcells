@@ -15,9 +15,9 @@ import (
 func TestSheetBasedChunking(t *testing.T) {
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
-	
+
 	chunker := NewSheetBasedChunking(logger)
-	
+
 	// Create test document
 	doc := &models.ExcelDocument{
 		Version: "1.0",
@@ -50,81 +50,81 @@ func TestSheetBasedChunking(t *testing.T) {
 			"TestName": "Sheet1!A1:B2",
 		},
 	}
-	
+
 	t.Run("WriteAndReadChunks", func(t *testing.T) {
 		// Create temp directory with .git to simulate git repo
 		tempDir := t.TempDir()
 		gitDir := filepath.Join(tempDir, ".git")
 		err := os.Mkdir(gitDir, 0755)
 		require.NoError(t, err)
-		
+
 		basePath := filepath.Join(tempDir, "test_workbook.json")
-		
+
 		// Write chunks
 		opts := ConvertOptions{
-			CompactJSON:    false,
+			CompactJSON: false,
 		}
-		
+
 		files, err := chunker.WriteChunks(doc, basePath, opts)
 		require.NoError(t, err)
 		assert.Len(t, files, 3) // workbook.json + 2 sheet files
-		
+
 		// Verify chunk directory exists in .gitcells/data
 		expectedChunkDir := filepath.Join(tempDir, ".gitcells", "data", "test_workbook_chunks")
 		_, err = os.Stat(expectedChunkDir)
 		assert.NoError(t, err)
-		
+
 		// Verify metadata file exists
 		metadataPath := filepath.Join(expectedChunkDir, ".gitcells_chunks.json")
 		_, err = os.Stat(metadataPath)
 		assert.NoError(t, err)
-		
+
 		// Read chunks back
 		readDoc, err := chunker.ReadChunks(basePath)
 		require.NoError(t, err)
-		
+
 		// Verify document integrity
 		assert.Equal(t, doc.Version, readDoc.Version)
 		assert.Equal(t, doc.Metadata.AppVersion, readDoc.Metadata.AppVersion)
 		assert.Len(t, readDoc.Sheets, 2)
-		
+
 		// Verify sheet data
 		assert.Equal(t, "Sheet1", readDoc.Sheets[0].Name)
 		assert.Len(t, readDoc.Sheets[0].Cells, 3)
 		assert.Equal(t, "Header", readDoc.Sheets[0].Cells["A1"].Value)
 		assert.Equal(t, 123.45, readDoc.Sheets[0].Cells["A2"].Value)
 		assert.Equal(t, "=A2*2", readDoc.Sheets[0].Cells["B1"].Formula)
-		
+
 		assert.Equal(t, "Sheet2", readDoc.Sheets[1].Name)
 		assert.Len(t, readDoc.Sheets[1].Cells, 2)
 	})
-	
+
 	t.Run("GetChunkPaths", func(t *testing.T) {
 		// Create temp directory with .git
 		tempDir := t.TempDir()
 		gitDir := filepath.Join(tempDir, ".git")
 		err := os.Mkdir(gitDir, 0755)
 		require.NoError(t, err)
-		
+
 		basePath := filepath.Join(tempDir, "test_workbook.json")
-		
+
 		// Write chunks first
 		opts := ConvertOptions{}
 		_, err = chunker.WriteChunks(doc, basePath, opts)
 		require.NoError(t, err)
-		
+
 		// Get chunk paths
 		paths, err := chunker.GetChunkPaths(basePath)
 		require.NoError(t, err)
 		assert.Len(t, paths, 3) // workbook.json + 2 sheets
-		
+
 		// Verify all paths exist
 		for _, path := range paths {
 			_, err := os.Stat(path)
 			assert.NoError(t, err, "Path should exist: %s", path)
 		}
 	})
-	
+
 	t.Run("SanitizeFilename", func(t *testing.T) {
 		testCases := []struct {
 			input    string
@@ -136,7 +136,7 @@ func TestSheetBasedChunking(t *testing.T) {
 			{"Sheet With Spaces", "sheet_Sheet_With_Spaces.json"},
 			{"Sheet*With?Chars", "sheet_Sheet_With_Chars.json"},
 		}
-		
+
 		for _, tc := range testCases {
 			filename := chunker.(*SheetBasedChunking).sanitizeFilename("sheet_" + tc.input + ".json")
 			assert.Equal(t, tc.expected, filename, "Failed for input: %s", tc.input)
@@ -153,16 +153,16 @@ func TestChunkMetadata(t *testing.T) {
 		TotalSheets: 2,
 		Created:     "2024-01-01T00:00:00Z",
 	}
-	
+
 	// Test JSON marshaling
 	data, err := json.MarshalIndent(metadata, "", "  ")
 	require.NoError(t, err)
-	
+
 	// Test JSON unmarshaling
 	var loaded ChunkMetadata
 	err = json.Unmarshal(data, &loaded)
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, metadata.Version, loaded.Version)
 	assert.Equal(t, metadata.Strategy, loaded.Strategy)
 	assert.Equal(t, metadata.MainFile, loaded.MainFile)
@@ -182,16 +182,16 @@ func TestSheetChunk(t *testing.T) {
 			},
 		},
 	}
-	
+
 	// Test JSON marshaling
 	data, err := json.MarshalIndent(chunk, "", "  ")
 	require.NoError(t, err)
-	
+
 	// Test JSON unmarshaling
 	var loaded SheetChunk
 	err = json.Unmarshal(data, &loaded)
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, chunk.Version, loaded.Version)
 	assert.Equal(t, chunk.WorkbookChecksum, loaded.WorkbookChecksum)
 	assert.Equal(t, chunk.Sheet.Name, loaded.Sheet.Name)
