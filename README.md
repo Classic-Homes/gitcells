@@ -243,8 +243,18 @@ GitCells supports the following Excel features:
 
 ## JSON Format
 
-GitCells converts Excel files to a structured JSON format that preserves all sheet data:
+GitCells automatically converts Excel files into multiple JSON files using sheet-based chunking for optimal Git performance. Each workbook is split into:
 
+### Directory Structure
+```
+myworkbook_chunks/
+├── workbook.json           # Metadata and workbook properties
+├── sheet_Sheet1.json       # Individual sheet data
+├── sheet_Sheet2.json       # Individual sheet data
+└── .gitcells_chunks.json   # Chunk tracking metadata
+```
+
+### Main Workbook File (workbook.json)
 ```json
 {
   "version": "1.0",
@@ -257,29 +267,41 @@ GitCells converts Excel files to a structured JSON format that preserves all she
     "checksum": "abc123def456..."
   },
   "sheets": [
-    {
-      "name": "Sheet1",
-      "index": 0,
-      "cells": {
-        "A1": {
-          "value": "Product Name",
-          "type": "string"
-        },
-        "A2": {
-          "value": 123.45,
-          "type": "number"
-        },
-        "B2": {
-          "value": "=A2*1.1",
-          "formula": "=A2*1.1",
-          "type": "formula"
-        }
+    {"name": "Sheet1", "index": 0, "hidden": false},
+    {"name": "Sheet2", "index": 1, "hidden": false}
+  ],
+  "defined_names": {},
+  "properties": {}
+}
+```
+
+### Individual Sheet File (sheet_Sheet1.json)
+```json
+{
+  "version": "1.0",
+  "workbook_checksum": "abc123def456...",
+  "sheet": {
+    "name": "Sheet1",
+    "index": 0,
+    "cells": {
+      "A1": {
+        "value": "Product Name",
+        "type": "string"
       },
-      "merged_cells": [
-        {"range": "A1:C1"}
-      ]
-    }
-  ]
+      "A2": {
+        "value": 123.45,
+        "type": "number"
+      },
+      "B2": {
+        "value": "=A2*1.1",
+        "formula": "=A2*1.1",
+        "type": "formula"
+      }
+    },
+    "merged_cells": [
+      {"range": "A1:C1"}
+    ]
+  }
 }
 ```
 

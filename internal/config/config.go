@@ -37,12 +37,13 @@ type WatcherConfig struct {
 }
 
 type ConverterConfig struct {
-	PreserveFormulas bool `yaml:"preserve_formulas"`
-	PreserveStyles   bool `yaml:"preserve_styles"`
-	PreserveComments bool `yaml:"preserve_comments"`
-	CompactJSON      bool `yaml:"compact_json"`
-	IgnoreEmptyCells bool `yaml:"ignore_empty_cells"`
-	MaxCellsPerSheet int  `yaml:"max_cells_per_sheet"`
+	PreserveFormulas bool   `yaml:"preserve_formulas"`
+	PreserveStyles   bool   `yaml:"preserve_styles"`
+	PreserveComments bool   `yaml:"preserve_comments"`
+	CompactJSON      bool   `yaml:"compact_json"`
+	IgnoreEmptyCells bool   `yaml:"ignore_empty_cells"`
+	MaxCellsPerSheet int    `yaml:"max_cells_per_sheet"`
+	ChunkingStrategy string `yaml:"chunking_strategy"`
 }
 
 func Load(configPath string) (*Config, error) {
@@ -65,6 +66,7 @@ func Load(configPath string) (*Config, error) {
 	v.SetDefault("converter.compact_json", false)
 	v.SetDefault("converter.ignore_empty_cells", true)
 	v.SetDefault("converter.max_cells_per_sheet", DefaultMaxCellsPerSheet)
+	v.SetDefault("converter.chunking_strategy", "sheet-based")
 
 	// Load config file
 	if configPath != "" {
@@ -105,6 +107,7 @@ func Load(configPath string) (*Config, error) {
 			CompactJSON:      v.GetBool("converter.compact_json"),
 			IgnoreEmptyCells: v.GetBool("converter.ignore_empty_cells"),
 			MaxCellsPerSheet: v.GetInt("converter.max_cells_per_sheet"),
+			ChunkingStrategy: v.GetString("converter.chunking_strategy"),
 		},
 	}
 
@@ -119,6 +122,7 @@ type ConvertOptions struct {
 	CompactJSON      bool
 	IgnoreEmptyCells bool
 	MaxCellsPerSheet int
+	ChunkingStrategy string
 }
 
 // ToOptions converts config to converter options
@@ -130,5 +134,6 @@ func (c *ConverterConfig) ToOptions() ConvertOptions {
 		CompactJSON:      c.CompactJSON,
 		IgnoreEmptyCells: c.IgnoreEmptyCells,
 		MaxCellsPerSheet: c.MaxCellsPerSheet,
+		ChunkingStrategy: c.ChunkingStrategy,
 	}
 }

@@ -7,8 +7,13 @@ import (
 )
 
 type Converter interface {
+	// In-memory operations (used internally)
 	ExcelToJSON(filePath string, options ConvertOptions) (*models.ExcelDocument, error)
 	JSONToExcel(doc *models.ExcelDocument, outputPath string, options ConvertOptions) error
+	
+	// File-based operations with automatic chunking
+	ExcelToJSONFile(inputPath, outputPath string, options ConvertOptions) error
+	JSONFileToExcel(inputPath, outputPath string, options ConvertOptions) error
 }
 
 type ConvertOptions struct {
@@ -22,12 +27,17 @@ type ConvertOptions struct {
 	MaxCellsPerSheet    int                                    // Prevent memory issues with huge files
 	ProgressCallback    func(stage string, current, total int) // Progress reporting
 	ShowProgressBar     bool                                   // Enable built-in progress display
+	ChunkingStrategy    string                                 // "sheet-based" or "hybrid" (future), defaults to "sheet-based"
 }
 
 type converter struct {
-	logger *logrus.Logger
+	logger           *logrus.Logger
+	chunkingStrategy ChunkingStrategy
 }
 
 func NewConverter(logger *logrus.Logger) Converter {
-	return &converter{logger: logger}
+	return &converter{
+		logger:           logger,
+		chunkingStrategy: NewSheetBasedChunking(logger),
+	}
 }

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Classic-Homes/gitcells/internal/converter"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -42,14 +43,31 @@ func newConvertCommand(logger *logrus.Logger) *cobra.Command {
 				}
 			}
 
-			if isExcelToJSON {
-				logger.Infof("Converting Excel to JSON: %s -> %s", inputFile, outputFile)
-				// TODO: Implement Excel to JSON conversion
-			} else {
-				logger.Infof("Converting JSON to Excel: %s -> %s", inputFile, outputFile)
-				// TODO: Implement JSON to Excel conversion
+			// Create converter
+			conv := converter.NewConverter(logger)
+			
+			// Build conversion options
+			opts := converter.ConvertOptions{
+				PreserveFormulas:    getBoolFlag(cmd, "preserve-formulas"),
+				PreserveStyles:      getBoolFlag(cmd, "preserve-styles"),
+				PreserveComments:    getBoolFlag(cmd, "preserve-comments"),
+				CompactJSON:         getBoolFlag(cmd, "compact"),
+				ChunkingStrategy:    "sheet-based",
 			}
 
+			if isExcelToJSON {
+				logger.Infof("Converting Excel to JSON: %s -> %s", inputFile, outputFile)
+				if err := conv.ExcelToJSONFile(inputFile, outputFile, opts); err != nil {
+					return fmt.Errorf("conversion failed: %w", err)
+				}
+			} else {
+				logger.Infof("Converting JSON to Excel: %s -> %s", inputFile, outputFile)
+				if err := conv.JSONFileToExcel(inputFile, outputFile, opts); err != nil {
+					return fmt.Errorf("conversion failed: %w", err)
+				}
+			}
+
+			logger.Info("Conversion completed successfully")
 			return nil
 		},
 	}
@@ -61,4 +79,10 @@ func newConvertCommand(logger *logrus.Logger) *cobra.Command {
 	cmd.Flags().Bool("compact", false, "output compact JSON")
 
 	return cmd
+}
+
+// getBoolFlag safely retrieves a boolean flag value
+func getBoolFlag(cmd *cobra.Command, name string) bool {
+	val, _ := cmd.Flags().GetBool(name)
+	return val
 }
