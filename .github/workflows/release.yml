@@ -96,7 +96,8 @@ jobs:
         if [ "${{ matrix.arch }}" = "amd64" ]; then
           cp gitcells-linux-${{ matrix.arch }} gitcells-linux
         else
-          cp gitcells-linux-${{ matrix.arch }} gitcells-linux-${{ matrix.arch }}
+          # For ARM64, keep the original name as it's already user-friendly
+          echo "Using original name for ARM64: gitcells-linux-${{ matrix.arch }}"
         fi
         
     - name: Install nfpm and create Linux packages
