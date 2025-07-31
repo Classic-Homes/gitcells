@@ -44,7 +44,7 @@ GitCells converts Excel files to human-readable JSON format, enabling effective 
 
 - Check the [Troubleshooting Guide](reference/troubleshooting.md)
 - Review [Common Use Cases](guides/use-cases.md)
-- File issues on [GitHub](https://github.com/your-repo/gitcells)
+- File issues on [GitHub](https://github.com/Classic-Homes/gitcells)
 
 ## License
 

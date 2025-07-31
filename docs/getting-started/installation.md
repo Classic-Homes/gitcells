@@ -7,7 +7,7 @@
 Run this command in your terminal:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/your-repo/gitcells/main/scripts/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/Classic-Homes/gitcells/main/scripts/install.sh | bash
 ```
 
 ### Windows
@@ -15,14 +15,14 @@ curl -sSL https://raw.githubusercontent.com/your-repo/gitcells/main/scripts/inst
 Run this command in PowerShell as Administrator:
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/your-repo/gitcells/main/scripts/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/Classic-Homes/gitcells/main/scripts/install.ps1 | iex
 ```
 
 ## Manual Installation
 
 ### 1. Download the Binary
 
-Download the appropriate version for your system from the [releases page](https://github.com/your-repo/gitcells/releases):
+Download the appropriate version for your system from the [releases page](https://github.com/Classic-Homes/gitcells/releases):
 
 - **macOS**: `gitcells-darwin-amd64` (Intel) or `gitcells-darwin-arm64` (Apple Silicon)
 - **Windows**: `gitcells-windows-amd64.exe`
@@ -62,7 +62,7 @@ gitcells --version
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-repo/gitcells.git
+git clone https://github.com/Classic-Homes/gitcells.git
 cd gitcells
 
 # Build
@@ -95,7 +95,7 @@ git --version
 ### macOS/Linux
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/your-repo/gitcells/main/scripts/uninstall.sh | bash
+curl -sSL https://raw.githubusercontent.com/Classic-Homes/gitcells/main/scripts/uninstall.sh | bash
 ```
 
 ### Windows

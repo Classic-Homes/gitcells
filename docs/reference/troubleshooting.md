@@ -464,7 +464,7 @@ gitcells test --all
 ### Resources
 
 1. **Documentation**: Check other guides in `/docs`
-2. **GitHub Issues**: https://github.com/your-repo/gitcells/issues
+2. **GitHub Issues**: https://github.com/Classic-Homes/gitcells/issues
 3. **Community Forum**: https://forum.gitcells.com
 4. **Email Support**: support@gitcells.com
 
