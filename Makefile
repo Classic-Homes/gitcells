@@ -59,7 +59,12 @@ release: build-all
 		if [[ $$binary == *.exe ]]; then \
 			platform=$${platform%.exe}; \
 			cp $$binary $(BINARY).exe; \
-			zip -q releases/$(BINARY)-$(VERSION)-$$platform.zip $(BINARY).exe; \
+			if command -v zip >/dev/null 2>&1; then \
+				zip -q releases/$(BINARY)-$(VERSION)-$$platform.zip $(BINARY).exe; \
+			else \
+				echo "Warning: zip command not found. Creating tar.gz for Windows binary instead."; \
+				tar -czf releases/$(BINARY)-$(VERSION)-$$platform.tar.gz $(BINARY).exe; \
+			fi; \
 			rm $(BINARY).exe; \
 		else \
 			cp $$binary $(BINARY); \

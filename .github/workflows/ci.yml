@@ -212,12 +212,14 @@ jobs:
           -o dist/gitcells-windows-amd64.exe ./cmd/gitcells
         
     - name: Create Windows AMD64 archive
-      shell: bash
+      shell: powershell
       run: |
         cd dist
-        cp gitcells-windows-amd64.exe gitcells.exe
-        zip gitcells-$(git describe --tags --always --dirty 2>/dev/null || echo 'dev')-windows-amd64.zip gitcells.exe
-        rm gitcells.exe
+        $version = & git describe --tags --always --dirty 2>$null
+        if (-not $version) { $version = "dev" }
+        Copy-Item gitcells-windows-amd64.exe gitcells.exe
+        Compress-Archive -Path gitcells.exe -DestinationPath "gitcells-$version-windows-amd64.zip" -Force
+        Remove-Item gitcells.exe
         
     - name: Upload Windows AMD64 artifact
       uses: actions/upload-artifact@v4

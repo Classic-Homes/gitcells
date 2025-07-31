@@ -167,19 +167,23 @@ jobs:
         go-version: '1.23'
         
     - name: Build Windows AMD64
-      shell: bash
+      shell: powershell
       run: |
-        mkdir -p dist/releases
-        VERSION="${{ needs.create-release.outputs.version }}"
-        GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build \
-          -ldflags "-s -w -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.commitHash=$(git rev-parse --short HEAD)" \
-          -o dist/gitcells-windows-amd64.exe ./cmd/gitcells
+        New-Item -ItemType Directory -Force -Path dist/releases
+        $env:VERSION = "${{ needs.create-release.outputs.version }}"
+        $env:GOOS = "windows"
+        $env:GOARCH = "amd64"
+        $env:CGO_ENABLED = "0"
+        $buildTime = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+        $commitHash = & git rev-parse --short HEAD
+        $ldflags = "-s -w -X main.version=$env:VERSION -X main.buildTime=$buildTime -X main.commitHash=$commitHash"
+        go build -ldflags $ldflags -o dist/gitcells-windows-amd64.exe ./cmd/gitcells
         
         # Create archive
         cd dist
-        cp gitcells-windows-amd64.exe gitcells.exe
-        zip releases/gitcells-${VERSION}-windows-amd64.zip gitcells.exe
-        rm gitcells.exe
+        Copy-Item gitcells-windows-amd64.exe gitcells.exe
+        Compress-Archive -Path gitcells.exe -DestinationPath "releases/gitcells-$env:VERSION-windows-amd64.zip" -Force
+        Remove-Item gitcells.exe
         
     - name: Upload Windows AMD64 artifacts
       uses: actions/upload-artifact@v4
