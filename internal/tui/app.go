@@ -14,8 +14,6 @@ const (
 	ModeMenu Mode = iota
 	ModeSetup
 	ModeDashboard
-	ModeBranch
-	ModeConflict
 )
 
 type Model struct {
@@ -26,8 +24,6 @@ type Model struct {
 	menuCursor  int
 	setupModel  tea.Model
 	dashModel   tea.Model
-	branchModel tea.Model
-	conflModel  tea.Model
 }
 
 type modeChangeMsg struct {
@@ -41,10 +37,8 @@ var menuItems = []struct {
 	desc  string
 	mode  Mode
 }{
-	{"Setup Wizard", "Configure GitCells for your repository", ModeSetup},
-	{"Status Dashboard", "Monitor file sync and conversion status", ModeDashboard},
-	{"Branch Management", "Create, switch, and merge branches", ModeBranch},
-	{"Conflict Resolution", "Resolve Excel merge conflicts", ModeConflict},
+	{"Setup Wizard", "Configure GitCells for your Excel tracking repository", ModeSetup},
+	{"Status Dashboard", "Monitor Excel file tracking and conversion status", ModeDashboard},
 }
 
 func NewModel() Model {
@@ -103,16 +97,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.dashModel = models.NewDashboardEnhancedModel()
 			}
 			return m, m.dashModel.Init()
-		case ModeBranch:
-			if m.branchModel == nil {
-				m.branchModel = models.NewBranchEnhancedModel()
-			}
-			return m, m.branchModel.Init()
-		case ModeConflict:
-			if m.conflModel == nil {
-				m.conflModel = models.NewConflictEnhancedModel()
-			}
-			return m, m.conflModel.Init()
 		}
 
 	case backToMenuMsg:
@@ -129,14 +113,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ModeDashboard:
 		if m.dashModel != nil {
 			m.dashModel, cmd = m.dashModel.Update(msg)
-		}
-	case ModeBranch:
-		if m.branchModel != nil {
-			m.branchModel, cmd = m.branchModel.Update(msg)
-		}
-	case ModeConflict:
-		if m.conflModel != nil {
-			m.conflModel, cmd = m.conflModel.Update(msg)
 		}
 	}
 
@@ -159,14 +135,6 @@ func (m Model) View() string {
 		if m.dashModel != nil {
 			return m.dashModel.View()
 		}
-	case ModeBranch:
-		if m.branchModel != nil {
-			return m.branchModel.View()
-		}
-	case ModeConflict:
-		if m.conflModel != nil {
-			return m.conflModel.View()
-		}
 	}
 
 	return "Loading..."
@@ -178,6 +146,10 @@ func (m Model) renderMenu() string {
 		Foreground(lipgloss.Color("99")).
 		MarginBottom(1)
 
+	subtitleStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241")).
+		MarginBottom(2)
+
 	menuStyle := lipgloss.NewStyle().
 		Padding(2, 4)
 
@@ -187,7 +159,8 @@ func (m Model) renderMenu() string {
 	descStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241"))
 
-	s := titleStyle.Render("GitCells TUI") + "\n\n"
+	s := titleStyle.Render("GitCells TUI") + "\n"
+	s += subtitleStyle.Render("Excel Version Control Management") + "\n\n"
 
 	for i, item := range menuItems {
 		cursor := "  "

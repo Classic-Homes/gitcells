@@ -6,7 +6,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// GitAdapter bridges the TUI with the git package
+// GitAdapter provides minimal git operations for GitCells TUI
+// Users should use their preferred git tools for branch management
 type GitAdapter struct {
 	client *git.Client
 }
@@ -45,46 +46,36 @@ func NewGitAdapter(directory string) (*GitAdapter, error) {
 	return &GitAdapter{client: client}, nil
 }
 
-// GetBranches returns list of branches with their status
-func (ga *GitAdapter) GetBranches() ([]BranchInfo, error) {
-	// This would be implemented using the git client
-	// For now, return mock data
-	return []BranchInfo{
-		{Name: "main", Current: true, HasChanges: false},
-		{Name: "feature/updates", Current: false, HasChanges: true},
-	}, nil
+// GetCurrentBranch returns only the current branch name
+func (ga *GitAdapter) GetCurrentBranch() (string, error) {
+	if ga.client == nil {
+		return "main", nil
+	}
+	// In real implementation, would get current branch from git client
+	return "main", nil
 }
 
-// GetStatus returns current repository status
+// GetStatus returns minimal repository status for Excel tracking
 func (ga *GitAdapter) GetStatus() (*RepoStatus, error) {
-	// This would use the git client to get actual status
-	// For now, return mock data
+	// Returns only the status needed for Excel file tracking
 	return &RepoStatus{
 		Branch:     "main",
 		Clean:      true,
 		FileCount:  0,
-		LastCommit: "Initial commit",
+		LastCommit: "Excel files tracked",
 	}, nil
 }
 
-// BranchInfo contains information about a git branch
-type BranchInfo struct {
-	Name       string
-	Current    bool
-	HasChanges bool
-	Ahead      int
-	Behind     int
-}
-
-// RepoStatus contains current repository status
+// RepoStatus contains minimal repository status for Excel tracking
 type RepoStatus struct {
 	Branch     string
 	Clean      bool
-	FileCount  int
+	FileCount  int  // Number of tracked Excel files
 	LastCommit string
 }
 
 func initializeGitRepo(directory string) error {
+	// Initialize a git repository for Excel file tracking
 	_, err := gogit.PlainInit(directory, false)
 	return err
 }

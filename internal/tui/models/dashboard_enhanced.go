@@ -150,8 +150,8 @@ func (m DashboardEnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, m.refreshData())
 		case "c":
 			cmds = append(cmds, m.startConversion())
-		case "s":
-			cmds = append(cmds, m.syncRepository())
+		case "w":
+			cmds = append(cmds, m.toggleWatcher())
 		case "up", "k":
 			if m.scrollOffset > 0 {
 				m.scrollOffset--
@@ -217,27 +217,21 @@ func (m DashboardEnhancedModel) renderHeader() string {
 	titleStyle := styles.TitleStyle.
 		MarginBottom(1)
 
-	statusIcon := "🔴"
-	statusText := "Not Connected"
-	statusColor := styles.Error
+	statusIcon := "📊"
+	statusText := "Active"
+	statusColor := styles.Success
 
-	if m.gitAdapter != nil {
-		if m.syncStatus.IsSynced {
-			statusIcon = "🟢"
-			statusText = "Synced"
-			statusColor = styles.Success
-		} else if m.syncStatus.HasChanges {
-			statusIcon = "🟡"
-			statusText = "Changes Pending"
-			statusColor = styles.Warning
-		}
+	if m.totalFiles == 0 {
+		statusIcon = "⚠️"
+		statusText = "No Excel Files"
+		statusColor = styles.Warning
 	}
 
 	statusStyle := lipgloss.NewStyle().
 		Foreground(statusColor)
 
 	title := titleStyle.Render("GitCells Dashboard")
-	status := statusStyle.Render(fmt.Sprintf("%s %s | Branch: %s", statusIcon, statusText, m.syncStatus.Branch))
+	status := statusStyle.Render(fmt.Sprintf("%s %s | Tracking: %d files", statusIcon, statusText, m.totalFiles))
 
 	return lipgloss.JoinHorizontal(
 		lipgloss.Top,
@@ -293,16 +287,26 @@ func (m DashboardEnhancedModel) renderOverview() string {
 	)
 
 	syncBox := statsStyle.Render(
-		styles.SubtitleStyle.Render("Sync Status") + "\n" +
-			fmt.Sprintf("Last commit: %s ago\n", formatDuration(time.Since(m.syncStatus.LastCommit))) +
-			fmt.Sprintf("Remote: ↑%d ↓%d", m.syncStatus.RemoteAhead, m.syncStatus.RemoteBehind),
+		styles.SubtitleStyle.Render("Auto-Sync") + "\n" +
+			fmt.Sprintf("Status: %s\n", func() string {
+				if m.config != nil && len(m.config.Watcher.Directories) > 0 {
+					return "Active"
+				}
+				return "Not configured"
+			}()) +
+			fmt.Sprintf("Debounce: %s", func() string {
+				if m.config != nil && m.config.Watcher.DebounceDelay > 0 {
+					return m.config.Watcher.DebounceDelay.String()
+				}
+				return "1s"
+			}()),
 	)
 
 	conversionStats, _ := m.convAdapter.GetConversionStats(".")
 	convBox := statsStyle.Render(
-		styles.SubtitleStyle.Render("Conversions") + "\n" +
-			fmt.Sprintf("Converted: %d/%d\n", conversionStats.ConvertedFiles, conversionStats.TotalExcelFiles) +
-			fmt.Sprintf("Pending: %d", conversionStats.PendingConversions),
+		styles.SubtitleStyle.Render("Excel Files") + "\n" +
+			fmt.Sprintf("Total: %d\n", m.totalFiles) +
+			fmt.Sprintf("JSON pairs: %d", conversionStats.ConvertedFiles),
 	)
 
 	statsRow := lipgloss.JoinHorizontal(lipgloss.Top, watchingBox, syncBox, convBox)
@@ -400,7 +404,7 @@ func (m DashboardEnhancedModel) renderCommits() string {
 }
 
 func (m DashboardEnhancedModel) renderFooter() string {
-	helpText := "[Tab] Switch tabs • [r] Refresh • [c] Convert • [s] Sync • [?] Help • [q] Quit"
+	helpText := "[Tab] Switch tabs • [r] Refresh • [c] Convert • [w] Toggle Watch • [?] Help • [q] Quit"
 	return styles.HelpStyle.
 		MarginTop(1).
 		Render(helpText)
@@ -418,8 +422,7 @@ func (m DashboardEnhancedModel) renderHelp() string {
 				"Actions:\n" +
 				"  r - Refresh data\n" +
 				"  c - Start conversion of pending files\n" +
-				"  s - Sync with remote repository\n" +
-				"  w - Start/stop file watcher\n\n" +
+				"  w - Toggle automatic file watching\n\n" +
 				"Press ? to close this help",
 		)
 
@@ -432,7 +435,7 @@ func (m DashboardEnhancedModel) getOperationIcon(op FileOperation) string {
 	case OpConvert:
 		return "🔄"
 	case OpSync:
-		return "📤"
+		return "🔄"
 	case OpWatch:
 		return "👁️"
 	default:
@@ -515,18 +518,18 @@ func (m *DashboardEnhancedModel) startConversion() tea.Cmd {
 	}
 }
 
-func (m *DashboardEnhancedModel) syncRepository() tea.Cmd {
+func (m *DashboardEnhancedModel) toggleWatcher() tea.Cmd {
 	return func() tea.Msg {
 		op := FileOperation{
-			ID:        fmt.Sprintf("sync-%d", time.Now().UnixNano()),
-			Type:      OpSync,
-			FileName:  "Repository sync",
+			ID:        fmt.Sprintf("watch-%d", time.Now().UnixNano()),
+			Type:      OpWatch,
+			FileName:  "File watching",
 			Status:    StatusInProgress,
 			Progress:  0,
 			StartTime: time.Now(),
 		}
 
-		// In a real implementation, this would perform git operations
+		// In a real implementation, this would toggle the file watcher
 		return operationUpdateMsg{operation: op}
 	}
 }
