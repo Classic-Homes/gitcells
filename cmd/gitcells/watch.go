@@ -42,12 +42,8 @@ func newWatchCommand(logger *logrus.Logger) *cobra.Command {
 			conv := converter.NewConverter(logger)
 
 			gitConfig := &git.Config{
-				UserName:       cfg.Git.UserName,
-				UserEmail:      cfg.Git.UserEmail,
-				CommitTemplate: cfg.Git.CommitTemplate,
-				AutoPush:       cfg.Git.AutoPush,
-				AutoPull:       cfg.Git.AutoPull,
-				Branch:         cfg.Git.Branch,
+				UserName:  cfg.Git.UserName,
+				UserEmail: cfg.Git.UserEmail,
 			}
 
 			gitClient, err := git.NewClient(".", gitConfig, logger)
@@ -89,13 +85,12 @@ func newWatchCommand(logger *logrus.Logger) *cobra.Command {
 					return fmt.Errorf("failed to write JSON file: %w", writeErr)
 				}
 
-				// Commit changes if auto-commit is enabled
-				metadata := map[string]string{
-					"filename": filepath.Base(event.Path),
-					"action":   event.Type.String(),
+				// Commit changes if git repository exists
+				if gitClient != nil {
+					message := fmt.Sprintf("GitCells: %s %s", event.Type.String(), filepath.Base(event.Path))
+					return gitClient.AutoCommit([]string{jsonPath}, message)
 				}
-
-				return gitClient.AutoCommit([]string{jsonPath}, metadata)
+				return nil
 			}
 
 			// Setup watcher

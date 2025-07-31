@@ -337,7 +337,7 @@ func (m *ErrorLogModel) updateViewport() {
 		}
 		m.viewport.GotoTop()
 		for i := 0; i < m.selectedIndex*lineHeight; i++ {
-			m.viewport.LineDown(1)
+			m.viewport.ScrollDown(1)
 		}
 	}
 }
@@ -402,7 +402,7 @@ func (m *ErrorLogModel) applyFilter() {
 	} else {
 		m.filteredEntries = []LogEntry{}
 		for _, entry := range m.entries {
-			if strings.ToLower(entry.Level) == strings.ToLower(m.filterLevel) {
+			if strings.EqualFold(entry.Level, m.filterLevel) {
 				m.filteredEntries = append(m.filteredEntries, entry)
 			}
 		}

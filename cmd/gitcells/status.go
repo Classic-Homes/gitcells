@@ -8,8 +8,8 @@ import (
 func newStatusCommand(logger *logrus.Logger) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
-		Short: "Show status of Excel files and their JSON representations",
-		Long:  "Display the synchronization status of Excel files in the current directory",
+		Short: "Show status of Excel files and their JSON representations", 
+		Long:  "Display the synchronization status of Excel files and JSON representations in the current directory",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger.Info("Status command will show sync status of Excel files")
 

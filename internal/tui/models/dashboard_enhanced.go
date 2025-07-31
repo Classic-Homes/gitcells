@@ -481,9 +481,11 @@ func (m *DashboardEnhancedModel) loadInitialData() tea.Cmd {
 
 		// Get git status
 		if m.gitAdapter != nil {
-			if status, err := m.gitAdapter.GetStatus(); err == nil {
-				data.branch = status.Branch
-				data.hasChanges = !status.Clean
+			if clean, err := m.gitAdapter.IsClean(); err == nil {
+				data.hasChanges = !clean
+				if m.gitAdapter.InGitRepository() {
+					data.branch = "git repository"
+				}
 			}
 		}
 
