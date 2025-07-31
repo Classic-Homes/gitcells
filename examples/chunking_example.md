@@ -25,7 +25,7 @@ GitCells automatically splits Excel files into multiple JSON files:
 gitcells convert myworkbook.xlsx
 
 # This creates:
-# myworkbook_chunks/
+# .gitcells/data/myworkbook_chunks/
 #   ├── workbook.json           # Main metadata file
 #   ├── sheet_Sheet1.json       # First sheet data
 #   ├── sheet_Sheet2.json       # Second sheet data
@@ -44,11 +44,11 @@ converter:
 ### Convert Back to Excel
 
 ```bash
-# GitCells automatically detects chunked files
-gitcells convert myworkbook_chunks --output reconstructed.xlsx
+# GitCells automatically finds the JSON chunks based on the original Excel path
+gitcells convert myworkbook.xlsx --output reconstructed.xlsx
 
-# Or reference the original path
-gitcells convert myworkbook.json --output reconstructed.xlsx
+# Or reference the chunk directory directly
+gitcells convert .gitcells/data/myworkbook_chunks --output reconstructed.xlsx
 ```
 
 ## Example Structure
@@ -57,17 +57,20 @@ For an Excel file with 3 sheets (Sales, Inventory, Reports):
 
 ```
 project/
-├── data.xlsx                    # Original Excel file
-└── data_chunks/                 # Chunked JSON output
-    ├── workbook.json           # Contains:
-    │                           # - Document metadata
-    │                           # - Sheet list and properties
-    │                           # - Defined names
-    │                           # - Document properties
-    ├── sheet_Sales.json        # Sales sheet data only
-    ├── sheet_Inventory.json    # Inventory sheet data only
-    ├── sheet_Reports.json      # Reports sheet data only
-    └── .gitcells_chunks.json   # Chunking metadata
+├── data.xlsx                    # Original Excel file (in working directory)
+├── .gitcells/
+│   └── data/
+│       └── data_chunks/         # Chunked JSON output
+│           ├── workbook.json    # Contains:
+│           │                    # - Document metadata
+│           │                    # - Sheet list and properties
+│           │                    # - Defined names
+│           │                    # - Document properties
+│           ├── sheet_Sales.json        # Sales sheet data only
+│           ├── sheet_Inventory.json    # Inventory sheet data only
+│           ├── sheet_Reports.json      # Reports sheet data only
+│           └── .gitcells_chunks.json   # Chunking metadata
+└── .gitignore                   # Excludes *.xlsx files
 ```
 
 ## Future Enhancements

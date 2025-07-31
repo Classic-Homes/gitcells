@@ -53,11 +53,24 @@ func NewSheetBasedChunking(logger Logger) ChunkingStrategy {
 
 
 func (s *SheetBasedChunking) WriteChunks(doc *models.ExcelDocument, basePath string, options ConvertOptions) ([]string, error) {
-	// Remove .json extension if present
-	basePath = strings.TrimSuffix(basePath, ".json")
+	// Determine the root directory and relative path for the Excel file
+	excelDir := filepath.Dir(basePath)
+	excelFile := filepath.Base(basePath)
 	
-	// Create directory for chunks
-	chunkDir := basePath + "_chunks"
+	// Remove .json extension if present
+	excelFile = strings.TrimSuffix(excelFile, ".json")
+	
+	// Find the git root or use current directory
+	gitRoot := s.findGitRoot(excelDir)
+	
+	// Calculate relative path from git root to excel file
+	relPath, err := filepath.Rel(gitRoot, excelDir)
+	if err != nil {
+		relPath = ""
+	}
+	
+	// Create the .gitcells/data directory structure mirroring the source structure
+	chunkDir := filepath.Join(gitRoot, ".gitcells", "data", relPath, excelFile+"_chunks")
 	if err := os.MkdirAll(chunkDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create chunk directory: %w", err)
 	}
@@ -130,10 +143,26 @@ func (s *SheetBasedChunking) WriteChunks(doc *models.ExcelDocument, basePath str
 }
 
 func (s *SheetBasedChunking) ReadChunks(basePath string) (*models.ExcelDocument, error) {
-	// Handle both directory and file paths
-	chunkDir := basePath
-	if !strings.HasSuffix(basePath, "_chunks") {
-		chunkDir = strings.TrimSuffix(basePath, ".json") + "_chunks"
+	// Determine where chunks are stored based on the input path
+	var chunkDir string
+	
+	// If basePath is already a chunk directory, use it directly
+	if strings.Contains(basePath, ".gitcells/data/") && strings.HasSuffix(basePath, "_chunks") {
+		chunkDir = basePath
+	} else {
+		// Otherwise, calculate the chunk directory location
+		excelDir := filepath.Dir(basePath)
+		excelFile := filepath.Base(basePath)
+		excelFile = strings.TrimSuffix(excelFile, ".json")
+		excelFile = strings.TrimSuffix(excelFile, ".xlsx")
+		
+		gitRoot := s.findGitRoot(excelDir)
+		relPath, err := filepath.Rel(gitRoot, excelDir)
+		if err != nil {
+			relPath = ""
+		}
+		
+		chunkDir = filepath.Join(gitRoot, ".gitcells", "data", relPath, excelFile+"_chunks")
 	}
 	
 	// Read chunk metadata
@@ -191,9 +220,24 @@ func (s *SheetBasedChunking) ReadChunks(basePath string) (*models.ExcelDocument,
 }
 
 func (s *SheetBasedChunking) GetChunkPaths(basePath string) ([]string, error) {
-	chunkDir := basePath
-	if !strings.HasSuffix(basePath, "_chunks") {
-		chunkDir = strings.TrimSuffix(basePath, ".json") + "_chunks"
+	// Determine where chunks are stored
+	var chunkDir string
+	
+	if strings.Contains(basePath, ".gitcells/data/") && strings.HasSuffix(basePath, "_chunks") {
+		chunkDir = basePath
+	} else {
+		excelDir := filepath.Dir(basePath)
+		excelFile := filepath.Base(basePath)
+		excelFile = strings.TrimSuffix(excelFile, ".json")
+		excelFile = strings.TrimSuffix(excelFile, ".xlsx")
+		
+		gitRoot := s.findGitRoot(excelDir)
+		relPath, err := filepath.Rel(gitRoot, excelDir)
+		if err != nil {
+			relPath = ""
+		}
+		
+		chunkDir = filepath.Join(gitRoot, ".gitcells", "data", relPath, excelFile+"_chunks")
 	}
 	
 	// Check if chunk directory exists
@@ -272,6 +316,26 @@ func (s *SheetBasedChunking) getRelativeChunkFiles(baseDir string, fullPaths []s
 		relativePaths = append(relativePaths, relPath)
 	}
 	return relativePaths
+}
+
+// findGitRoot finds the git repository root, or returns the current directory
+func (s *SheetBasedChunking) findGitRoot(startDir string) string {
+	dir := startDir
+	for {
+		// Check if .git directory exists
+		gitPath := filepath.Join(dir, ".git")
+		if _, err := os.Stat(gitPath); err == nil {
+			return dir
+		}
+		
+		// Check if we've reached the root
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Return the original directory if no git root found
+			return startDir
+		}
+		dir = parent
+	}
 }
 
 // Future-proofing for hybrid chunking strategy

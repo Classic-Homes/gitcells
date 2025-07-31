@@ -52,8 +52,12 @@ func TestSheetBasedChunking(t *testing.T) {
 	}
 	
 	t.Run("WriteAndReadChunks", func(t *testing.T) {
-		// Create temp directory
+		// Create temp directory with .git to simulate git repo
 		tempDir := t.TempDir()
+		gitDir := filepath.Join(tempDir, ".git")
+		err := os.Mkdir(gitDir, 0755)
+		require.NoError(t, err)
+		
 		basePath := filepath.Join(tempDir, "test_workbook.json")
 		
 		// Write chunks
@@ -65,13 +69,13 @@ func TestSheetBasedChunking(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, files, 3) // workbook.json + 2 sheet files
 		
-		// Verify chunk directory exists
-		chunkDir := basePath[:len(basePath)-5] + "_chunks"
-		_, err = os.Stat(chunkDir)
+		// Verify chunk directory exists in .gitcells/data
+		expectedChunkDir := filepath.Join(tempDir, ".gitcells", "data", "test_workbook_chunks")
+		_, err = os.Stat(expectedChunkDir)
 		assert.NoError(t, err)
 		
 		// Verify metadata file exists
-		metadataPath := filepath.Join(chunkDir, ".gitcells_chunks.json")
+		metadataPath := filepath.Join(expectedChunkDir, ".gitcells_chunks.json")
 		_, err = os.Stat(metadataPath)
 		assert.NoError(t, err)
 		
@@ -96,13 +100,17 @@ func TestSheetBasedChunking(t *testing.T) {
 	})
 	
 	t.Run("GetChunkPaths", func(t *testing.T) {
-		// Create temp directory with chunks
+		// Create temp directory with .git
 		tempDir := t.TempDir()
+		gitDir := filepath.Join(tempDir, ".git")
+		err := os.Mkdir(gitDir, 0755)
+		require.NoError(t, err)
+		
 		basePath := filepath.Join(tempDir, "test_workbook.json")
 		
 		// Write chunks first
 		opts := ConvertOptions{}
-		_, err := chunker.WriteChunks(doc, basePath, opts)
+		_, err = chunker.WriteChunks(doc, basePath, opts)
 		require.NoError(t, err)
 		
 		// Get chunk paths

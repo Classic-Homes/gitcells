@@ -247,12 +247,15 @@ GitCells automatically converts Excel files into multiple JSON files using sheet
 
 ### Directory Structure
 ```
-myworkbook_chunks/
-├── workbook.json           # Metadata and workbook properties
-├── sheet_Sheet1.json       # Individual sheet data
-├── sheet_Sheet2.json       # Individual sheet data
-└── .gitcells_chunks.json   # Chunk tracking metadata
+.gitcells/data/
+└── myworkbook_chunks/
+    ├── workbook.json           # Metadata and workbook properties
+    ├── sheet_Sheet1.json       # Individual sheet data
+    ├── sheet_Sheet2.json       # Individual sheet data
+    └── .gitcells_chunks.json   # Chunk tracking metadata
 ```
+
+Excel files remain in their original locations, while JSON representations are stored in `.gitcells/data/`, keeping your working directory clean.
 
 ### Main Workbook File (workbook.json)
 ```json
