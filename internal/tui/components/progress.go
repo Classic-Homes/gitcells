@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/Classic-Homes/gitcells/internal/tui/styles"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type ProgressBar struct {
-	width      int
-	current    int
-	total      int
-	label      string
+	width       int
+	current     int
+	total       int
+	label       string
 	showPercent bool
 }
 
@@ -51,7 +51,7 @@ func (p ProgressBar) Percentage() float64 {
 
 func (p ProgressBar) View() string {
 	percentage := p.Percentage()
-	
+
 	// Calculate filled width
 	barWidth := p.width
 	if p.showPercent {
@@ -60,43 +60,43 @@ func (p ProgressBar) View() string {
 	if p.label != "" {
 		barWidth -= len(p.label) + 2 // Space for label
 	}
-	
+
 	filled := int(float64(barWidth) * (percentage / 100))
 	if filled > barWidth {
 		filled = barWidth
 	}
-	
+
 	// Build the bar
 	filledStyle := lipgloss.NewStyle().
 		Foreground(styles.Success).
 		Bold(true)
-		
+
 	emptyStyle := lipgloss.NewStyle().
 		Foreground(styles.Muted)
-	
+
 	bar := filledStyle.Render(strings.Repeat("█", filled)) +
 		emptyStyle.Render(strings.Repeat("░", barWidth-filled))
-	
+
 	// Add percentage
 	percentStr := ""
 	if p.showPercent {
 		percentStr = fmt.Sprintf(" %3.0f%%", percentage)
 	}
-	
+
 	// Add label
 	labelStr := ""
 	if p.label != "" {
 		labelStr = p.label + " "
 	}
-	
+
 	return labelStr + bar + percentStr
 }
 
 // MultiProgress manages multiple progress bars
 type MultiProgress struct {
-	bars   map[string]*ProgressBar
-	order  []string
-	width  int
+	bars  map[string]*ProgressBar
+	order []string
+	width int
 }
 
 func NewMultiProgress() MultiProgress {
@@ -136,14 +136,14 @@ func (m MultiProgress) View() string {
 	if len(m.bars) == 0 {
 		return ""
 	}
-	
+
 	lines := []string{}
 	for _, id := range m.order {
 		if bar, exists := m.bars[id]; exists {
 			lines = append(lines, bar.View())
 		}
 	}
-	
+
 	return strings.Join(lines, "\n")
 }
 
@@ -168,6 +168,6 @@ func (s *SpinnerProgress) Next() {
 func (s SpinnerProgress) View() string {
 	spinnerStyle := lipgloss.NewStyle().
 		Foreground(styles.Primary)
-		
+
 	return spinnerStyle.Render(s.frames[s.frame]) + " " + s.label
 }

@@ -13,7 +13,6 @@ type SetupModel struct {
 	height   int
 	cursor   int
 	inputs   map[string]string
-	errors   []string
 	finished bool
 }
 

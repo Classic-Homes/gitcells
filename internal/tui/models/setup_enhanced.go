@@ -3,38 +3,37 @@ package models
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/Classic-Homes/gitcells/internal/tui/adapter"
 	"github.com/Classic-Homes/gitcells/internal/tui/components"
 	"github.com/Classic-Homes/gitcells/internal/tui/styles"
 	"github.com/Classic-Homes/gitcells/internal/tui/types"
 	"github.com/Classic-Homes/gitcells/internal/tui/validation"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type SetupEnhancedModel struct {
-	width    int
-	height   int
-	step     int
-	focused  int
-	finished bool
-	error    string
+	width            int
+	height           int
+	step             int
+	focused          int
+	finished         bool
+	error            string
 	validationErrors map[string]string
-	
+
 	// Step 1 - Directory
 	dirInput components.TextInput
-	
+
 	// Step 2 - Excel patterns
 	patternInput components.TextInput
-	
+
 	// Step 3 - Git settings
 	autoCommit     components.Checkbox
 	autoPush       components.Checkbox
 	commitTemplate components.TextInput
-	
+
 	// Configuration data
 	config types.SetupConfig
 }
@@ -42,24 +41,24 @@ type SetupEnhancedModel struct {
 func NewSetupEnhancedModel() SetupEnhancedModel {
 	// Get current directory
 	cwd, _ := os.Getwd()
-	
+
 	m := SetupEnhancedModel{
-		dirInput:       components.NewTextInput("Repository Directory:", cwd),
-		patternInput:   components.NewTextInput("Excel File Pattern:", "*.xlsx"),
-		autoCommit:     components.NewCheckbox("Enable auto-commit", true),
-		autoPush:       components.NewCheckbox("Enable auto-push", false),
-		commitTemplate: components.NewTextInput("Commit Message Template:", "GitCells: {action} {filename}"),
+		dirInput:         components.NewTextInput("Repository Directory:", cwd),
+		patternInput:     components.NewTextInput("Excel File Pattern:", "*.xlsx"),
+		autoCommit:       components.NewCheckbox("Enable auto-commit", true),
+		autoPush:         components.NewCheckbox("Enable auto-push", false),
+		commitTemplate:   components.NewTextInput("Commit Message Template:", "GitCells: {action} {filename}"),
 		validationErrors: make(map[string]string),
 	}
-	
+
 	// Set initial values
 	m.dirInput.SetValue(cwd)
 	m.patternInput.SetValue("*.xlsx")
 	m.commitTemplate.SetValue("GitCells: {action} {filename}")
-	
+
 	// Focus first input
 	m.dirInput.Focus()
-	
+
 	return m
 }
 
@@ -79,13 +78,13 @@ func (m SetupEnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
-			
+
 		case "tab", "down":
 			m.focusNext()
-			
+
 		case "shift+tab", "up":
 			m.focusPrev()
-			
+
 		case "enter":
 			if m.validateCurrentStep() && m.canProceed() {
 				if m.step == 3 { // Last step
@@ -97,7 +96,7 @@ func (m SetupEnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.focusCurrentInput()
 				}
 			}
-			
+
 		case "left", "h":
 			if m.step > 0 {
 				m.step--
@@ -113,11 +112,11 @@ func (m SetupEnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case 0:
 		m.dirInput, cmd = m.dirInput.Update(msg)
 		cmds = append(cmds, cmd)
-		
+
 	case 1:
 		m.patternInput, cmd = m.patternInput.Update(msg)
 		cmds = append(cmds, cmd)
-		
+
 	case 2:
 		switch m.focused {
 		case 0:
@@ -143,7 +142,7 @@ func (m SetupEnhancedModel) View() string {
 		Width(80)
 
 	stepIndicator := m.renderStepIndicator()
-	
+
 	var content string
 	switch m.step {
 	case 0:
@@ -172,7 +171,7 @@ func (m SetupEnhancedModel) View() string {
 
 func (m SetupEnhancedModel) renderStepIndicator() string {
 	steps := []string{"Directory", "Patterns", "Git Settings", "Review"}
-	
+
 	var indicators []string
 	for i, step := range steps {
 		style := lipgloss.NewStyle().Foreground(styles.Muted)
@@ -181,28 +180,28 @@ func (m SetupEnhancedModel) renderStepIndicator() string {
 		} else if i < m.step {
 			style = style.Foreground(styles.Success)
 		}
-		
+
 		num := fmt.Sprintf("%d", i+1)
 		if i < m.step {
 			num = "✓"
 		}
-		
+
 		indicators = append(indicators, style.Render(fmt.Sprintf("%s %s", num, step)))
 	}
-	
+
 	return lipgloss.JoinHorizontal(lipgloss.Top, indicators[0], " → ", indicators[1], " → ", indicators[2], " → ", indicators[3])
 }
 
 func (m SetupEnhancedModel) renderDirectoryStep() string {
 	title := styles.TitleStyle.Render("Select Repository Directory")
 	desc := styles.MutedStyle.Render("Choose the directory containing your Excel files")
-	
+
 	// Show validation error if any
 	var errorMsg string
 	if err, exists := m.validationErrors["directory"]; exists {
 		errorMsg = styles.ErrorStyle.Render("✗ " + err)
 	}
-	
+
 	// Check directory info
 	var info []string
 	if dir := m.dirInput.Value(); dir != "" && errorMsg == "" {
@@ -223,7 +222,7 @@ func (m SetupEnhancedModel) renderDirectoryStep() string {
 			}
 		}
 	}
-	
+
 	content := []string{title, desc, ""}
 	content = append(content, m.dirInput.View())
 	if errorMsg != "" {
@@ -232,46 +231,46 @@ func (m SetupEnhancedModel) renderDirectoryStep() string {
 	if len(info) > 0 {
 		content = append(content, strings.Join(info, "\n"))
 	}
-	
+
 	return lipgloss.JoinVertical(lipgloss.Left, content...)
 }
 
 func (m SetupEnhancedModel) renderPatternStep() string {
 	title := styles.TitleStyle.Render("Configure Excel File Patterns")
 	desc := styles.MutedStyle.Render("Specify which Excel files to track (e.g., *.xlsx, reports/*.xlsx)")
-	
+
 	// Show validation error if any
 	var errorMsg string
 	if err, exists := m.validationErrors["pattern"]; exists {
 		errorMsg = styles.ErrorStyle.Render("✗ " + err)
 	}
-	
+
 	examples := styles.MutedStyle.Render(`
 Examples:
   *.xlsx           - All Excel files in the directory
   reports/*.xlsx   - Excel files in the reports subdirectory
   Budget*.xlsx     - Files starting with "Budget"
   *.{xlsx,xls}     - Multiple extensions`)
-	
+
 	content := []string{title, desc, "", m.patternInput.View()}
 	if errorMsg != "" {
 		content = append(content, errorMsg)
 	}
 	content = append(content, examples)
-	
+
 	return lipgloss.JoinVertical(lipgloss.Left, content...)
 }
 
 func (m *SetupEnhancedModel) renderGitStep() string {
 	title := styles.TitleStyle.Render("Git Integration Settings")
 	desc := styles.MutedStyle.Render("Configure how GitCells interacts with Git")
-	
+
 	// Show validation error if any
 	var errorMsg string
 	if err, exists := m.validationErrors["template"]; exists {
 		errorMsg = styles.ErrorStyle.Render("✗ " + err)
 	}
-	
+
 	// Template help
 	templateHelp := ""
 	if m.focused == 2 { // Commit template is focused
@@ -282,7 +281,7 @@ Available placeholders:
   {timestamp} - Current timestamp
   {user}      - Git user name`)
 	}
-	
+
 	content := []string{
 		title,
 		desc,
@@ -293,21 +292,21 @@ Available placeholders:
 		"",
 		m.commitTemplate.View(),
 	}
-	
+
 	if errorMsg != "" {
 		content = append(content, errorMsg)
 	}
 	if templateHelp != "" {
 		content = append(content, templateHelp)
 	}
-	
+
 	return lipgloss.JoinVertical(lipgloss.Left, content...)
 }
 
 func (m SetupEnhancedModel) renderReviewStep() string {
 	title := styles.TitleStyle.Render("Review Configuration")
 	desc := styles.MutedStyle.Render("Please review your settings before initializing")
-	
+
 	// Prepare config for display
 	m.config = types.SetupConfig{
 		Directory:      m.dirInput.Value(),
@@ -316,7 +315,7 @@ func (m SetupEnhancedModel) renderReviewStep() string {
 		AutoPush:       m.autoPush.Checked(),
 		CommitTemplate: m.commitTemplate.Value(),
 	}
-	
+
 	configBox := styles.BoxStyle.Render(fmt.Sprintf(`
 Directory:        %s
 Pattern:          %s
@@ -329,7 +328,7 @@ Commit template:  %s`,
 		m.config.AutoPush,
 		m.config.CommitTemplate,
 	))
-	
+
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
 		title,
@@ -358,7 +357,7 @@ func (m SetupEnhancedModel) renderComplete() string {
 
 func (m *SetupEnhancedModel) focusNext() {
 	m.blurCurrent()
-	
+
 	switch m.step {
 	case 0, 1:
 		// Only one input per step
@@ -369,13 +368,13 @@ func (m *SetupEnhancedModel) focusNext() {
 			m.focused = 0
 		}
 	}
-	
+
 	m.focusCurrentInput()
 }
 
 func (m *SetupEnhancedModel) focusPrev() {
 	m.blurCurrent()
-	
+
 	switch m.step {
 	case 0, 1:
 		// Only one input per step
@@ -386,7 +385,7 @@ func (m *SetupEnhancedModel) focusPrev() {
 			m.focused = 2
 		}
 	}
-	
+
 	m.focusCurrentInput()
 }
 
@@ -438,23 +437,26 @@ func (m *SetupEnhancedModel) saveConfig() {
 		AutoPush:       m.autoPush.Checked(),
 		CommitTemplate: m.commitTemplate.Value(),
 	}
-	
+
 	// Create directory if needed
-	os.MkdirAll(m.config.Directory, 0755)
-	
+	if err := os.MkdirAll(m.config.Directory, 0755); err != nil {
+		m.error = fmt.Sprintf("Failed to create directory: %v", err)
+		return
+	}
+
 	// Save configuration using adapter
 	configAdapter := adapter.NewConfigAdapter(m.config.Directory)
 	if err := configAdapter.SaveSetupConfig(m.config); err != nil {
 		m.error = fmt.Sprintf("Failed to save configuration: %v", err)
 		return
 	}
-	
+
 	// Create .gitignore
 	if err := configAdapter.CreateGitIgnore(m.config.Directory); err != nil {
 		m.error = fmt.Sprintf("Failed to create .gitignore: %v", err)
 		return
 	}
-	
+
 	// Initialize git repository
 	if _, err := adapter.NewGitAdapter(m.config.Directory); err != nil {
 		m.error = fmt.Sprintf("Failed to initialize git repository: %v", err)
@@ -462,19 +464,12 @@ func (m *SetupEnhancedModel) saveConfig() {
 	}
 }
 
-// Helper to get absolute path
-func absPath(path string) string {
-	if abs, err := filepath.Abs(path); err == nil {
-		return abs
-	}
-	return path
-}
 
 func (m *SetupEnhancedModel) validateCurrentStep() bool {
 	// Clear previous errors
 	m.validationErrors = make(map[string]string)
 	m.error = ""
-	
+
 	switch m.step {
 	case 0: // Directory step
 		if err := validation.ValidateDirectory(m.dirInput.Value()); err != nil {
@@ -482,14 +477,14 @@ func (m *SetupEnhancedModel) validateCurrentStep() bool {
 			m.error = err.Error()
 			return false
 		}
-		
+
 	case 1: // Pattern step
 		if err := validation.ValidateExcelPattern(m.patternInput.Value()); err != nil {
 			m.validationErrors["pattern"] = err.Error()
 			m.error = err.Error()
 			return false
 		}
-		
+
 	case 2: // Git settings step
 		if err := validation.ValidateCommitTemplate(m.commitTemplate.Value()); err != nil {
 			m.validationErrors["template"] = err.Error()
@@ -497,6 +492,6 @@ func (m *SetupEnhancedModel) validateCurrentStep() bool {
 			return false
 		}
 	}
-	
+
 	return true
 }

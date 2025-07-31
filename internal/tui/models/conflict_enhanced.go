@@ -4,32 +4,32 @@ import (
 	"fmt"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/Classic-Homes/gitcells/internal/tui/components"
 	"github.com/Classic-Homes/gitcells/internal/tui/styles"
 	"github.com/Classic-Homes/gitcells/pkg/models"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type ConflictEnhancedModel struct {
-	width      int
-	height     int
-	
+	width  int
+	height int
+
 	// Conflict data
-	conflicts    []ExcelConflict
-	currentIdx   int
-	
+	conflicts  []ExcelConflict
+	currentIdx int
+
 	// UI components
-	diffViewer   components.DiffViewer
-	
+	diffViewer components.DiffViewer
+
 	// State
-	mode         ConflictMode
-	resolution   map[string]ConflictResolution
-	showDiff     bool
-	showPreview  bool
+	mode        ConflictMode
+	resolution  map[string]ConflictResolution
+	showDiff    bool
 }
 
 type ConflictMode int
+
 const (
 	ConflictModeList ConflictMode = iota
 	ConflictModeResolve
@@ -38,12 +38,12 @@ const (
 )
 
 type ExcelConflict struct {
-	File       string
-	Sheet      string
-	Cell       string
-	BaseValue  interface{}
-	OurValue   interface{}
-	TheirValue interface{}
+	File         string
+	Sheet        string
+	Cell         string
+	BaseValue    interface{}
+	OurValue     interface{}
+	TheirValue   interface{}
 	BaseFormula  string
 	OurFormula   string
 	TheirFormula string
@@ -51,12 +51,13 @@ type ExcelConflict struct {
 }
 
 type ConflictResolution struct {
-	Choice      ResolutionChoice
-	CustomValue interface{}
+	Choice        ResolutionChoice
+	CustomValue   interface{}
 	CustomFormula string
 }
 
 type ResolutionChoice int
+
 const (
 	ChoiceUnresolved ResolutionChoice = iota
 	ChoiceOurs
@@ -68,14 +69,14 @@ const (
 func NewConflictEnhancedModel() tea.Model {
 	m := &ConflictEnhancedModel{
 		resolution: make(map[string]ConflictResolution),
-		mode: ConflictModeList,
-		width: 80,  // Default width
-		height: 24, // Default height
+		mode:       ConflictModeList,
+		width:      80, // Default width
+		height:     24, // Default height
 	}
-	
+
 	// Load mock conflicts for demo
 	m.loadMockConflicts()
-	
+
 	return m
 }
 
@@ -91,13 +92,13 @@ func (m *ConflictEnhancedModel) loadMockConflicts() {
 			HasFormula:   true,
 		},
 		{
-			File:        "Budget2024.xlsx",
-			Sheet:       "Q1",
-			Cell:        "D20",
-			BaseValue:   1000000,
-			OurValue:    1250000,
-			TheirValue:  1275000,
-			HasFormula:  false,
+			File:       "Budget2024.xlsx",
+			Sheet:      "Q1",
+			Cell:       "D20",
+			BaseValue:  1000000,
+			OurValue:   1250000,
+			TheirValue: 1275000,
+			HasFormula: false,
 		},
 		{
 			File:         "Reports.xlsx",
@@ -152,11 +153,11 @@ func (m ConflictEnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "a":
 				m.applyAllResolutions()
 			}
-			
+
 		case ConflictModeResolve:
 			current := m.getCurrentConflict()
 			key := m.getConflictKey(current)
-			
+
 			switch msg.String() {
 			case "esc":
 				m.mode = ConflictModeList
@@ -180,7 +181,7 @@ func (m ConflictEnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				delete(m.resolution, key)
 				m.nextConflict()
 			}
-			
+
 		case ConflictModePreview:
 			switch msg.String() {
 			case "esc":
@@ -224,7 +225,7 @@ func (m ConflictEnhancedModel) renderListView() string {
 		Height(m.height)
 
 	title := styles.TitleStyle.Render("Excel Merge Conflicts")
-	
+
 	// Summary
 	resolved := m.countResolved()
 	summary := fmt.Sprintf("Total: %d conflicts | Resolved: %d | Remaining: %d",
@@ -234,7 +235,7 @@ func (m ConflictEnhancedModel) renderListView() string {
 		summaryStyle = styles.SuccessStyle
 	}
 	summaryLine := summaryStyle.Render(summary)
-	
+
 	// Conflict list
 	table := components.NewTable([]string{"", "File", "Sheet", "Cell", "Status"})
 	if m.height > 15 {
@@ -242,21 +243,21 @@ func (m ConflictEnhancedModel) renderListView() string {
 	} else {
 		table.SetHeight(10) // Default minimum height
 	}
-	
+
 	for i, conflict := range m.conflicts {
 		status := "Unresolved"
 		statusColor := styles.Warning
-		
+
 		if resolution, exists := m.resolution[m.getConflictKey(&conflict)]; exists {
 			status = m.getResolutionLabel(resolution)
 			statusColor = styles.Success
 		}
-		
+
 		selected := ""
 		if i == m.currentIdx {
 			selected = "▶"
 		}
-		
+
 		table.AddRow([]string{
 			selected,
 			conflict.File,
@@ -265,7 +266,7 @@ func (m ConflictEnhancedModel) renderListView() string {
 			lipgloss.NewStyle().Foreground(statusColor).Render(status),
 		})
 	}
-	
+
 	// Show diff viewer if enabled
 	var content string
 	if m.showDiff && m.currentIdx < len(m.conflicts) {
@@ -274,7 +275,7 @@ func (m ConflictEnhancedModel) renderListView() string {
 			Width(m.width/2 - 2).
 			Height(m.height - 10).
 			Render(table.View())
-			
+
 		diffBox := lipgloss.NewStyle().
 			Width(m.width/2 - 2).
 			Height(m.height - 10).
@@ -282,17 +283,17 @@ func (m ConflictEnhancedModel) renderListView() string {
 			BorderForeground(styles.Muted).
 			Padding(1).
 			Render(m.renderConflictDiff())
-			
+
 		content = lipgloss.JoinHorizontal(lipgloss.Top, listBox, diffBox)
 	} else {
 		content = table.View()
 	}
-	
+
 	// Help
 	help := styles.HelpStyle.Render(
 		"[↑/↓] Navigate • [Enter] Resolve • [d] Toggle diff • [p] Preview • [a] Apply all",
 	)
-	
+
 	return containerStyle.Render(
 		lipgloss.JoinVertical(
 			lipgloss.Left,
@@ -310,45 +311,45 @@ func (m ConflictEnhancedModel) renderResolveView() string {
 	if m.currentIdx >= len(m.conflicts) {
 		return m.renderListView()
 	}
-	
+
 	conflict := m.conflicts[m.currentIdx]
-	
-	boxStyle := styles.BoxStyle.Copy().
+
+	boxStyle := styles.BoxStyle.
 		Width(80).
 		Padding(2)
-		
+
 	title := styles.TitleStyle.Render(fmt.Sprintf("Resolve Conflict: %s", conflict.Cell))
 	location := styles.MutedStyle.Render(fmt.Sprintf("%s - %s", conflict.File, conflict.Sheet))
-	
+
 	// Value boxes
 	valueStyle := lipgloss.NewStyle().
 		Width(70).
 		Padding(1).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.Muted)
-		
+
 	var sections []string
-	
+
 	// Base version (if exists)
 	if conflict.BaseValue != nil || conflict.BaseFormula != "" {
-		baseBox := valueStyle.Copy().
+		baseBox := valueStyle.
 			BorderForeground(styles.Muted).
 			Render(m.formatConflictValue("Base (Original)", conflict.BaseValue, conflict.BaseFormula))
 		sections = append(sections, baseBox)
 	}
-	
+
 	// Our version
-	ourBox := valueStyle.Copy().
+	ourBox := valueStyle.
 		BorderForeground(styles.Success).
 		Render(m.formatConflictValue("Ours (Current)", conflict.OurValue, conflict.OurFormula))
 	sections = append(sections, ourBox)
-	
+
 	// Their version
-	theirBox := valueStyle.Copy().
+	theirBox := valueStyle.
 		BorderForeground(styles.Primary).
 		Render(m.formatConflictValue("Theirs (Incoming)", conflict.TheirValue, conflict.TheirFormula))
 	sections = append(sections, theirBox)
-	
+
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
 		title,
@@ -358,18 +359,18 @@ func (m ConflictEnhancedModel) renderResolveView() string {
 		"",
 		m.renderResolutionHelp(conflict),
 	)
-	
+
 	return styles.Center(m.width, m.height, boxStyle.Render(content))
 }
 
 func (m ConflictEnhancedModel) renderPreviewView() string {
-	boxStyle := styles.BoxStyle.Copy().
+	boxStyle := styles.BoxStyle.
 		Width(m.width - 10).
 		Height(m.height - 5).
 		Padding(2)
-		
+
 	title := styles.TitleStyle.Render("Resolution Preview")
-	
+
 	// Group resolutions by file
 	fileGroups := make(map[string][]string)
 	for _, conflict := range m.conflicts {
@@ -383,16 +384,16 @@ func (m ConflictEnhancedModel) renderPreviewView() string {
 			fileGroups[conflict.File] = append(fileGroups[conflict.File], line)
 		}
 	}
-	
+
 	var preview []string
 	for file, resolutions := range fileGroups {
 		preview = append(preview, styles.SubtitleStyle.Render(file))
 		preview = append(preview, resolutions...)
 		preview = append(preview, "")
 	}
-	
+
 	help := styles.HelpStyle.Render("[Enter] Apply resolutions • [Esc] Back to list")
-	
+
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
 		title,
@@ -401,7 +402,7 @@ func (m ConflictEnhancedModel) renderPreviewView() string {
 		"",
 		help,
 	)
-	
+
 	return styles.Center(m.width, m.height, boxStyle.Render(content))
 }
 
@@ -409,17 +410,17 @@ func (m ConflictEnhancedModel) renderConflictDiff() string {
 	if m.currentIdx >= len(m.conflicts) {
 		return "No conflict selected"
 	}
-	
+
 	conflict := m.conflicts[m.currentIdx]
-	
+
 	// Create a simple diff view for the current conflict
 	var content []string
-	
-	content = append(content, 
+
+	content = append(content,
 		styles.SubtitleStyle.Render(fmt.Sprintf("%s!%s", conflict.Sheet, conflict.Cell)),
 		"",
 	)
-	
+
 	if conflict.HasFormula {
 		content = append(content, "Formula Conflict:")
 		if conflict.BaseFormula != "" {
@@ -435,7 +436,7 @@ func (m ConflictEnhancedModel) renderConflictDiff() string {
 		content = append(content, fmt.Sprintf("  Ours: %v", conflict.OurValue))
 		content = append(content, fmt.Sprintf("  Theirs: %v", conflict.TheirValue))
 	}
-	
+
 	return strings.Join(content, "\n")
 }
 
@@ -444,38 +445,38 @@ func (m ConflictEnhancedModel) formatConflictValue(label string, value interface
 	labelStyle := lipgloss.NewStyle().
 		Bold(true).
 		Underline(true)
-		
+
 	content := labelStyle.Render(label)
-	
+
 	if formula != "" {
 		formulaStyle := lipgloss.NewStyle().
 			Foreground(styles.Primary)
 		content += fmt.Sprintf("\n\nFormula: %s", formulaStyle.Render(formula))
 	}
-	
+
 	if value != nil {
 		content += fmt.Sprintf("\n\nValue: %v", value)
 	} else if formula == "" {
 		content += "\n\nValue: <empty>"
 	}
-	
+
 	return content
 }
 
 func (m ConflictEnhancedModel) renderResolutionHelp(conflict ExcelConflict) string {
 	var options []string
-	
+
 	options = append(options, "[o] Use Ours")
 	options = append(options, "[t] Use Theirs")
-	
+
 	if conflict.BaseValue != nil || conflict.BaseFormula != "" {
 		options = append(options, "[b] Use Base")
 	}
-	
+
 	options = append(options, "[c] Custom value")
 	options = append(options, "[s] Skip")
 	options = append(options, "[Esc] Cancel")
-	
+
 	return styles.HelpStyle.Render(strings.Join(options, " • "))
 }
 
@@ -538,7 +539,7 @@ func (m *ConflictEnhancedModel) updateDiffViewer() {
 		},
 		SheetDiffs: []models.SheetDiff{},
 	}
-	
+
 	// Group conflicts by sheet
 	sheetConflicts := make(map[string][]models.CellChange)
 	for _, conflict := range m.conflicts {
@@ -552,14 +553,14 @@ func (m *ConflictEnhancedModel) updateDiffViewer() {
 		}
 		sheetConflicts[conflict.Sheet] = append(sheetConflicts[conflict.Sheet], change)
 	}
-	
+
 	for sheet, changes := range sheetConflicts {
 		mockDiff.SheetDiffs = append(mockDiff.SheetDiffs, models.SheetDiff{
 			SheetName: sheet,
 			Changes:   changes,
 		})
 	}
-	
+
 	m.diffViewer = components.NewDiffViewer(mockDiff)
 	m.diffViewer.SetDimensions(m.width/2-4, m.height-10)
 }

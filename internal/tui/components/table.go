@@ -3,8 +3,8 @@ package components
 import (
 	"fmt"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/Classic-Homes/gitcells/internal/tui/styles"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type Table struct {
@@ -26,12 +26,12 @@ func NewTable(headers []string) Table {
 		showCursor:  true,
 		height:      10,
 	}
-	
+
 	// Set initial column widths based on headers
 	for i, header := range headers {
 		t.widths[i] = len(header) + 2
 	}
-	
+
 	return t
 }
 
@@ -95,7 +95,7 @@ func (t Table) View() string {
 	if len(t.headers) == 0 {
 		return ""
 	}
-	
+
 	// Styles
 	headerStyle := lipgloss.NewStyle().
 		Bold(true).
@@ -103,14 +103,14 @@ func (t Table) View() string {
 		BorderBottom(true).
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(styles.Muted)
-		
+
 	cellStyle := lipgloss.NewStyle().
 		Padding(0, 1)
-		
+
 	selectedStyle := lipgloss.NewStyle().
 		Background(lipgloss.Color("236")).
 		Foreground(styles.Primary)
-		
+
 	// Build header row
 	var headerCells []string
 	for i, header := range t.headers {
@@ -118,7 +118,7 @@ func (t Table) View() string {
 		headerCells = append(headerCells, cell)
 	}
 	headerRow := headerStyle.Render(lipgloss.JoinHorizontal(lipgloss.Top, headerCells...))
-	
+
 	// Calculate visible rows
 	visibleRows := t.rows
 	if len(t.rows) > 0 && t.height > 0 && len(t.rows) > t.height {
@@ -129,59 +129,59 @@ func (t Table) View() string {
 		if startIdx >= len(t.rows) {
 			startIdx = len(t.rows) - 1
 		}
-		
+
 		endIdx := startIdx + t.height
 		if endIdx > len(t.rows) {
 			endIdx = len(t.rows)
 		}
-		
+
 		if startIdx < endIdx {
 			visibleRows = t.rows[startIdx:endIdx]
 		}
 	}
-	
+
 	// Build data rows
 	var dataRows []string
 	for i, row := range visibleRows {
 		actualIndex := i + t.scrollOffset
 		var cells []string
-		
+
 		for j, cell := range row {
 			if j < len(t.widths) {
 				cellContent := truncate(cell, t.widths[j]-2)
 				style := cellStyle.Width(t.widths[j])
-				
+
 				if t.showCursor && actualIndex == t.selectedRow {
 					style = style.Inherit(selectedStyle)
 				}
-				
+
 				cells = append(cells, style.Render(cellContent))
 			}
 		}
-		
+
 		rowStr := lipgloss.JoinHorizontal(lipgloss.Top, cells...)
 		dataRows = append(dataRows, rowStr)
 	}
-	
+
 	// Join all rows
 	allRows := []string{headerRow}
 	allRows = append(allRows, dataRows...)
-	
+
 	table := lipgloss.JoinVertical(lipgloss.Left, allRows...)
-	
+
 	// Add scroll indicators if needed
 	if len(t.rows) > t.height {
-		scrollInfo := fmt.Sprintf(" %d-%d of %d ", 
-			t.scrollOffset+1, 
-			t.scrollOffset+len(visibleRows), 
+		scrollInfo := fmt.Sprintf(" %d-%d of %d ",
+			t.scrollOffset+1,
+			t.scrollOffset+len(visibleRows),
 			len(t.rows),
 		)
-		scrollStyle := styles.MutedStyle.Copy().
+		scrollStyle := styles.MutedStyle.
 			Align(lipgloss.Right)
-		
+
 		table += "\n" + scrollStyle.Render(scrollInfo)
 	}
-	
+
 	return table
 }
 
@@ -190,7 +190,7 @@ func (t *Table) updateColumnWidths() {
 	for i, header := range t.headers {
 		t.widths[i] = len(header) + 2
 	}
-	
+
 	// Update based on row content
 	for _, row := range t.rows {
 		for i, cell := range row {
@@ -202,7 +202,7 @@ func (t *Table) updateColumnWidths() {
 			}
 		}
 	}
-	
+
 	// Cap maximum width
 	for i := range t.widths {
 		if t.widths[i] > 40 {
@@ -266,12 +266,12 @@ func BorderedTable(title string, headers []string, rows [][]string) string {
 	table := NewTable(headers)
 	table.SetRows(rows)
 	table.SetShowCursor(false)
-	
-	titleStyle := styles.SubtitleStyle.Copy().
+
+	titleStyle := styles.SubtitleStyle.
 		MarginBottom(1)
-		
+
 	boxStyle := styles.BoxStyle
-	
+
 	content := titleStyle.Render(title) + "\n" + table.View()
 	return boxStyle.Render(content)
 }

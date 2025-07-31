@@ -33,7 +33,7 @@ func NewConverterAdapter() *ConverterAdapter {
 // ConvertFile converts a single Excel file to JSON
 func (ca *ConverterAdapter) ConvertFile(excelPath string) (*ConversionResult, error) {
 	jsonPath := GetJSONPath(excelPath)
-	
+
 	err := ca.converter.ExcelToJSONFile(excelPath, jsonPath, ca.options)
 	if err != nil {
 		return nil, err
@@ -71,11 +71,11 @@ func (ca *ConverterAdapter) GetConversionStats(directory string) (*ConversionSta
 	// This would analyze the directory for conversion statistics
 	// For now, return mock data
 	return &ConversionStats{
-		TotalExcelFiles:     15,
-		ConvertedFiles:      12,
-		PendingConversions:  3,
-		FailedConversions:   0,
-		TotalJSONSize:       1024 * 1024 * 5, // 5MB
+		TotalExcelFiles:    15,
+		ConvertedFiles:     12,
+		PendingConversions: 3,
+		FailedConversions:  0,
+		TotalJSONSize:      1024 * 1024 * 5, // 5MB
 	}, nil
 }
 
@@ -101,13 +101,13 @@ func ValidatePattern(pattern string) error {
 	if pattern == "" {
 		return fmt.Errorf("pattern cannot be empty")
 	}
-	
+
 	// Test the pattern
 	_, err := filepath.Match(pattern, "test.xlsx")
 	if err != nil {
 		return fmt.Errorf("invalid pattern: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -126,11 +126,11 @@ func IsUpToDate(excelPath, jsonPath string) bool {
 	if err != nil {
 		return false
 	}
-	
+
 	jsonInfo, err := os.Stat(jsonPath)
 	if err != nil {
 		return false
 	}
-	
+
 	return jsonInfo.ModTime().After(excelInfo.ModTime())
 }

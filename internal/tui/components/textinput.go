@@ -51,7 +51,7 @@ func (t *TextInput) Update(msg tea.Msg) (TextInput, tea.Cmd) {
 func (t TextInput) View() string {
 	labelStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241"))
-	
+
 	focusedStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("99"))
 

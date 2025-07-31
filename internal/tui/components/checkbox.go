@@ -57,10 +57,10 @@ func (c *Checkbox) Update(msg tea.Msg) (Checkbox, tea.Cmd) {
 func (c Checkbox) View() string {
 	checkStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("82"))
-	
+
 	labelStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241"))
-	
+
 	focusedStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("99"))
 

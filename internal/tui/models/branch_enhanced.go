@@ -5,34 +5,35 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/Classic-Homes/gitcells/internal/tui/adapter"
 	"github.com/Classic-Homes/gitcells/internal/tui/components"
 	"github.com/Classic-Homes/gitcells/internal/tui/styles"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type BranchEnhancedModel struct {
 	width      int
 	height     int
 	gitAdapter *adapter.GitAdapter
-	
+
 	// UI components
-	branchTable  components.TableWithCommands
+	branchTable    components.TableWithCommands
 	newBranchInput components.TextInput
-	
+
 	// State
-	branches     []adapter.BranchInfo
-	mode         BranchMode
-	error        string
-	success      string
-	loading      bool
-	showConfirm  bool
-	confirmMsg   string
+	branches      []adapter.BranchInfo
+	mode          BranchMode
+	error         string
+	success       string
+	loading       bool
+	showConfirm   bool
+	confirmMsg    string
 	confirmAction func() error
 }
 
 type BranchMode int
+
 const (
 	BranchModeList BranchMode = iota
 	BranchModeNew
@@ -41,19 +42,19 @@ const (
 
 func NewBranchEnhancedModel() tea.Model {
 	m := &BranchEnhancedModel{
-		branchTable: components.NewTableWithCommands([]string{"", "Branch", "Status", "Tracking"}),
+		branchTable:    components.NewTableWithCommands([]string{"", "Branch", "Status", "Tracking"}),
 		newBranchInput: components.NewTextInput("New branch name:", "feature/new-feature"),
-		mode: BranchModeList,
+		mode:           BranchModeList,
 	}
-	
+
 	// Initialize git adapter
 	if gitAdapter, err := adapter.NewGitAdapter("."); err == nil {
 		m.gitAdapter = gitAdapter
 	}
-	
+
 	// Set table properties
 	m.branchTable.SetHeight(15)
-	
+
 	return m
 }
 
@@ -97,7 +98,7 @@ func (m BranchEnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Pass to table for navigation
 				m.branchTable = m.branchTable.Update(msg.String())
 			}
-			
+
 		case BranchModeNew:
 			switch msg.String() {
 			case "esc":
@@ -112,7 +113,7 @@ func (m BranchEnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.newBranchInput, cmd = m.newBranchInput.Update(msg)
 				cmds = append(cmds, cmd)
 			}
-			
+
 		case BranchModeConfirm:
 			switch msg.String() {
 			case "y", "Y":
@@ -133,15 +134,15 @@ func (m BranchEnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case branchesLoadedMsg:
 		m.loading = false
 		m.updateBranchTable(msg.branches)
-		
+
 	case clearMsg:
 		m.error = ""
 		m.success = ""
-		
+
 	case errorMsg:
 		m.error = msg.message
 		m.loading = false
-		
+
 	case successMsg:
 		m.success = msg.message
 		m.loading = false
@@ -173,7 +174,7 @@ func (m BranchEnhancedModel) renderBranchList() string {
 
 	// Title
 	title := styles.TitleStyle.Render("Branch Management")
-	
+
 	// Error/Success messages
 	var message string
 	if m.error != "" {
@@ -181,15 +182,15 @@ func (m BranchEnhancedModel) renderBranchList() string {
 	} else if m.success != "" {
 		message = styles.SuccessStyle.Render("✓ " + m.success)
 	}
-	
+
 	// Branch table
 	table := m.branchTable.View()
-	
+
 	// Help
 	help := styles.HelpStyle.Render(
 		"[n]ew branch • [s]witch • [m]erge • [d]elete • [r]efresh • [↑/↓] navigate • [esc] back",
 	)
-	
+
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
 		title,
@@ -199,17 +200,17 @@ func (m BranchEnhancedModel) renderBranchList() string {
 		"",
 		help,
 	)
-	
+
 	return containerStyle.Render(content)
 }
 
 func (m BranchEnhancedModel) renderNewBranch() string {
-	boxStyle := styles.BoxStyle.Copy().
+	boxStyle := styles.BoxStyle.
 		Width(60).
 		Padding(2)
-		
+
 	title := styles.TitleStyle.Render("Create New Branch")
-	
+
 	currentBranch := "main"
 	for _, b := range m.branches {
 		if b.Current {
@@ -217,11 +218,11 @@ func (m BranchEnhancedModel) renderNewBranch() string {
 			break
 		}
 	}
-	
+
 	info := styles.MutedStyle.Render(
 		fmt.Sprintf("Creating from: %s", currentBranch),
 	)
-	
+
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
 		title,
@@ -232,17 +233,17 @@ func (m BranchEnhancedModel) renderNewBranch() string {
 		"",
 		styles.HelpStyle.Render("[Enter] Create • [Esc] Cancel"),
 	)
-	
+
 	return styles.Center(m.width, m.height, boxStyle.Render(content))
 }
 
 func (m BranchEnhancedModel) renderConfirm() string {
-	boxStyle := styles.BoxStyle.Copy().
+	boxStyle := styles.BoxStyle.
 		Width(60).
 		Padding(2)
-		
+
 	title := styles.WarningStyle.Render("⚠ Confirm Action")
-	
+
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
 		title,
@@ -251,7 +252,7 @@ func (m BranchEnhancedModel) renderConfirm() string {
 		"",
 		styles.HelpStyle.Render("[Y]es • [N]o"),
 	)
-	
+
 	return styles.Center(m.width, m.height, boxStyle.Render(content))
 }
 
@@ -263,38 +264,38 @@ func (m BranchEnhancedModel) renderLoading() string {
 // Helper methods
 func (m *BranchEnhancedModel) updateBranchTable(branches []adapter.BranchInfo) {
 	m.branches = branches
-	
+
 	rows := [][]string{}
 	for _, branch := range branches {
 		icon := "  "
 		if branch.Current {
 			icon = "●"
 		}
-		
+
 		status := "Clean"
 		if branch.HasChanges {
 			status = "Modified"
 		}
-		
+
 		tracking := ""
 		if branch.Ahead > 0 || branch.Behind > 0 {
 			tracking = fmt.Sprintf("↑%d ↓%d", branch.Ahead, branch.Behind)
 		}
-		
+
 		rows = append(rows, []string{icon, branch.Name, status, tracking})
 	}
-	
+
 	m.branchTable.SetRows(rows)
 }
 
 func (m *BranchEnhancedModel) switchToBranch() {
 	selected := m.branchTable.SelectedRow()
-	if selected == nil || len(selected) < 2 {
+	if len(selected) < 2 {
 		return
 	}
-	
+
 	branchName := selected[1]
-	
+
 	// Don't switch to current branch
 	for _, b := range m.branches {
 		if b.Name == branchName && b.Current {
@@ -302,19 +303,19 @@ func (m *BranchEnhancedModel) switchToBranch() {
 			return
 		}
 	}
-	
+
 	// In a real implementation, this would use git operations
 	m.success = fmt.Sprintf("Switched to branch %s", branchName)
 }
 
 func (m *BranchEnhancedModel) confirmDeleteBranch() {
 	selected := m.branchTable.SelectedRow()
-	if selected == nil || len(selected) < 2 {
+	if len(selected) < 2 {
 		return
 	}
-	
+
 	branchName := selected[1]
-	
+
 	// Can't delete current branch
 	for _, b := range m.branches {
 		if b.Name == branchName && b.Current {
@@ -322,7 +323,7 @@ func (m *BranchEnhancedModel) confirmDeleteBranch() {
 			return
 		}
 	}
-	
+
 	m.mode = BranchModeConfirm
 	m.confirmMsg = fmt.Sprintf("Delete branch '%s'?", branchName)
 	m.confirmAction = func() error {
@@ -334,12 +335,12 @@ func (m *BranchEnhancedModel) confirmDeleteBranch() {
 
 func (m *BranchEnhancedModel) confirmMergeBranch() {
 	selected := m.branchTable.SelectedRow()
-	if selected == nil || len(selected) < 2 {
+	if len(selected) < 2 {
 		return
 	}
-	
+
 	branchName := selected[1]
-	
+
 	// Can't merge current branch into itself
 	for _, b := range m.branches {
 		if b.Name == branchName && b.Current {
@@ -347,7 +348,7 @@ func (m *BranchEnhancedModel) confirmMergeBranch() {
 			return
 		}
 	}
-	
+
 	currentBranch := "main"
 	for _, b := range m.branches {
 		if b.Current {
@@ -355,7 +356,7 @@ func (m *BranchEnhancedModel) confirmMergeBranch() {
 			break
 		}
 	}
-	
+
 	m.mode = BranchModeConfirm
 	m.confirmMsg = fmt.Sprintf("Merge '%s' into '%s'?", branchName, currentBranch)
 	m.confirmAction = func() error {
@@ -372,12 +373,12 @@ func (m *BranchEnhancedModel) loadBranches() tea.Cmd {
 		if m.gitAdapter == nil {
 			return errorMsg{message: "Git not initialized"}
 		}
-		
+
 		branches, err := m.gitAdapter.GetBranches()
 		if err != nil {
 			return errorMsg{message: err.Error()}
 		}
-		
+
 		// Add some mock data for demo
 		if len(branches) == 0 {
 			branches = []adapter.BranchInfo{
@@ -387,7 +388,7 @@ func (m *BranchEnhancedModel) loadBranches() tea.Cmd {
 				{Name: "feature/batch-conversion", Current: false, HasChanges: true, Ahead: 5, Behind: 2},
 			}
 		}
-		
+
 		return branchesLoadedMsg{branches: branches}
 	}
 }
@@ -398,7 +399,7 @@ func (m *BranchEnhancedModel) createBranch(name string) tea.Cmd {
 		if strings.Contains(name, " ") {
 			return errorMsg{message: "Branch name cannot contain spaces"}
 		}
-		
+
 		// In a real implementation, this would create the branch
 		m.mode = BranchModeList
 		return successMsg{message: fmt.Sprintf("Created branch %s", name)}

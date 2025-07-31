@@ -9,14 +9,14 @@ import (
 )
 
 type DashboardModel struct {
-	width       int
-	height      int
-	watching    int
-	files       int
-	synced      bool
-	lastCommit  time.Time
-	operations  []Operation
-	tickCount   int
+	width      int
+	height     int
+	watching   int
+	files      int
+	synced     bool
+	lastCommit time.Time
+	operations []Operation
+	tickCount  int
 }
 
 type Operation struct {

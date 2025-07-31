@@ -2,27 +2,26 @@ package components
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/Classic-Homes/gitcells/internal/tui/styles"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/Classic-Homes/gitcells/internal/tui/styles"
 )
 
 type FilePicker struct {
-	currentPath    string
-	selectedPath   string
-	items          []FileItem
-	cursor         int
-	showHidden     bool
+	currentPath     string
+	selectedPath    string
+	items           []FileItem
+	cursor          int
+	showHidden      bool
 	directoriesOnly bool
-	extensions     []string
-	height         int
-	width          int
+	extensions      []string
+	height          int
+	width           int
 }
 
 type FileItem struct {
@@ -36,7 +35,7 @@ func NewFilePicker(startPath string, directoriesOnly bool) FilePicker {
 	if startPath == "" {
 		startPath, _ = os.Getwd()
 	}
-	
+
 	fp := FilePicker{
 		currentPath:     startPath,
 		selectedPath:    startPath,
@@ -44,7 +43,7 @@ func NewFilePicker(startPath string, directoriesOnly bool) FilePicker {
 		height:          20,
 		width:           60,
 	}
-	
+
 	fp.loadItems()
 	return fp
 }
@@ -67,19 +66,19 @@ func (fp FilePicker) Update(msg tea.Msg) (FilePicker, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		fp.width = msg.Width
 		fp.height = msg.Height - 10 // Leave room for other UI elements
-		
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "up", "k":
 			if fp.cursor > 0 {
 				fp.cursor--
 			}
-			
+
 		case "down", "j":
 			if fp.cursor < len(fp.items)-1 {
 				fp.cursor++
 			}
-			
+
 		case "enter", "right", "l":
 			if fp.cursor < len(fp.items) {
 				item := fp.items[fp.cursor]
@@ -92,7 +91,7 @@ func (fp FilePicker) Update(msg tea.Msg) (FilePicker, tea.Cmd) {
 					fp.selectedPath = item.Path
 				}
 			}
-			
+
 		case "left", "h", "backspace":
 			parent := filepath.Dir(fp.currentPath)
 			if parent != fp.currentPath {
@@ -101,17 +100,17 @@ func (fp FilePicker) Update(msg tea.Msg) (FilePicker, tea.Cmd) {
 				fp.loadItems()
 				fp.cursor = 0
 			}
-			
+
 		case ".":
 			fp.showHidden = !fp.showHidden
 			fp.loadItems()
-			
+
 		case "g":
 			fp.cursor = 0
-			
+
 		case "G":
 			fp.cursor = len(fp.items) - 1
-			
+
 		case "~":
 			home, _ := os.UserHomeDir()
 			fp.currentPath = home
@@ -120,7 +119,7 @@ func (fp FilePicker) Update(msg tea.Msg) (FilePicker, tea.Cmd) {
 			fp.cursor = 0
 		}
 	}
-	
+
 	return fp, nil
 }
 
@@ -128,48 +127,48 @@ func (fp FilePicker) View() string {
 	if len(fp.items) == 0 {
 		return styles.BoxStyle.Render("No items to display")
 	}
-	
+
 	// Header
 	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(styles.Primary).
 		MarginBottom(1)
-		
+
 	header := headerStyle.Render(fp.formatPath(fp.currentPath))
-	
+
 	// Calculate visible items
 	visibleHeight := fp.height - 4 // Account for header and borders
 	if visibleHeight < 5 {
 		visibleHeight = 5
 	}
-	
+
 	startIdx := 0
 	if fp.cursor >= visibleHeight {
 		startIdx = fp.cursor - visibleHeight + 1
 	}
-	
+
 	endIdx := startIdx + visibleHeight
 	if endIdx > len(fp.items) {
 		endIdx = len(fp.items)
 	}
-	
+
 	// Build item list
 	var items []string
 	for i := startIdx; i < endIdx; i++ {
 		item := fp.items[i]
-		
+
 		// Icon
 		icon := "📄"
 		if item.IsDir {
 			icon = "📁"
 		}
-		
+
 		// Name
 		name := item.Name
 		if item.IsDir {
 			name += "/"
 		}
-		
+
 		// Style
 		style := lipgloss.NewStyle()
 		if i == fp.cursor {
@@ -178,17 +177,17 @@ func (fp FilePicker) View() string {
 				Bold(true).
 				Background(lipgloss.Color("236"))
 		}
-		
+
 		// Size (for files)
 		sizeStr := ""
 		if !item.IsDir && !fp.directoriesOnly {
 			sizeStr = formatFileSize(item.Size)
 		}
-		
+
 		line := fmt.Sprintf(" %s %-40s %10s", icon, name, sizeStr)
 		items = append(items, style.Render(line))
 	}
-	
+
 	// Scroll indicator
 	scrollInfo := ""
 	if len(fp.items) > visibleHeight {
@@ -196,12 +195,12 @@ func (fp FilePicker) View() string {
 			fmt.Sprintf(" (%d/%d)", fp.cursor+1, len(fp.items)),
 		)
 	}
-	
+
 	// Help text
 	help := styles.HelpStyle.Render(
 		"↑/↓: Navigate • Enter: Select • ←: Parent • .: Toggle hidden • ~: Home",
 	)
-	
+
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
 		header+scrollInfo,
@@ -209,7 +208,7 @@ func (fp FilePicker) View() string {
 		"",
 		help,
 	)
-	
+
 	return styles.BoxStyle.
 		Width(fp.width).
 		Height(fp.height).
@@ -218,7 +217,7 @@ func (fp FilePicker) View() string {
 
 func (fp *FilePicker) loadItems() {
 	fp.items = []FileItem{}
-	
+
 	// Add parent directory option if not at root
 	if fp.currentPath != "/" && fp.currentPath != filepath.Dir(fp.currentPath) {
 		fp.items = append(fp.items, FileItem{
@@ -227,24 +226,24 @@ func (fp *FilePicker) loadItems() {
 			IsDir: true,
 		})
 	}
-	
+
 	// Read directory
-	files, err := ioutil.ReadDir(fp.currentPath)
+	files, err := os.ReadDir(fp.currentPath)
 	if err != nil {
 		return
 	}
-	
+
 	for _, file := range files {
 		// Skip hidden files unless enabled
 		if !fp.showHidden && strings.HasPrefix(file.Name(), ".") {
 			continue
 		}
-		
+
 		// Skip files if directories only
 		if fp.directoriesOnly && !file.IsDir() {
 			continue
 		}
-		
+
 		// Filter by extension if specified
 		if !file.IsDir() && len(fp.extensions) > 0 {
 			hasValidExt := false
@@ -258,15 +257,21 @@ func (fp *FilePicker) loadItems() {
 				continue
 			}
 		}
+
+		info, err := file.Info()
+		var size int64
+		if err == nil {
+			size = info.Size()
+		}
 		
 		fp.items = append(fp.items, FileItem{
 			Name:  file.Name(),
 			Path:  filepath.Join(fp.currentPath, file.Name()),
 			IsDir: file.IsDir(),
-			Size:  file.Size(),
+			Size:  size,
 		})
 	}
-	
+
 	// Sort directories first, then files
 	sort.Slice(fp.items[1:], func(i, j int) bool {
 		i++ // Skip ".." entry

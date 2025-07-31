@@ -9,51 +9,51 @@ var (
 	Warning   = lipgloss.Color("214")
 	Error     = lipgloss.Color("196")
 	Muted     = lipgloss.Color("241")
-	
+
 	TitleStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(Primary).
-		MarginBottom(1)
-	
+			Bold(true).
+			Foreground(Primary).
+			MarginBottom(1)
+
 	SubtitleStyle = lipgloss.NewStyle().
-		Foreground(Secondary).
-		MarginBottom(1)
-	
+			Foreground(Secondary).
+			MarginBottom(1)
+
 	SuccessStyle = lipgloss.NewStyle().
-		Foreground(Success)
-	
+			Foreground(Success)
+
 	WarningStyle = lipgloss.NewStyle().
-		Foreground(Warning)
-	
+			Foreground(Warning)
+
 	ErrorStyle = lipgloss.NewStyle().
-		Foreground(Error)
-	
+			Foreground(Error)
+
 	MutedStyle = lipgloss.NewStyle().
-		Foreground(Muted)
-	
+			Foreground(Muted)
+
 	BoxStyle = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(Muted).
-		Padding(1, 2)
-	
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(Muted).
+			Padding(1, 2)
+
 	FocusedBoxStyle = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(Primary).
-		Padding(1, 2)
-	
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(Primary).
+			Padding(1, 2)
+
 	ButtonStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("230")).
-		Background(Primary).
-		Padding(0, 2)
-	
+			Foreground(lipgloss.Color("230")).
+			Background(Primary).
+			Padding(0, 2)
+
 	ActiveButtonStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("230")).
-		Background(Secondary).
-		Padding(0, 2)
-	
+				Foreground(lipgloss.Color("230")).
+				Background(Secondary).
+				Padding(0, 2)
+
 	HelpStyle = lipgloss.NewStyle().
-		Foreground(Muted).
-		MarginTop(1)
+			Foreground(Muted).
+			MarginTop(1)
 )
 
 func CenterHorizontal(width int, content string) string {

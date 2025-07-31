@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Classic-Homes/gitcells/internal/tui"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/Classic-Homes/gitcells/internal/tui"
 )
 
 var (

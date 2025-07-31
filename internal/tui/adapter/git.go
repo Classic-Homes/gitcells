@@ -21,10 +21,10 @@ func NewGitAdapter(directory string) (*GitAdapter, error) {
 		AutoPull:       true,
 		Branch:         "main",
 	}
-	
+
 	// Create a simple logger
 	logger := logrus.New()
-	
+
 	client, err := git.NewClient(directory, gitConfig, logger)
 	if err != nil {
 		// If repo doesn't exist, try to initialize it

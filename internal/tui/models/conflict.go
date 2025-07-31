@@ -8,18 +8,18 @@ import (
 )
 
 type ConflictModel struct {
-	width       int
-	height      int
-	conflicts   []Conflict
-	current     int
-	resolution  string
+	width      int
+	height     int
+	conflicts  []Conflict
+	current    int
+	resolution string
 }
 
 type Conflict struct {
-	File      string
-	Sheet     string
-	Cell      string
-	OurValue  string
+	File       string
+	Sheet      string
+	Cell       string
+	OurValue   string
 	TheirValue string
 }
 

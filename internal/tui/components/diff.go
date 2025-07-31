@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/Classic-Homes/gitcells/internal/tui/styles"
 	"github.com/Classic-Homes/gitcells/pkg/models"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type DiffViewer struct {
@@ -91,66 +91,66 @@ func (d DiffViewer) View() string {
 }
 
 func (d DiffViewer) renderSummaryView() string {
-	titleStyle := styles.TitleStyle.Copy().
+	titleStyle := styles.TitleStyle.
 		MarginBottom(1)
-		
+
 	statStyle := lipgloss.NewStyle().
 		Bold(true).
 		Width(25).
 		Padding(1).
 		Margin(0, 1).
 		Align(lipgloss.Center)
-		
+
 	// Title
 	title := titleStyle.Render("Excel Diff Summary")
-	
+
 	// Statistics boxes
 	var statBoxes []string
-	
+
 	// Added sheets
 	if d.diff.Summary.AddedSheets > 0 {
-		box := statStyle.Copy().
+		box := statStyle.
 			Background(lipgloss.Color("28")).
 			Foreground(lipgloss.Color("231")).
 			Render(fmt.Sprintf("%d\nSheets Added", d.diff.Summary.AddedSheets))
 		statBoxes = append(statBoxes, box)
 	}
-	
+
 	// Modified sheets
 	if d.diff.Summary.ModifiedSheets > 0 {
-		box := statStyle.Copy().
+		box := statStyle.
 			Background(lipgloss.Color("214")).
 			Foreground(lipgloss.Color("231")).
 			Render(fmt.Sprintf("%d\nSheets Modified", d.diff.Summary.ModifiedSheets))
 		statBoxes = append(statBoxes, box)
 	}
-	
+
 	// Deleted sheets
 	if d.diff.Summary.DeletedSheets > 0 {
-		box := statStyle.Copy().
+		box := statStyle.
 			Background(lipgloss.Color("196")).
 			Foreground(lipgloss.Color("231")).
 			Render(fmt.Sprintf("%d\nSheets Deleted", d.diff.Summary.DeletedSheets))
 		statBoxes = append(statBoxes, box)
 	}
-	
+
 	// Cell changes
 	if d.diff.Summary.CellChanges > 0 {
-		box := statStyle.Copy().
+		box := statStyle.
 			Background(lipgloss.Color("99")).
 			Foreground(lipgloss.Color("231")).
 			Render(fmt.Sprintf("%d\nCells Changed", d.diff.Summary.CellChanges))
 		statBoxes = append(statBoxes, box)
 	}
-	
+
 	stats := lipgloss.JoinHorizontal(lipgloss.Top, statBoxes...)
-	
+
 	// Sheet summary
 	sheetSummary := d.renderSheetSummaryList()
-	
+
 	// Help
 	help := styles.HelpStyle.Render("[Tab] Change view • [d] Toggle details • [↑/↓] Scroll")
-	
+
 	content := lipgloss.JoinVertical(
 		lipgloss.Center,
 		title,
@@ -161,7 +161,7 @@ func (d DiffViewer) renderSummaryView() string {
 		"",
 		help,
 	)
-	
+
 	return lipgloss.Place(d.width, d.height, lipgloss.Center, lipgloss.Center, content)
 }
 
@@ -169,28 +169,28 @@ func (d DiffViewer) renderSheetSummaryList() string {
 	if len(d.diff.SheetDiffs) == 0 {
 		return ""
 	}
-	
-	boxStyle := styles.BoxStyle.Copy().
+
+	boxStyle := styles.BoxStyle.
 		Width(60).
 		MaxHeight(10)
-		
+
 	var lines []string
 	for _, sheet := range d.diff.SheetDiffs {
 		icon := d.getChangeIcon(sheet.Action)
 		color := d.getChangeColor(sheet.Action)
-		
-		line := fmt.Sprintf("%s %s", 
+
+		line := fmt.Sprintf("%s %s",
 			icon,
 			lipgloss.NewStyle().Foreground(color).Render(sheet.SheetName),
 		)
-		
+
 		if len(sheet.Changes) > 0 {
 			line += styles.MutedStyle.Render(fmt.Sprintf(" (%d changes)", len(sheet.Changes)))
 		}
-		
+
 		lines = append(lines, line)
 	}
-	
+
 	content := strings.Join(lines, "\n")
 	return boxStyle.Render(content)
 }
@@ -199,19 +199,19 @@ func (d DiffViewer) renderSheetView() string {
 	if len(d.diff.SheetDiffs) == 0 {
 		return "No sheet changes"
 	}
-	
+
 	// Get current sheet
 	if d.selectedIdx >= len(d.diff.SheetDiffs) {
 		d.selectedIdx = len(d.diff.SheetDiffs) - 1
 	}
 	sheet := d.diff.SheetDiffs[d.selectedIdx]
-	
+
 	// Header
-	headerStyle := styles.TitleStyle.Copy().
+	headerStyle := styles.TitleStyle.
 		MarginBottom(1)
-		
+
 	header := headerStyle.Render(fmt.Sprintf("Sheet: %s", sheet.SheetName))
-	
+
 	// Sheet action
 	var action string
 	if sheet.Action != "" {
@@ -220,15 +220,15 @@ func (d DiffViewer) renderSheetView() string {
 			Foreground(d.getChangeColor(sheet.Action))
 		action = actionStyle.Render(fmt.Sprintf("Action: %s", sheet.Action))
 	}
-	
+
 	// Changes table
 	table := NewTable([]string{"Cell", "Type", "Old Value", "New Value"})
 	table.SetHeight(d.height - 10)
-	
+
 	for _, change := range sheet.Changes {
 		oldVal := d.formatCellValue(change.OldValue, change.OldFormula)
 		newVal := d.formatCellValue(change.NewValue, change.NewFormula)
-		
+
 		table.AddRow([]string{
 			change.Cell,
 			string(change.Type),
@@ -236,15 +236,15 @@ func (d DiffViewer) renderSheetView() string {
 			newVal,
 		})
 	}
-	
+
 	// Navigation info
 	nav := styles.MutedStyle.Render(
 		fmt.Sprintf("Sheet %d of %d", d.selectedIdx+1, len(d.diff.SheetDiffs)),
 	)
-	
+
 	// Help
 	help := styles.HelpStyle.Render("[←/→] Navigate sheets • [Tab] Change view • [↑/↓] Scroll")
-	
+
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
 		header,
@@ -255,7 +255,7 @@ func (d DiffViewer) renderSheetView() string {
 		nav,
 		help,
 	)
-	
+
 	return lipgloss.NewStyle().
 		Padding(1, 2).
 		Render(content)
@@ -267,7 +267,7 @@ func (d DiffViewer) renderCellView() string {
 		sheet  string
 		change models.CellChange
 	}
-	
+
 	for _, sheet := range d.diff.SheetDiffs {
 		for _, change := range sheet.Changes {
 			allChanges = append(allChanges, struct {
@@ -279,65 +279,65 @@ func (d DiffViewer) renderCellView() string {
 			})
 		}
 	}
-	
+
 	if len(allChanges) == 0 {
 		return "No cell changes"
 	}
-	
+
 	// Ensure selected index is valid
 	if d.selectedIdx >= len(allChanges) {
 		d.selectedIdx = len(allChanges) - 1
 	}
-	
+
 	current := allChanges[d.selectedIdx]
-	
+
 	// Create a detailed view of the selected cell
-	detailBox := styles.BoxStyle.Copy().
+	detailBox := styles.BoxStyle.
 		Width(70).
 		Padding(1)
-		
+
 	icon := d.getChangeIcon(current.change.Type)
 	typeStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(d.getChangeColor(current.change.Type))
-		
-	header := fmt.Sprintf("%s Cell %s - %s", 
+
+	header := fmt.Sprintf("%s Cell %s - %s",
 		icon,
 		styles.TitleStyle.Render(current.change.Cell),
 		typeStyle.Render(string(current.change.Type)),
 	)
-	
+
 	details := []string{
 		header,
 		styles.MutedStyle.Render(fmt.Sprintf("Sheet: %s", current.sheet)),
 		"",
 	}
-	
+
 	// Show values
 	if current.change.OldValue != nil || current.change.OldFormula != "" {
 		oldContent := d.formatDetailedCellContent("Old", current.change.OldValue, current.change.OldFormula)
 		details = append(details, oldContent)
 	}
-	
+
 	if current.change.NewValue != nil || current.change.NewFormula != "" {
 		newContent := d.formatDetailedCellContent("New", current.change.NewValue, current.change.NewFormula)
 		details = append(details, newContent)
 	}
-	
+
 	if current.change.Description != "" {
 		details = append(details, "", styles.MutedStyle.Render(current.change.Description))
 	}
-	
+
 	detailContent := detailBox.Render(strings.Join(details, "\n"))
-	
+
 	// Navigation
 	nav := styles.MutedStyle.Render(
 		fmt.Sprintf("Change %d of %d", d.selectedIdx+1, len(allChanges)),
 	)
-	
+
 	// Help
 	help := styles.HelpStyle.Render("[←/→] Navigate cells • [Tab] Change view")
-	
+
 	return lipgloss.Place(
 		d.width, d.height,
 		lipgloss.Center, lipgloss.Center,
@@ -354,10 +354,10 @@ func (d DiffViewer) renderCellView() string {
 func (d DiffViewer) renderSideBySideView() string {
 	// This would show a side-by-side comparison of specific cells or sheets
 	// For now, show a placeholder
-	boxStyle := styles.BoxStyle.Copy().
+	boxStyle := styles.BoxStyle.
 		Width(d.width - 10).
 		Height(d.height - 5)
-		
+
 	leftPane := lipgloss.NewStyle().
 		Width(d.width/2 - 6).
 		Height(d.height - 8).
@@ -365,7 +365,7 @@ func (d DiffViewer) renderSideBySideView() string {
 		BorderForeground(styles.Muted).
 		Padding(1).
 		Render("Old Version\n\nSelect a cell to compare")
-		
+
 	rightPane := lipgloss.NewStyle().
 		Width(d.width/2 - 6).
 		Height(d.height - 8).
@@ -373,16 +373,16 @@ func (d DiffViewer) renderSideBySideView() string {
 		BorderForeground(styles.Muted).
 		Padding(1).
 		Render("New Version\n\nSelect a cell to compare")
-		
+
 	content := lipgloss.JoinHorizontal(
 		lipgloss.Top,
 		leftPane,
 		"  ",
 		rightPane,
 	)
-	
+
 	help := styles.HelpStyle.Render("[Tab] Change view • [↑/↓] Select cell • [Enter] Compare")
-	
+
 	return boxStyle.Render(
 		lipgloss.JoinVertical(
 			lipgloss.Left,
@@ -433,7 +433,7 @@ func (d DiffViewer) formatCellValue(value interface{}, formula string) string {
 	if value == nil {
 		return "<empty>"
 	}
-	
+
 	// Truncate long values
 	str := fmt.Sprintf("%v", value)
 	if len(str) > 30 {
@@ -446,15 +446,15 @@ func (d DiffViewer) formatDetailedCellContent(label string, value interface{}, f
 	labelStyle := lipgloss.NewStyle().
 		Bold(true).
 		Underline(true)
-		
+
 	content := labelStyle.Render(label + ":")
-	
+
 	if formula != "" {
 		formulaStyle := lipgloss.NewStyle().
 			Foreground(styles.Primary)
 		content += fmt.Sprintf("\n  Formula: %s", formulaStyle.Render(formula))
 	}
-	
+
 	if value != nil {
 		valueStr := fmt.Sprintf("%v", value)
 		// For long values, wrap them
@@ -467,7 +467,7 @@ func (d DiffViewer) formatDetailedCellContent(label string, value interface{}, f
 	} else if formula == "" {
 		content += "\n  Value: <empty>"
 	}
-	
+
 	return content
 }
 
@@ -475,14 +475,14 @@ func wordWrap(text string, width int) string {
 	if len(text) <= width {
 		return text
 	}
-	
+
 	var lines []string
 	for len(text) > 0 {
 		if len(text) <= width {
 			lines = append(lines, text)
 			break
 		}
-		
+
 		// Find last space before width
 		cutPoint := width
 		for i := width; i > 0; i-- {
@@ -491,14 +491,14 @@ func wordWrap(text string, width int) string {
 				break
 			}
 		}
-		
+
 		lines = append(lines, text[:cutPoint])
 		text = text[cutPoint:]
 		if len(text) > 0 && text[0] == ' ' {
 			text = text[1:] // Remove leading space
 		}
 	}
-	
+
 	return strings.Join(lines, "\n         ")
 }
 

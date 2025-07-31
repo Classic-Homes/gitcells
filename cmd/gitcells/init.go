@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/Classic-Homes/gitcells/internal/tui"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/Classic-Homes/gitcells/internal/tui"
 )
 
 const defaultConfig = `version: 1.0

@@ -34,7 +34,7 @@ func (ca *ConfigAdapter) SaveSetupConfig(setup types.SetupConfig) error {
 
 	// Set configuration values
 	v.Set("version", "1.0")
-	
+
 	// Git settings
 	v.Set("git.branch", "main")
 	v.Set("git.auto_push", setup.AutoPush)
@@ -42,13 +42,13 @@ func (ca *ConfigAdapter) SaveSetupConfig(setup types.SetupConfig) error {
 	v.Set("git.user_name", "GitCells")
 	v.Set("git.user_email", "gitcells@localhost")
 	v.Set("git.commit_template", setup.CommitTemplate)
-	
+
 	// Watcher settings
 	v.Set("watcher.directories", []string{setup.Directory})
 	v.Set("watcher.ignore_patterns", []string{"~$*", "*.tmp", ".~lock.*"})
 	v.Set("watcher.debounce_delay", "2s")
 	v.Set("watcher.file_extensions", []string{".xlsx", ".xls", ".xlsm"})
-	
+
 	// Converter settings
 	v.Set("converter.preserve_formulas", true)
 	v.Set("converter.preserve_styles", true)

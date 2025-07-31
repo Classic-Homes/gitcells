@@ -3,9 +3,9 @@ package tui
 import (
 	"fmt"
 
+	"github.com/Classic-Homes/gitcells/internal/tui/models"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/Classic-Homes/gitcells/internal/tui/models"
 )
 
 type Mode int

@@ -45,14 +45,14 @@ func newConvertCommand(logger *logrus.Logger) *cobra.Command {
 
 			// Create converter
 			conv := converter.NewConverter(logger)
-			
+
 			// Build conversion options
 			opts := converter.ConvertOptions{
-				PreserveFormulas:    getBoolFlag(cmd, "preserve-formulas"),
-				PreserveStyles:      getBoolFlag(cmd, "preserve-styles"),
-				PreserveComments:    getBoolFlag(cmd, "preserve-comments"),
-				CompactJSON:         getBoolFlag(cmd, "compact"),
-				ChunkingStrategy:    "sheet-based",
+				PreserveFormulas: getBoolFlag(cmd, "preserve-formulas"),
+				PreserveStyles:   getBoolFlag(cmd, "preserve-styles"),
+				PreserveComments: getBoolFlag(cmd, "preserve-comments"),
+				CompactJSON:      getBoolFlag(cmd, "compact"),
+				ChunkingStrategy: "sheet-based",
 			}
 
 			if isExcelToJSON {
