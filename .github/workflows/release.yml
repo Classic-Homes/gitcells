@@ -64,9 +64,97 @@ jobs:
         draft: false
         prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
 
-  build-and-release:
-    name: Build and Upload Release Assets
+  build-linux-packages:
+    name: Build Linux Packages
     runs-on: ubuntu-latest
+    needs: create-release
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+        
+    - name: Build Linux ${{ matrix.arch }}
+      run: |
+        mkdir -p dist/releases
+        VERSION="${{ needs.create-release.outputs.version }}"
+        GOOS=linux GOARCH=${{ matrix.arch }} CGO_ENABLED=0 go build \
+          -ldflags "-s -w -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.commitHash=$(git rev-parse --short HEAD)" \
+          -o dist/gitcells-linux-${{ matrix.arch }} ./cmd/gitcells
+        
+        # Create archive
+        cd dist
+        cp gitcells-linux-${{ matrix.arch }} gitcells
+        tar -czf releases/gitcells-${VERSION}-linux-${{ matrix.arch }}.tar.gz gitcells
+        rm gitcells
+        
+    - name: Install nfpm and create Linux packages
+      run: |
+        # Install nfpm for Linux packages
+        curl -sfL https://github.com/goreleaser/nfpm/releases/download/v2.35.3/nfpm_2.35.3_Linux_x86_64.tar.gz | tar xz -C /tmp
+        sudo mv /tmp/nfpm /usr/local/bin/
+        
+        # Create .deb and .rpm packages
+        export VERSION="${{ needs.create-release.outputs.version }}"
+        export ARCH="${{ matrix.arch }}"
+        nfpm package -f build/package/nfpm.yaml -p deb -t dist/releases/
+        nfpm package -f build/package/nfpm.yaml -p rpm -t dist/releases/
+        
+    - name: Upload Linux ${{ matrix.arch }} artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-linux-${{ matrix.arch }}
+        path: dist/releases/*
+        retention-days: 30
+        
+  build-darwin-packages:
+    name: Build macOS Packages
+    runs-on: macos-latest
+    needs: create-release
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+        
+    - name: Build macOS ${{ matrix.arch }}
+      run: |
+        mkdir -p dist/releases
+        VERSION="${{ needs.create-release.outputs.version }}"
+        GOOS=darwin GOARCH=${{ matrix.arch }} CGO_ENABLED=0 go build \
+          -ldflags "-s -w -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.commitHash=$(git rev-parse --short HEAD)" \
+          -o dist/gitcells-darwin-${{ matrix.arch }} ./cmd/gitcells
+        
+        # Create archive
+        cd dist
+        cp gitcells-darwin-${{ matrix.arch }} gitcells
+        tar -czf releases/gitcells-${VERSION}-darwin-${{ matrix.arch }}.tar.gz gitcells
+        rm gitcells
+        
+    - name: Upload macOS ${{ matrix.arch }} artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-darwin-${{ matrix.arch }}
+        path: dist/releases/*
+        retention-days: 30
+        
+  build-windows-packages:
+    name: Build Windows Packages
+    runs-on: windows-latest
     needs: create-release
     
     steps:
@@ -78,32 +166,43 @@ jobs:
       with:
         go-version: '1.23'
         
-    - name: Install packaging tools
+    - name: Build Windows AMD64
+      shell: bash
       run: |
-        # Install nfpm for Linux packages
-        echo "Installing nfpm..."
-        curl -sfL https://github.com/goreleaser/nfpm/releases/download/v2.35.3/nfpm_2.35.3_Linux_x86_64.tar.gz | tar xz -C /tmp
-        sudo mv /tmp/nfpm /usr/local/bin/
+        mkdir -p dist/releases
+        VERSION="${{ needs.create-release.outputs.version }}"
+        GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build \
+          -ldflags "-s -w -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.commitHash=$(git rev-parse --short HEAD)" \
+          -o dist/gitcells-windows-amd64.exe ./cmd/gitcells
         
-    - name: Build all platforms and create release archives
+        # Create archive
+        cd dist
+        cp gitcells-windows-amd64.exe gitcells.exe
+        zip releases/gitcells-${VERSION}-windows-amd64.zip gitcells.exe
+        rm gitcells.exe
+        
+    - name: Upload Windows AMD64 artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-windows-amd64
+        path: dist/releases/*
+        retention-days: 30
+        
+  upload-release-assets:
+    name: Upload All Release Assets
+    runs-on: ubuntu-latest
+    needs: [create-release, build-linux-packages, build-darwin-packages, build-windows-packages]
+    
+    steps:
+    - name: Download all release artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts/
+        
+    - name: Organize release assets
       run: |
-        # Set version for build
-        export VERSION="${{ needs.create-release.outputs.version }}"
-        make clean
-        make release
-        
-    - name: Test release artifacts
-      run: make test-releases
-        
-    - name: Create Linux packages
-      run: |
-        # Create .deb packages
-        VERSION="${{ needs.create-release.outputs.version }}" ARCH="amd64" nfpm package -f build/package/nfpm.yaml -p deb -t dist/releases/
-        VERSION="${{ needs.create-release.outputs.version }}" ARCH="arm64" nfpm package -f build/package/nfpm.yaml -p deb -t dist/releases/
-        
-        # Create .rpm packages  
-        VERSION="${{ needs.create-release.outputs.version }}" ARCH="amd64" nfpm package -f build/package/nfpm.yaml -p rpm -t dist/releases/
-        VERSION="${{ needs.create-release.outputs.version }}" ARCH="arm64" nfpm package -f build/package/nfpm.yaml -p rpm -t dist/releases/
+        mkdir -p dist/releases
+        find artifacts/ -name "gitcells-*" -type f -exec cp {} dist/releases/ \;
         
     - name: List all release artifacts
       run: |
@@ -120,7 +219,7 @@ jobs:
   update-install-script:
     name: Update Install Script Version
     runs-on: ubuntu-latest
-    needs: [create-release, build-and-release]
+    needs: [create-release, upload-release-assets]
     
     steps:
     - name: Checkout code
