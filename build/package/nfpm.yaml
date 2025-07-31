@@ -1,6 +1,6 @@
 # nfpm configuration for Linux packages
 name: gitcells
-arch: amd64
+arch: ${ARCH}
 platform: linux
 version: ${VERSION}
 section: default

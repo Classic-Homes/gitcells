@@ -58,9 +58,13 @@ release: build-all
 		platform=$${binary#$(BINARY)-}; \
 		if [[ $$binary == *.exe ]]; then \
 			platform=$${platform%.exe}; \
-			zip -q releases/$(BINARY)-$(VERSION)-$$platform.zip $$binary; \
+			cp $$binary $(BINARY).exe; \
+			zip -q releases/$(BINARY)-$(VERSION)-$$platform.zip $(BINARY).exe; \
+			rm $(BINARY).exe; \
 		else \
-			tar -czf releases/$(BINARY)-$(VERSION)-$$platform.tar.gz $$binary; \
+			cp $$binary $(BINARY); \
+			tar -czf releases/$(BINARY)-$(VERSION)-$$platform.tar.gz $(BINARY); \
+			rm $(BINARY); \
 		fi; \
 	done
 	@echo "✅ Release archives created in dist/releases/"

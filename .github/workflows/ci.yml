@@ -1,5 +1,8 @@
 name: CI
 
+permissions:
+  contents: write
+
 on:
   push:
     branches: [ main, develop ]
@@ -18,7 +21,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.24'
+        go-version: '1.23'
         
     - name: Download dependencies
       run: make deps
@@ -37,7 +40,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.24'
+        go-version: '1.23'
         
     - name: Install golangci-lint
       run: |
@@ -58,7 +61,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.24'
+        go-version: '1.23'
         
     - name: Build all platforms
       run: make build-all
@@ -74,4 +77,54 @@ jobs:
       with:
         name: binaries
         path: dist/
-        retention-days: 7
+        retention-days: 30
+        
+  create-prerelease:
+    name: Create Pre-release
+    runs-on: ubuntu-latest
+    needs: [test, lint, build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: binaries
+        path: dist/
+        
+    - name: Get commit info
+      id: commit
+      run: |
+        echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        echo "timestamp=$(date -u +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+        
+    - name: Create development release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: dev-${{ steps.commit.outputs.timestamp }}-${{ steps.commit.outputs.short_sha }}
+        name: Development Build ${{ steps.commit.outputs.short_sha }}
+        body: |
+          ## Development Build
+          
+          **Commit:** ${{ steps.commit.outputs.short_sha }}  
+          **Branch:** main  
+          **Built:** ${{ steps.commit.outputs.timestamp }}  
+          
+          This is an automated development build from the latest main branch.  
+          
+          ### Download
+          
+          Choose the appropriate binary for your platform:
+          - **Windows**: `gitcells-windows-amd64.exe`
+          - **macOS (Intel)**: `gitcells-darwin-amd64`  
+          - **macOS (Apple Silicon)**: `gitcells-darwin-arm64`
+          - **Linux (x64)**: `gitcells-linux-amd64`
+          - **Linux (ARM64)**: `gitcells-linux-arm64`
+          
+        files: |
+          dist/gitcells-*
+        prerelease: true
+        make_latest: false

@@ -1,0 +1,61 @@
+name: Test Build
+
+on:
+  workflow_dispatch:
+  
+permissions:
+  contents: write
+
+jobs:
+  test-build:
+    name: Test Build Process
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+        
+    - name: Test Makefile targets
+      run: |
+        echo "Testing make deps..."
+        make deps
+        
+        echo "Testing make build..."
+        make build
+        
+        echo "Testing make build-all..."
+        make build-all
+        
+        echo "Testing make release..."
+        make release
+        
+    - name: List build artifacts
+      run: |
+        echo "Build artifacts:"
+        ls -la dist/
+        echo ""
+        echo "Release artifacts:"  
+        ls -la dist/releases/
+        
+    - name: Create test pre-release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: test-${{ github.run_number }}
+        name: Test Build ${{ github.run_number }}
+        body: |
+          ## Test Build
+          
+          This is a test build to verify the CI process works correctly.
+          
+          **Run ID:** ${{ github.run_number }}
+          **Commit:** ${{ github.sha }}
+          
+        files: |
+          dist/releases/*
+        prerelease: true
+        make_latest: false
