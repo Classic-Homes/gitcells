@@ -49,27 +49,32 @@ build-all:
 	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 $(GOBUILD) -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-windows-amd64.exe ./cmd/gitcells
 	@echo "✅ All binaries built in dist/"
 
-# Create user-friendly executables (ready to use, no extraction needed)
+# Create user-friendly executables and archives
 release: build-all
-	@echo "📦 Creating user-friendly executables..."
+	@echo "📦 Creating user-friendly executables and archives..."
 	@mkdir -p dist/releases
-	@cd dist && \
-	for binary in $(BINARY)-*; do \
-		platform=$${binary#$(BINARY)-}; \
-		if [[ $$binary == *.exe ]]; then \
-			cp $$binary releases/$(BINARY)-windows.exe; \
-		else \
-			case $$platform in \
-				linux-amd64) cp $$binary releases/$(BINARY)-linux ;; \
-				linux-arm64) cp $$binary releases/$(BINARY)-linux-arm64 ;; \
-				darwin-amd64) cp $$binary releases/$(BINARY)-macos-intel ;; \
-				darwin-arm64) cp $$binary releases/$(BINARY)-macos-apple-silicon ;; \
-				*) cp $$binary releases/$(BINARY)-$$platform ;; \
-			esac; \
-		fi; \
-	done
-	@echo "✅ User-friendly executables created in dist/releases/"
-	@echo "📝 These are ready-to-use binaries (no extraction needed!)"
+	# Windows
+	@cp dist/$(BINARY)-windows-amd64.exe dist/releases/$(BINARY)-windows.exe
+	@if command -v zip >/dev/null 2>&1; then \
+		cd dist/releases && zip -q $(BINARY)-windows.zip $(BINARY)-windows.exe; \
+	else \
+		cd dist/releases && tar -czf $(BINARY)-windows.tar.gz $(BINARY)-windows.exe; \
+	fi
+	# Linux AMD64
+	@cp dist/$(BINARY)-linux-amd64 dist/releases/$(BINARY)-linux
+	@cd dist/releases && tar -czf $(BINARY)-linux.tar.gz $(BINARY)-linux
+	# Linux ARM64
+	@cp dist/$(BINARY)-linux-arm64 dist/releases/$(BINARY)-linux-arm64
+	@cd dist/releases && tar -czf $(BINARY)-linux-arm64.tar.gz $(BINARY)-linux-arm64
+	# macOS Intel
+	@cp dist/$(BINARY)-darwin-amd64 dist/releases/$(BINARY)-macos-intel
+	@cd dist/releases && tar -czf $(BINARY)-macos-intel.tar.gz $(BINARY)-macos-intel
+	# macOS Apple Silicon
+	@cp dist/$(BINARY)-darwin-arm64 dist/releases/$(BINARY)-macos-apple-silicon
+	@cd dist/releases && tar -czf $(BINARY)-macos-apple-silicon.tar.gz $(BINARY)-macos-apple-silicon
+	@echo "✅ Platform-appropriate executables and archives created in dist/releases/"
+	@echo "📝 Direct executables: ready to use immediately!"
+	@echo "📦 Archives: traditional distribution format"
 
 # Test release binaries and archives
 test-releases:

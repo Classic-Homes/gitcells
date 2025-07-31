@@ -42,20 +42,28 @@ jobs:
           
           #### Manual Installation
           
+          #### Option 1: Direct Executables (Recommended)
+          Ready to use immediately - no extraction needed!
+          
           **Windows**
-          - Download `gitcells-windows.exe`
-          - Rename to `gitcells.exe` and add to PATH
-          - Ready to use immediately!
+          - Download `gitcells-windows.exe` → rename to `gitcells.exe` → add to PATH
           
           **macOS**
           - **Apple Silicon**: Download `gitcells-macos-apple-silicon` → `chmod +x` → move to `/usr/local/bin/gitcells`
           - **Intel**: Download `gitcells-macos-intel` → `chmod +x` → move to `/usr/local/bin/gitcells`
-          - Ready to use immediately!
           
           **Linux**
           - **64-bit**: Download `gitcells-linux` → `chmod +x` → move to `/usr/local/bin/gitcells`
           - **ARM64**: Download `gitcells-linux-arm64` → `chmod +x` → move to `/usr/local/bin/gitcells`
-          - Ready to use immediately!
+          
+          #### Option 2: Traditional Archives
+          For users who prefer compressed downloads:
+          
+          **Windows**
+          - Download `gitcells-windows.zip` → extract → add `gitcells.exe` to PATH
+          
+          **macOS/Linux**
+          - Download appropriate `.tar.gz` file → `tar -xzf filename.tar.gz` → `chmod +x gitcells` → move to PATH
           
           ### Package Managers
           
@@ -91,13 +99,14 @@ jobs:
           -ldflags "-s -w -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.commitHash=$(git rev-parse --short HEAD)" \
           -o dist/gitcells-linux-${{ matrix.arch }} ./cmd/gitcells
         
-        # Create user-friendly executable name
+        # Create user-friendly executable name and archive
         cd dist
         if [ "${{ matrix.arch }}" = "amd64" ]; then
           cp gitcells-linux-${{ matrix.arch }} gitcells-linux
+          tar -czf gitcells-linux.tar.gz gitcells-linux
         else
-          # For ARM64, keep the original name as it's already user-friendly
-          echo "Using original name for ARM64: gitcells-linux-${{ matrix.arch }}"
+          # For ARM64, create archive with existing name
+          tar -czf gitcells-linux-${{ matrix.arch }}.tar.gz gitcells-linux-${{ matrix.arch }}
         fi
         
     - name: Install nfpm and create Linux packages
@@ -118,6 +127,7 @@ jobs:
         name: release-linux-${{ matrix.arch }}
         path: |
           dist/gitcells-linux*
+          dist/*.tar.gz
           dist/*.deb
           dist/*.rpm
         retention-days: 30
@@ -147,19 +157,23 @@ jobs:
           -ldflags "-s -w -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.commitHash=$(git rev-parse --short HEAD)" \
           -o dist/gitcells-darwin-${{ matrix.arch }} ./cmd/gitcells
         
-        # Create user-friendly executable name
+        # Create user-friendly executable name and archive
         cd dist
         if [ "${{ matrix.arch }}" = "amd64" ]; then
           cp gitcells-darwin-${{ matrix.arch }} gitcells-macos-intel
+          tar -czf gitcells-macos-intel.tar.gz gitcells-macos-intel
         else
           cp gitcells-darwin-${{ matrix.arch }} gitcells-macos-apple-silicon
+          tar -czf gitcells-macos-apple-silicon.tar.gz gitcells-macos-apple-silicon
         fi
         
     - name: Upload macOS ${{ matrix.arch }} artifacts
       uses: actions/upload-artifact@v4
       with:
         name: release-macos-${{ matrix.arch }}
-        path: dist/gitcells-macos-*
+        path: |
+          dist/gitcells-macos-*
+          dist/*.tar.gz
         retention-days: 30
         
   build-windows-packages:
@@ -189,15 +203,18 @@ jobs:
         $ldflags = "-s -w -X main.version=$env:VERSION -X main.buildTime=$buildTime -X main.commitHash=$commitHash"
         go build -ldflags $ldflags -o dist/gitcells-windows-amd64.exe ./cmd/gitcells
         
-        # Create user-friendly executable name
+        # Create user-friendly executable name and archive
         cd dist
         Copy-Item gitcells-windows-amd64.exe gitcells-windows.exe
+        Compress-Archive -Path gitcells-windows.exe -DestinationPath gitcells-windows.zip -Force
         
     - name: Upload Windows artifacts
       uses: actions/upload-artifact@v4
       with:
         name: release-windows
-        path: dist/gitcells-windows.exe
+        path: |
+          dist/gitcells-windows.exe
+          dist/gitcells-windows.zip
         retention-days: 30
         
   upload-release-assets:
@@ -215,6 +232,8 @@ jobs:
       run: |
         mkdir -p dist
         find artifacts/ -name "gitcells-*" -type f -exec cp {} dist/ \;
+        find artifacts/ -name "*.tar.gz" -type f -exec cp {} dist/ \; || true
+        find artifacts/ -name "*.zip" -type f -exec cp {} dist/ \; || true
         find artifacts/ -name "*.deb" -type f -exec cp {} dist/ \; || true
         find artifacts/ -name "*.rpm" -type f -exec cp {} dist/ \; || true
         
@@ -229,6 +248,8 @@ jobs:
         tag_name: ${{ github.ref }}
         files: |
           dist/gitcells-*
+          dist/*.tar.gz
+          dist/*.zip
           dist/*.deb
           dist/*.rpm
         
