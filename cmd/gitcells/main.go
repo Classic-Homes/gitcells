@@ -33,6 +33,8 @@ func main() {
 		newConvertCommand(logger),
 		newStatusCommand(logger),
 		newDiffCommand(logger),
+		newUpdateCommand(logger),
+		newVersionCommand(logger),
 		newTUICommand(logger),
 	)
 

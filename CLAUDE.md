@@ -12,14 +12,26 @@ GitCells is a Go application that bridges Excel and Git by converting Excel file
 # Initialize project dependencies
 go mod tidy
 
-# Build the application (once main.go exists)
-go build -o dist/gitcells cmd/gitcells/main.go
+# Build the application
+cd cmd/gitcells && go build -o ../../dist/gitcells .
 
 # Cross-platform builds (from planned Makefile)
 make build    # Builds for Mac, Windows, and Linux
 
 # Run tests
 go test -v ./...
+
+# Update GitCells to latest version
+gitcells update                    # Interactive update (stable releases only)
+gitcells update --check            # Check for updates only
+gitcells update --force            # Update without confirmation
+gitcells update --prerelease       # Include pre-release versions
+gitcells update --prerelease --check  # Check for pre-releases only
+
+# Check version and updates
+gitcells version                          # Show current version
+gitcells version --check-update           # Check for stable updates
+gitcells version --check-update --prerelease  # Check for pre-release updates
 
 # Clean build artifacts
 make clean
@@ -35,6 +47,7 @@ The planned architecture follows Go best practices with clear separation of conc
   - **git/**: Git operations wrapper using go-git
   - **watcher/**: File system monitoring with fsnotify
   - **config/**: Configuration management with Viper
+  - **updater/**: Self-update functionality with GitHub releases integration
 - **pkg/models/**: Public data models for Excel document representation
 
 ## Key Dependencies
@@ -44,6 +57,8 @@ The planned architecture follows Go best practices with clear separation of conc
 - **github.com/fsnotify/fsnotify**: File system watching
 - **github.com/spf13/cobra**: CLI framework
 - **github.com/spf13/viper**: Configuration management
+- **github.com/inconshreveable/go-update**: Binary self-update functionality
+- **github.com/Masterminds/semver/v3**: Semantic version comparison
 
 ## Implementation Guidelines
 
