@@ -49,30 +49,27 @@ build-all:
 	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 $(GOBUILD) -ldflags "$(LDFLAGS)" -o dist/$(BINARY)-windows-amd64.exe ./cmd/gitcells
 	@echo "✅ All binaries built in dist/"
 
-# Create release archives
+# Create user-friendly executables (ready to use, no extraction needed)
 release: build-all
-	@echo "📦 Creating release archives..."
+	@echo "📦 Creating user-friendly executables..."
 	@mkdir -p dist/releases
 	@cd dist && \
 	for binary in $(BINARY)-*; do \
 		platform=$${binary#$(BINARY)-}; \
 		if [[ $$binary == *.exe ]]; then \
-			platform=$${platform%.exe}; \
-			cp $$binary $(BINARY).exe; \
-			if command -v zip >/dev/null 2>&1; then \
-				zip -q releases/$(BINARY)-$(VERSION)-$$platform.zip $(BINARY).exe; \
-			else \
-				echo "Warning: zip command not found. Creating tar.gz for Windows binary instead."; \
-				tar -czf releases/$(BINARY)-$(VERSION)-$$platform.tar.gz $(BINARY).exe; \
-			fi; \
-			rm $(BINARY).exe; \
+			cp $$binary releases/$(BINARY)-windows.exe; \
 		else \
-			cp $$binary $(BINARY); \
-			tar -czf releases/$(BINARY)-$(VERSION)-$$platform.tar.gz $(BINARY); \
-			rm $(BINARY); \
+			case $$platform in \
+				linux-amd64) cp $$binary releases/$(BINARY)-linux ;; \
+				linux-arm64) cp $$binary releases/$(BINARY)-linux-arm64 ;; \
+				darwin-amd64) cp $$binary releases/$(BINARY)-macos-intel ;; \
+				darwin-arm64) cp $$binary releases/$(BINARY)-macos-apple-silicon ;; \
+				*) cp $$binary releases/$(BINARY)-$$platform ;; \
+			esac; \
 		fi; \
 	done
-	@echo "✅ Release archives created in dist/releases/"
+	@echo "✅ User-friendly executables created in dist/releases/"
+	@echo "📝 These are ready-to-use binaries (no extraction needed!)"
 
 # Test release binaries and archives
 test-releases:
@@ -296,7 +293,7 @@ help:
 	@echo "Build Targets:"
 	@echo "  build              Build binary for current platform"
 	@echo "  build-all          Build binaries for all platforms"
-	@echo "  release            Create release archives"
+	@echo "  release            Create user-friendly executables (ready to use)"
 	@echo "  test-releases      Test release binaries and archives"
 	@echo "  validate-workflows Validate GitHub Actions workflows"
 	@echo ""

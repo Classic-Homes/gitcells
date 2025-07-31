@@ -43,23 +43,25 @@ jobs:
           #### Manual Installation
           
           **Windows**
-          - Download `gitcells-v${{ steps.version.outputs.version }}-windows-amd64.zip`
-          - Extract and add to PATH
+          - Download `gitcells-windows.exe`
+          - Rename to `gitcells.exe` and add to PATH
+          - Ready to use immediately!
           
           **macOS**
-          - Download `gitcells-v${{ steps.version.outputs.version }}-darwin-arm64.tar.gz` (Apple Silicon)
-          - Download `gitcells-v${{ steps.version.outputs.version }}-darwin-amd64.tar.gz` (Intel)
-          - Extract and move to `/usr/local/bin/`
+          - **Apple Silicon**: Download `gitcells-macos-apple-silicon` → `chmod +x` → move to `/usr/local/bin/gitcells`
+          - **Intel**: Download `gitcells-macos-intel` → `chmod +x` → move to `/usr/local/bin/gitcells`
+          - Ready to use immediately!
           
           **Linux**
-          - Download the appropriate archive for your architecture
-          - Extract and move to `/usr/local/bin/`
+          - **64-bit**: Download `gitcells-linux` → `chmod +x` → move to `/usr/local/bin/gitcells`
+          - **ARM64**: Download `gitcells-linux-arm64` → `chmod +x` → move to `/usr/local/bin/gitcells`
+          - Ready to use immediately!
           
           ### Package Managers
           
-          **Linux Packages**
-          - **Debian/Ubuntu**: `wget <deb-url> && sudo dpkg -i gitcells_*.deb`
-          - **RHEL/Fedora**: `wget <rpm-url> && sudo rpm -i gitcells-*.rpm`
+          **Linux Packages** (traditional installation)
+          - **Debian/Ubuntu**: Download `.deb` file → `sudo dpkg -i gitcells_*.deb`
+          - **RHEL/Fedora**: Download `.rpm` file → `sudo rpm -i gitcells-*.rpm`
           
         draft: false
         prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
@@ -89,11 +91,13 @@ jobs:
           -ldflags "-s -w -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.commitHash=$(git rev-parse --short HEAD)" \
           -o dist/gitcells-linux-${{ matrix.arch }} ./cmd/gitcells
         
-        # Create archive
+        # Create user-friendly executable name
         cd dist
-        cp gitcells-linux-${{ matrix.arch }} gitcells
-        tar -czf releases/gitcells-${VERSION}-linux-${{ matrix.arch }}.tar.gz gitcells
-        rm gitcells
+        if [ "${{ matrix.arch }}" = "amd64" ]; then
+          cp gitcells-linux-${{ matrix.arch }} gitcells-linux
+        else
+          cp gitcells-linux-${{ matrix.arch }} gitcells-linux-${{ matrix.arch }}
+        fi
         
     - name: Install nfpm and create Linux packages
       run: |
@@ -104,14 +108,17 @@ jobs:
         # Create .deb and .rpm packages
         export VERSION="${{ needs.create-release.outputs.version }}"
         export ARCH="${{ matrix.arch }}"
-        nfpm package -f build/package/nfpm.yaml -p deb -t dist/releases/
-        nfpm package -f build/package/nfpm.yaml -p rpm -t dist/releases/
+        nfpm package -f build/package/nfpm.yaml -p deb -t dist/
+        nfpm package -f build/package/nfpm.yaml -p rpm -t dist/
         
     - name: Upload Linux ${{ matrix.arch }} artifacts
       uses: actions/upload-artifact@v4
       with:
         name: release-linux-${{ matrix.arch }}
-        path: dist/releases/*
+        path: |
+          dist/gitcells-linux*
+          dist/*.deb
+          dist/*.rpm
         retention-days: 30
         
   build-darwin-packages:
@@ -139,17 +146,19 @@ jobs:
           -ldflags "-s -w -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.commitHash=$(git rev-parse --short HEAD)" \
           -o dist/gitcells-darwin-${{ matrix.arch }} ./cmd/gitcells
         
-        # Create archive
+        # Create user-friendly executable name
         cd dist
-        cp gitcells-darwin-${{ matrix.arch }} gitcells
-        tar -czf releases/gitcells-${VERSION}-darwin-${{ matrix.arch }}.tar.gz gitcells
-        rm gitcells
+        if [ "${{ matrix.arch }}" = "amd64" ]; then
+          cp gitcells-darwin-${{ matrix.arch }} gitcells-macos-intel
+        else
+          cp gitcells-darwin-${{ matrix.arch }} gitcells-macos-apple-silicon
+        fi
         
     - name: Upload macOS ${{ matrix.arch }} artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: release-darwin-${{ matrix.arch }}
-        path: dist/releases/*
+        name: release-macos-${{ matrix.arch }}
+        path: dist/gitcells-macos-*
         retention-days: 30
         
   build-windows-packages:
@@ -179,17 +188,15 @@ jobs:
         $ldflags = "-s -w -X main.version=$env:VERSION -X main.buildTime=$buildTime -X main.commitHash=$commitHash"
         go build -ldflags $ldflags -o dist/gitcells-windows-amd64.exe ./cmd/gitcells
         
-        # Create archive
+        # Create user-friendly executable name
         cd dist
-        Copy-Item gitcells-windows-amd64.exe gitcells.exe
-        Compress-Archive -Path gitcells.exe -DestinationPath "releases/gitcells-$env:VERSION-windows-amd64.zip" -Force
-        Remove-Item gitcells.exe
+        Copy-Item gitcells-windows-amd64.exe gitcells-windows.exe
         
-    - name: Upload Windows AMD64 artifacts
+    - name: Upload Windows artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: release-windows-amd64
-        path: dist/releases/*
+        name: release-windows
+        path: dist/gitcells-windows.exe
         retention-days: 30
         
   upload-release-assets:
@@ -205,20 +212,24 @@ jobs:
         
     - name: Organize release assets
       run: |
-        mkdir -p dist/releases
-        find artifacts/ -name "gitcells-*" -type f -exec cp {} dist/releases/ \;
+        mkdir -p dist
+        find artifacts/ -name "gitcells-*" -type f -exec cp {} dist/ \;
+        find artifacts/ -name "*.deb" -type f -exec cp {} dist/ \; || true
+        find artifacts/ -name "*.rpm" -type f -exec cp {} dist/ \; || true
         
     - name: List all release artifacts
       run: |
         echo "Release artifacts:"
-        ls -la dist/releases/
+        ls -la dist/
         
     - name: Upload Release Assets
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ github.ref }}
         files: |
-          dist/releases/*
+          dist/gitcells-*
+          dist/*.deb
+          dist/*.rpm
         
   update-install-script:
     name: Update Install Script Version

@@ -70,18 +70,16 @@ jobs:
           -ldflags "-s -w -X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo 'dev') -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.commitHash=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')" \
           -o dist/gitcells-linux-amd64 ./cmd/gitcells
         
-    - name: Create Linux AMD64 archive
+    - name: Create user-friendly Linux 64-bit executable
       run: |
         cd dist
-        cp gitcells-linux-amd64 gitcells
-        tar -czf gitcells-$(git describe --tags --always --dirty 2>/dev/null || echo 'dev')-linux-amd64.tar.gz gitcells
-        rm gitcells
+        cp gitcells-linux-amd64 gitcells-linux
         
-    - name: Upload Linux AMD64 artifact
+    - name: Upload Linux 64-bit artifact
       uses: actions/upload-artifact@v4
       with:
-        name: linux-amd64
-        path: dist/gitcells-*-linux-amd64*
+        name: linux
+        path: dist/gitcells-linux
         retention-days: 30
         
   build-linux-arm64:
@@ -105,18 +103,16 @@ jobs:
           -ldflags "-s -w -X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo 'dev') -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.commitHash=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')" \
           -o dist/gitcells-linux-arm64 ./cmd/gitcells
         
-    - name: Create Linux ARM64 archive
+    - name: Create user-friendly Linux ARM64 executable
       run: |
         cd dist
-        cp gitcells-linux-arm64 gitcells
-        tar -czf gitcells-$(git describe --tags --always --dirty 2>/dev/null || echo 'dev')-linux-arm64.tar.gz gitcells
-        rm gitcells
+        cp gitcells-linux-arm64 gitcells-linux-arm64
         
     - name: Upload Linux ARM64 artifact
       uses: actions/upload-artifact@v4
       with:
         name: linux-arm64
-        path: dist/gitcells-*-linux-arm64*
+        path: dist/gitcells-linux-arm64
         retention-days: 30
         
   build-darwin-amd64:
@@ -140,18 +136,16 @@ jobs:
           -ldflags "-s -w -X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo 'dev') -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.commitHash=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')" \
           -o dist/gitcells-darwin-amd64 ./cmd/gitcells
         
-    - name: Create macOS Intel archive
+    - name: Create user-friendly macOS Intel executable
       run: |
         cd dist
-        cp gitcells-darwin-amd64 gitcells
-        tar -czf gitcells-$(git describe --tags --always --dirty 2>/dev/null || echo 'dev')-darwin-amd64.tar.gz gitcells
-        rm gitcells
+        cp gitcells-darwin-amd64 gitcells-macos-intel
         
     - name: Upload macOS Intel artifact
       uses: actions/upload-artifact@v4
       with:
-        name: darwin-amd64
-        path: dist/gitcells-*-darwin-amd64*
+        name: macos-intel
+        path: dist/gitcells-macos-intel
         retention-days: 30
         
   build-darwin-arm64:
@@ -175,18 +169,16 @@ jobs:
           -ldflags "-s -w -X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo 'dev') -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.commitHash=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')" \
           -o dist/gitcells-darwin-arm64 ./cmd/gitcells
         
-    - name: Create macOS Apple Silicon archive
+    - name: Create user-friendly macOS Apple Silicon executable
       run: |
         cd dist
-        cp gitcells-darwin-arm64 gitcells
-        tar -czf gitcells-$(git describe --tags --always --dirty 2>/dev/null || echo 'dev')-darwin-arm64.tar.gz gitcells
-        rm gitcells
+        cp gitcells-darwin-arm64 gitcells-macos-apple-silicon
         
     - name: Upload macOS Apple Silicon artifact
       uses: actions/upload-artifact@v4
       with:
-        name: darwin-arm64
-        path: dist/gitcells-*-darwin-arm64*
+        name: macos-apple-silicon
+        path: dist/gitcells-macos-apple-silicon
         retention-days: 30
         
   build-windows-amd64:
@@ -211,21 +203,17 @@ jobs:
           -ldflags "-s -w -X main.version=$(git describe --tags --always --dirty 2>/dev/null || echo 'dev') -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.commitHash=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')" \
           -o dist/gitcells-windows-amd64.exe ./cmd/gitcells
         
-    - name: Create Windows AMD64 archive
+    - name: Create user-friendly Windows executable
       shell: powershell
       run: |
         cd dist
-        $version = & git describe --tags --always --dirty 2>$null
-        if (-not $version) { $version = "dev" }
-        Copy-Item gitcells-windows-amd64.exe gitcells.exe
-        Compress-Archive -Path gitcells.exe -DestinationPath "gitcells-$version-windows-amd64.zip" -Force
-        Remove-Item gitcells.exe
+        Copy-Item gitcells-windows-amd64.exe gitcells-windows.exe
         
-    - name: Upload Windows AMD64 artifact
+    - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
       with:
-        name: windows-amd64
-        path: dist/gitcells-*-windows-amd64*
+        name: windows
+        path: dist/gitcells-windows.exe
         retention-days: 30
         
   create-prerelease:
@@ -268,14 +256,16 @@ jobs:
           
           This is an automated development build from the latest main branch.  
           
-          ### Download
+          ### Download & Install
           
-          Choose the appropriate binary for your platform:
-          - **Windows**: `gitcells-windows-amd64.exe`
-          - **macOS (Intel)**: `gitcells-darwin-amd64`  
-          - **macOS (Apple Silicon)**: `gitcells-darwin-arm64`
-          - **Linux (x64)**: `gitcells-linux-amd64`
-          - **Linux (ARM64)**: `gitcells-linux-arm64`
+          Choose and download the appropriate executable for your platform:
+          - **Windows**: Download `gitcells-windows.exe` → rename to `gitcells.exe` → add to PATH
+          - **macOS (Intel)**: Download `gitcells-macos-intel` → `chmod +x gitcells-macos-intel` → move to `/usr/local/bin/gitcells`
+          - **macOS (Apple Silicon)**: Download `gitcells-macos-apple-silicon` → `chmod +x gitcells-macos-apple-silicon` → move to `/usr/local/bin/gitcells`
+          - **Linux (64-bit)**: Download `gitcells-linux` → `chmod +x gitcells-linux` → move to `/usr/local/bin/gitcells`
+          - **Linux (ARM64)**: Download `gitcells-linux-arm64` → `chmod +x gitcells-linux-arm64` → move to `/usr/local/bin/gitcells`
+          
+          No extraction needed - these are ready-to-use executables!
           
         files: |
           dist/gitcells-*
