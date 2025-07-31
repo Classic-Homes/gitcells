@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -11,6 +12,7 @@ import (
 	"github.com/Classic-Homes/gitcells/internal/tui/components"
 	"github.com/Classic-Homes/gitcells/internal/tui/styles"
 	"github.com/Classic-Homes/gitcells/internal/tui/types"
+	"github.com/Classic-Homes/gitcells/internal/tui/validation"
 )
 
 type SetupEnhancedModel struct {
@@ -20,6 +22,7 @@ type SetupEnhancedModel struct {
 	focused  int
 	finished bool
 	error    string
+	validationErrors map[string]string
 	
 	// Step 1 - Directory
 	dirInput components.TextInput
@@ -46,6 +49,7 @@ func NewSetupEnhancedModel() SetupEnhancedModel {
 		autoCommit:     components.NewCheckbox("Enable auto-commit", true),
 		autoPush:       components.NewCheckbox("Enable auto-push", false),
 		commitTemplate: components.NewTextInput("Commit Message Template:", "GitCells: {action} {filename}"),
+		validationErrors: make(map[string]string),
 	}
 	
 	// Set initial values
@@ -83,7 +87,7 @@ func (m SetupEnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focusPrev()
 			
 		case "enter":
-			if m.canProceed() {
+			if m.validateCurrentStep() && m.canProceed() {
 				if m.step == 3 { // Last step
 					m.saveConfig()
 					m.finished = true
@@ -193,52 +197,93 @@ func (m SetupEnhancedModel) renderDirectoryStep() string {
 	title := styles.TitleStyle.Render("Select Repository Directory")
 	desc := styles.MutedStyle.Render("Choose the directory containing your Excel files")
 	
-	// Check if directory exists
-	info := ""
-	if dir := m.dirInput.Value(); dir != "" {
-		if stat, err := os.Stat(dir); err == nil && stat.IsDir() {
-			info = styles.SuccessStyle.Render("✓ Directory exists")
-		} else {
-			info = styles.WarningStyle.Render("⚠ Directory does not exist (will be created)")
+	// Show validation error if any
+	var errorMsg string
+	if err, exists := m.validationErrors["directory"]; exists {
+		errorMsg = styles.ErrorStyle.Render("✗ " + err)
+	}
+	
+	// Check directory info
+	var info []string
+	if dir := m.dirInput.Value(); dir != "" && errorMsg == "" {
+		if dirInfo, err := validation.InspectDirectory(dir); err == nil {
+			if dirInfo.Exists {
+				info = append(info, styles.SuccessStyle.Render("✓ Directory exists"))
+				if dirInfo.IsGitRepo {
+					info = append(info, styles.SuccessStyle.Render("✓ Git repository detected"))
+				}
+				if dirInfo.HasGitCells {
+					info = append(info, styles.WarningStyle.Render("⚠ GitCells already configured"))
+				}
+				if dirInfo.ExcelCount > 0 {
+					info = append(info, styles.MutedStyle.Render(fmt.Sprintf("📊 Found %d Excel files", dirInfo.ExcelCount)))
+				}
+			} else {
+				info = append(info, styles.WarningStyle.Render("⚠ Directory does not exist (will be created)"))
+			}
 		}
 	}
 	
-	return lipgloss.JoinVertical(
-		lipgloss.Left,
-		title,
-		desc,
-		"",
-		m.dirInput.View(),
-		info,
-	)
+	content := []string{title, desc, ""}
+	content = append(content, m.dirInput.View())
+	if errorMsg != "" {
+		content = append(content, errorMsg)
+	}
+	if len(info) > 0 {
+		content = append(content, strings.Join(info, "\n"))
+	}
+	
+	return lipgloss.JoinVertical(lipgloss.Left, content...)
 }
 
 func (m SetupEnhancedModel) renderPatternStep() string {
 	title := styles.TitleStyle.Render("Configure Excel File Patterns")
 	desc := styles.MutedStyle.Render("Specify which Excel files to track (e.g., *.xlsx, reports/*.xlsx)")
 	
+	// Show validation error if any
+	var errorMsg string
+	if err, exists := m.validationErrors["pattern"]; exists {
+		errorMsg = styles.ErrorStyle.Render("✗ " + err)
+	}
+	
 	examples := styles.MutedStyle.Render(`
 Examples:
   *.xlsx           - All Excel files in the directory
   reports/*.xlsx   - Excel files in the reports subdirectory
-  Budget*.xlsx     - Files starting with "Budget"`)
+  Budget*.xlsx     - Files starting with "Budget"
+  *.{xlsx,xls}     - Multiple extensions`)
 	
-	return lipgloss.JoinVertical(
-		lipgloss.Left,
-		title,
-		desc,
-		"",
-		m.patternInput.View(),
-		examples,
-	)
+	content := []string{title, desc, "", m.patternInput.View()}
+	if errorMsg != "" {
+		content = append(content, errorMsg)
+	}
+	content = append(content, examples)
+	
+	return lipgloss.JoinVertical(lipgloss.Left, content...)
 }
 
 func (m *SetupEnhancedModel) renderGitStep() string {
 	title := styles.TitleStyle.Render("Git Integration Settings")
 	desc := styles.MutedStyle.Render("Configure how GitCells interacts with Git")
 	
-	return lipgloss.JoinVertical(
-		lipgloss.Left,
+	// Show validation error if any
+	var errorMsg string
+	if err, exists := m.validationErrors["template"]; exists {
+		errorMsg = styles.ErrorStyle.Render("✗ " + err)
+	}
+	
+	// Template help
+	templateHelp := ""
+	if m.focused == 2 { // Commit template is focused
+		templateHelp = styles.MutedStyle.Render(`
+Available placeholders:
+  {action}    - The action performed (add, update, delete)
+  {filename}  - The Excel filename
+  {timestamp} - Current timestamp
+  {user}      - Git user name`)
+	}
+	
+	content := []string{
 		title,
 		desc,
 		"",
@@ -247,7 +292,16 @@ func (m *SetupEnhancedModel) renderGitStep() string {
 		m.autoPush.View(),
 		"",
 		m.commitTemplate.View(),
-	)
+	}
+	
+	if errorMsg != "" {
+		content = append(content, errorMsg)
+	}
+	if templateHelp != "" {
+		content = append(content, templateHelp)
+	}
+	
+	return lipgloss.JoinVertical(lipgloss.Left, content...)
 }
 
 func (m SetupEnhancedModel) renderReviewStep() string {
@@ -414,4 +468,35 @@ func absPath(path string) string {
 		return abs
 	}
 	return path
+}
+
+func (m *SetupEnhancedModel) validateCurrentStep() bool {
+	// Clear previous errors
+	m.validationErrors = make(map[string]string)
+	m.error = ""
+	
+	switch m.step {
+	case 0: // Directory step
+		if err := validation.ValidateDirectory(m.dirInput.Value()); err != nil {
+			m.validationErrors["directory"] = err.Error()
+			m.error = err.Error()
+			return false
+		}
+		
+	case 1: // Pattern step
+		if err := validation.ValidateExcelPattern(m.patternInput.Value()); err != nil {
+			m.validationErrors["pattern"] = err.Error()
+			m.error = err.Error()
+			return false
+		}
+		
+	case 2: // Git settings step
+		if err := validation.ValidateCommitTemplate(m.commitTemplate.Value()); err != nil {
+			m.validationErrors["template"] = err.Error()
+			m.error = err.Error()
+			return false
+		}
+	}
+	
+	return true
 }

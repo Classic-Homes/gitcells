@@ -100,20 +100,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.setupModel.Init()
 		case ModeDashboard:
 			if m.dashModel == nil {
-				dashModel := models.NewDashboardModel()
-				m.dashModel = dashModel
+				m.dashModel = models.NewDashboardEnhancedModel()
 			}
 			return m, m.dashModel.Init()
 		case ModeBranch:
 			if m.branchModel == nil {
-				branchModel := models.NewBranchModel()
-				m.branchModel = branchModel
+				m.branchModel = models.NewBranchEnhancedModel()
 			}
 			return m, m.branchModel.Init()
 		case ModeConflict:
 			if m.conflModel == nil {
-				conflModel := models.NewConflictModel()
-				m.conflModel = conflModel
+				m.conflModel = models.NewConflictEnhancedModel()
 			}
 			return m, m.conflModel.Init()
 		}
