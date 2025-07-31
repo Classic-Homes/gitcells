@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Classic-Homes/gitcells/internal/tui/models"
+	"github.com/Classic-Homes/gitcells/internal/utils"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -14,16 +15,18 @@ const (
 	ModeMenu Mode = iota
 	ModeSetup
 	ModeDashboard
+	ModeErrorLog
 )
 
 type Model struct {
-	mode        Mode
-	width       int
-	height      int
-	quitting    bool
-	menuCursor  int
-	setupModel  tea.Model
-	dashModel   tea.Model
+	mode         Mode
+	width        int
+	height       int
+	quitting     bool
+	menuCursor   int
+	setupModel   tea.Model
+	dashModel    tea.Model
+	errorLogModel tea.Model
 }
 
 type modeChangeMsg struct {
@@ -39,6 +42,7 @@ var menuItems = []struct {
 }{
 	{"Setup Wizard", "Configure GitCells for your Excel tracking repository", ModeSetup},
 	{"Status Dashboard", "Monitor Excel file tracking and conversion status", ModeDashboard},
+	{"Error Logs", "View application errors and troubleshooting information", ModeErrorLog},
 }
 
 func NewModel() Model {
@@ -74,17 +78,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case "enter":
 				selectedMode := menuItems[m.menuCursor].mode
+				utils.LogUserAction("menu_select", map[string]interface{}{
+					"selected_item": m.menuCursor,
+					"mode":          selectedMode,
+				})
 				return m, changeMode(selectedMode)
 			}
 		} else {
 			switch msg.String() {
 			case "esc":
 				return m, backToMenu()
+			case "ctrl+l":
+				if m.mode != ModeErrorLog {
+					return m, changeMode(ModeErrorLog)
+				}
 			}
 		}
 
 	case modeChangeMsg:
+		oldMode := m.mode
 		m.mode = msg.mode
+		utils.LogModeChange(fmt.Sprintf("%d", oldMode), fmt.Sprintf("%d", msg.mode))
 		switch m.mode {
 		case ModeSetup:
 			if m.setupModel == nil {
@@ -97,6 +111,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.dashModel = models.NewDashboardEnhancedModel()
 			}
 			return m, m.dashModel.Init()
+		case ModeErrorLog:
+			if m.errorLogModel == nil {
+				m.errorLogModel = models.NewErrorLogModel()
+			}
+			return m, m.errorLogModel.Init()
 		}
 
 	case backToMenuMsg:
@@ -113,6 +132,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ModeDashboard:
 		if m.dashModel != nil {
 			m.dashModel, cmd = m.dashModel.Update(msg)
+		}
+	case ModeErrorLog:
+		if m.errorLogModel != nil {
+			m.errorLogModel, cmd = m.errorLogModel.Update(msg)
 		}
 	}
 
@@ -134,6 +157,10 @@ func (m Model) View() string {
 	case ModeDashboard:
 		if m.dashModel != nil {
 			return m.dashModel.View()
+		}
+	case ModeErrorLog:
+		if m.errorLogModel != nil {
+			return m.errorLogModel.View()
 		}
 	}
 
@@ -171,7 +198,7 @@ func (m Model) renderMenu() string {
 		s += fmt.Sprintf("    %s\n\n", descStyle.Render(item.desc))
 	}
 
-	s += "\n" + descStyle.Render("Use ↑/↓ or j/k to navigate, Enter to select, q to quit")
+	s += "\n" + descStyle.Render("Use ↑/↓ or j/k to navigate, Enter to select, Ctrl+L for error logs, q to quit")
 
 	return menuStyle.Render(s)
 }

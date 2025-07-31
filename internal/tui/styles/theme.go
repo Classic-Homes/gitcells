@@ -9,6 +9,12 @@ var (
 	Warning   = lipgloss.Color("214")
 	Error     = lipgloss.Color("196")
 	Muted     = lipgloss.Color("241")
+	Info      = lipgloss.Color("39")
+	Highlight = lipgloss.Color("212")
+	
+	// Color values for direct use
+	MutedColor     = lipgloss.Color("241")
+	HighlightColor = lipgloss.Color("212")
 
 	TitleStyle = lipgloss.NewStyle().
 			Bold(true).
@@ -54,6 +60,21 @@ var (
 	HelpStyle = lipgloss.NewStyle().
 			Foreground(Muted).
 			MarginTop(1)
+
+	InfoStyle = lipgloss.NewStyle().
+			Foreground(Info)
+
+	HighlightStyle = lipgloss.NewStyle().
+			Foreground(Highlight)
+
+	SelectedStyle = lipgloss.NewStyle().
+			Background(Primary).
+			Foreground(lipgloss.Color("230")).
+			Bold(true)
+
+	ViewportStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(Muted)
 )
 
 func CenterHorizontal(width int, content string) string {
