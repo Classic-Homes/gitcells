@@ -244,8 +244,8 @@ jobs:
           dist/gitcells-windows.zip
         retention-days: 30
         
-  create-prerelease:
-    name: Create Pre-release
+  create-version-prerelease:
+    name: Create Version Pre-release
     runs-on: ubuntu-latest
     needs: [test, lint, build-linux-amd64, build-linux-arm64, build-darwin-amd64, build-darwin-arm64, build-windows-amd64]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -253,51 +253,79 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+      with:
+        fetch-depth: 2  # Need previous commit to detect VERSION changes
+        
+    - name: Check if VERSION file changed
+      id: version_check
+      run: |
+        if git diff HEAD~1 HEAD --name-only | grep -q "^VERSION$"; then
+          echo "VERSION file changed"
+          VERSION=$(cat VERSION | tr -d '\n\r' | xargs)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "changed=true" >> $GITHUB_OUTPUT
+          
+          # Check if this version tag already exists
+          if git tag -l | grep -q "^v${VERSION}$"; then
+            echo "❌ Tag v${VERSION} already exists!"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ New version: ${VERSION}"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "VERSION file unchanged"
+          echo "changed=false" >> $GITHUB_OUTPUT
+        fi
+        
     - name: Download all build artifacts
+      if: steps.version_check.outputs.changed == 'true' && steps.version_check.outputs.exists == 'false'
       uses: actions/download-artifact@v4
       with:
         path: artifacts/
         
     - name: Organize artifacts
+      if: steps.version_check.outputs.changed == 'true' && steps.version_check.outputs.exists == 'false'
       run: |
         mkdir -p dist
         find artifacts/ -name "gitcells-*" -type f -exec cp {} dist/ \;
         
-    - name: Get commit info
-      id: commit
-      run: |
-        echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-        echo "timestamp=$(date -u +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
-        
-    - name: Create development release
+    - name: Create pre-release with tag
+      if: steps.version_check.outputs.changed == 'true' && steps.version_check.outputs.exists == 'false'
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: dev-${{ steps.commit.outputs.timestamp }}-${{ steps.commit.outputs.short_sha }}
-        name: Development Build ${{ steps.commit.outputs.short_sha }}
+        tag_name: v${{ steps.version_check.outputs.version }}
+        name: GitCells v${{ steps.version_check.outputs.version }} (Pre-release)
         body: |
-          ## Development Build
+          ## GitCells v${{ steps.version_check.outputs.version }} - Pre-release
           
-          **Commit:** ${{ steps.commit.outputs.short_sha }}  
-          **Branch:** main  
-          **Built:** ${{ steps.commit.outputs.timestamp }}  
+          ⚠️ **This is a pre-release version for testing and validation.**
           
-          This is an automated development build from the latest main branch.  
+          ### Installation
           
-          ### Download Options
+          #### Quick Install (Linux/macOS)
+          ```bash
+          curl -sSL https://github.com/Classic-Homes/gitcells/releases/download/v${{ steps.version_check.outputs.version }}/gitcells-macos-apple-silicon.tar.gz | tar -xz
+          chmod +x gitcells-macos-apple-silicon
+          sudo mv gitcells-macos-apple-silicon /usr/local/bin/gitcells
+          ```
           
-          **Option 1: Direct Executables (Recommended)**
-          Ready to use immediately - no extraction needed!
+          #### Download Options
+          
+          **Direct Executables (Recommended)**
           - **Windows**: `gitcells-windows.exe` → rename to `gitcells.exe` → add to PATH
           - **macOS (Intel)**: `gitcells-macos-intel` → `chmod +x` → move to `/usr/local/bin/gitcells`
           - **macOS (Apple Silicon)**: `gitcells-macos-apple-silicon` → `chmod +x` → move to `/usr/local/bin/gitcells`
           - **Linux (64-bit)**: `gitcells-linux` → `chmod +x` → move to `/usr/local/bin/gitcells`
           - **Linux (ARM64)**: `gitcells-linux-arm64` → `chmod +x` → move to `/usr/local/bin/gitcells`
           
-          **Option 2: Traditional Archives**
-          For users who prefer compressed downloads:
-          - **Windows**: `gitcells-windows.zip` → extract → add to PATH
-          - **macOS/Linux**: `gitcells-*.tar.gz` → `tar -xzf` → `chmod +x` → move to PATH
+          **Archives**
+          - **Windows**: `gitcells-windows.zip`
+          - **macOS/Linux**: `gitcells-*.tar.gz`
+          
+          ### Testing & Validation
+          
+          Please test this pre-release and report any issues. Once validated, this will be promoted to a production release.
           
         files: |
           dist/gitcells-*

@@ -186,11 +186,42 @@ The architecture follows Go best practices with clear separation of concerns:
 
 ## Release Process
 
-1. Update version in Makefile
-2. Run `make release` to create artifacts
-3. Test release binaries with `./scripts/test-releases.sh`
-4. Create GitHub release with artifacts
-5. Update documentation if needed
+The release process is now version-driven and automated:
+
+### 1. Pre-release Creation (Automatic)
+1. Update the VERSION file with your new version (e.g., `1.0.1`)
+2. Commit and push to main branch
+3. CI automatically detects VERSION change and:
+   - Creates a version tag (e.g., `v1.0.1`)
+   - Builds all platform artifacts
+   - Creates a pre-release with all binaries
+
+### 2. Production Release (Manual Promotion)
+1. Test the pre-release thoroughly
+2. Go to GitHub Actions → "Promote Release" workflow
+3. Click "Run workflow" and enter the version number
+4. The workflow promotes the pre-release to production release
+
+### 3. Version Management
+```bash
+# Check current version
+cat VERSION
+
+# Update version for next release
+echo "1.0.1" > VERSION
+git add VERSION
+git commit -m "bump version to 1.0.1"
+git push
+
+# The CI will automatically create v1.0.1 pre-release
+```
+
+### 4. Manual Release (if needed)
+For manual releases outside the automated process:
+1. Run `make release` to create artifacts
+2. Test release binaries with `./scripts/test-releases.sh`
+3. Create GitHub release with artifacts
+4. Update documentation if needed
 
 ## Current Status
 

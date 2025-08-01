@@ -1,9 +1,11 @@
-name: Release
+name: Release (Legacy - Disabled)
 
-on:
-  push:
-    tags:
-      - 'v*'
+# This workflow is disabled in favor of the new version-driven approach in ci.yml
+# To re-enable, uncomment the 'on' section below
+# on:
+#   push:
+#     tags:
+#       - 'v*'
 
 permissions:
   contents: write

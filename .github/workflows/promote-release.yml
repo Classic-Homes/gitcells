@@ -1,0 +1,105 @@
+name: Promote Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to promote (e.g., 1.0.0)'
+        required: true
+        type: string
+      
+permissions:
+  contents: write
+
+jobs:
+  promote-release:
+    name: Promote Pre-release to Production
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Validate version input
+      id: validate
+      run: |
+        VERSION="${{ github.event.inputs.version }}"
+        
+        # Remove 'v' prefix if present
+        VERSION=${VERSION#v}
+        
+        # Validate version format (basic semver check)
+        if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+          echo "❌ Invalid version format: $VERSION"
+          echo "Expected format: X.Y.Z or X.Y.Z-suffix"
+          exit 1
+        fi
+        
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+        
+    - name: Check if pre-release exists
+      id: check_prerelease
+      run: |
+        TAG="${{ steps.validate.outputs.tag }}"
+        
+        # Check if release exists and is a pre-release
+        RELEASE_INFO=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          "https://api.github.com/repos/${{ github.repository }}/releases/tags/${TAG}")
+        
+        if echo "$RELEASE_INFO" | grep -q '"message": "Not Found"'; then
+          echo "❌ Release ${TAG} not found"
+          exit 1
+        fi
+        
+        IS_PRERELEASE=$(echo "$RELEASE_INFO" | jq -r '.prerelease')
+        if [[ "$IS_PRERELEASE" != "true" ]]; then
+          echo "❌ Release ${TAG} is not a pre-release"
+          echo "Current prerelease status: $IS_PRERELEASE"
+          exit 1
+        fi
+        
+        echo "✅ Pre-release ${TAG} found and ready for promotion"
+        
+    - name: Promote to production release
+      run: |
+        TAG="${{ steps.validate.outputs.tag }}"
+        VERSION="${{ steps.validate.outputs.version }}"
+        
+        # Update the release to remove pre-release status
+        curl -X PATCH \
+          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          "https://api.github.com/repos/${{ github.repository }}/releases/tags/${TAG}" \
+          -d "{
+            \"name\": \"GitCells v${VERSION}\",
+            \"body\": \"## GitCells v${VERSION}\\n\\n### Installation\\n\\n#### Quick Install (Linux/macOS)\\n\`\`\`bash\\ncurl -sSL https://raw.githubusercontent.com/Classic-Homes/gitcells/main/scripts/install.sh | bash\\n\`\`\`\\n\\n#### Manual Installation\\n\\n**Direct Executables (Recommended)**\\n- **Windows**: Download \`gitcells-windows.exe\` → rename to \`gitcells.exe\` → add to PATH\\n- **macOS (Intel)**: Download \`gitcells-macos-intel\` → \`chmod +x\` → move to \`/usr/local/bin/gitcells\`\\n- **macOS (Apple Silicon)**: Download \`gitcells-macos-apple-silicon\` → \`chmod +x\` → move to \`/usr/local/bin/gitcells\`\\n- **Linux (64-bit)**: Download \`gitcells-linux\` → \`chmod +x\` → move to \`/usr/local/bin/gitcells\`\\n- **Linux (ARM64)**: Download \`gitcells-linux-arm64\` → \`chmod +x\` → move to \`/usr/local/bin/gitcells\`\\n\\n**Archives**\\n- **Windows**: \`gitcells-windows.zip\`\\n- **macOS/Linux**: \`gitcells-*.tar.gz\`\\n\\n### What's New\\n\\nSee [CHANGELOG.md](https://github.com/Classic-Homes/gitcells/blob/main/CHANGELOG.md) for detailed changes.\",
+            \"prerelease\": false,
+            \"make_latest\": true
+          }"
+        
+    - name: Create promotion summary
+      run: |
+        VERSION="${{ steps.validate.outputs.version }}"
+        echo "✅ Successfully promoted GitCells v${VERSION} to production release"
+        echo "🚀 Release is now available at: https://github.com/${{ github.repository }}/releases/latest"
+        echo "📦 Install script will now use this version by default"
+        
+        # Create a summary for the GitHub Actions UI
+        cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+        ## 🎉 Release Promotion Successful
+        
+        **Version:** v${{ steps.validate.outputs.version }}  
+        **Status:** Production Release  
+        **Latest:** Yes  
+        
+        ### Next Steps
+        - [ ] Update documentation if needed
+        - [ ] Announce the release
+        - [ ] Monitor for any issues
+        
+        ### Quick Install
+        ```bash
+        curl -sSL https://raw.githubusercontent.com/Classic-Homes/gitcells/main/scripts/install.sh | bash
+        ```
+        EOF
