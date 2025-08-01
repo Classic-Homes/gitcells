@@ -1,6 +1,6 @@
 site_name: GitCells Documentation
 site_description: Complete user guide for GitCells - Excel and Git integration
-site_url: https://gitcells.com/docs
+site_url: https://classic-homes.github.io/gitcells/
 
 theme:
   name: material
