@@ -25,6 +25,10 @@ type ConvertOptions struct {
 	PreserveComments    bool
 	PreserveCharts      bool // New: Extract chart information
 	PreservePivotTables bool // New: Extract pivot table structure
+	PreserveDataValidation bool // Extract data validation rules
+	PreserveConditionalFormats bool // Extract conditional formatting
+	PreserveRichText    bool // Extract rich text formatting
+	PreserveTables      bool // Extract Excel tables
 	CompactJSON         bool
 	IgnoreEmptyCells    bool
 	MaxCellsPerSheet    int                                    // Prevent memory issues with huge files

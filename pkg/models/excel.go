@@ -44,6 +44,8 @@ type Sheet struct {
 	ConditionalFormats []ConditionalFormat `json:"conditional_formats,omitempty"`
 	Charts             []Chart             `json:"charts,omitempty"`
 	PivotTables        []PivotTable        `json:"pivot_tables,omitempty"`
+	Tables             []Table             `json:"tables,omitempty"`
+	AutoFilter         *AutoFilter         `json:"auto_filter,omitempty"`
 }
 
 type Cell struct {
@@ -56,6 +58,7 @@ type Cell struct {
 	Comment        *Comment        `json:"comment,omitempty"`
 	Hyperlink      string          `json:"hyperlink,omitempty"`
 	DataValidation *DataValidation `json:"data_validation,omitempty"`
+	RichText       []RichTextRun   `json:"rich_text,omitempty"`
 }
 
 type CellType string
@@ -255,4 +258,36 @@ type PivotTableSettings struct {
 	CompactForm       bool `json:"compact_form"`
 	OutlineForm       bool `json:"outline_form"`
 	TabularForm       bool `json:"tabular_form"`
+}
+
+// RichTextRun represents a segment of rich text with its own formatting
+type RichTextRun struct {
+	Text string `json:"text"`
+	Font *Font  `json:"font,omitempty"`
+}
+
+// Table represents an Excel table (ListObject)
+type Table struct {
+	Name            string   `json:"name"`
+	Range           string   `json:"range"`
+	ShowHeaders     bool     `json:"show_headers"`
+	ShowTotals      bool     `json:"show_totals"`
+	StyleName       string   `json:"style_name,omitempty"`
+	ShowFirstColumn bool     `json:"show_first_column"`
+	ShowLastColumn  bool     `json:"show_last_column"`
+	Columns         []string `json:"columns,omitempty"`
+}
+
+// AutoFilter represents AutoFilter settings for a worksheet
+type AutoFilter struct {
+	Range   string                `json:"range"`
+	Filters map[string]FilterRule `json:"filters,omitempty"`
+}
+
+// FilterRule represents a filter rule for a column
+type FilterRule struct {
+	Column   string   `json:"column"`
+	Type     string   `json:"type"` // "list", "custom", "top10", etc.
+	Criteria []string `json:"criteria,omitempty"`
+	Operator string   `json:"operator,omitempty"` // "and", "or"
 }

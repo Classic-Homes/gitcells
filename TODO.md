@@ -12,9 +12,9 @@ None - all critical functionality is implemented.
 
 #### 1. Apply Cell Styles in JSON to Excel Conversion [DONE]
 - **Location:** `internal/converter/json_to_excel.go:62-64`
-- **Status:** Cell styles are extracted but not applied during reconstruction
-- **Impact:** Excel files lose formatting when converted from JSON back to Excel
-- **Implementation:** Need to apply the style data that's already being extracted
+- **Status:** COMPLETED - Styles are fully extracted and applied
+- **Impact:** Excel files maintain formatting through conversion
+- **Implementation:** Full style extraction implemented in `style_extraction.go`
 
 #### 2. TUI Side-by-Side Diff View [DONE]
 - **Location:** `internal/tui/components/diff.go:356`
@@ -42,28 +42,32 @@ None - all critical functionality is implemented.
 
 ### Low Priority
 
-#### Excel Style Extraction [DONE]
-Excel style extraction has been fully implemented using excelize v2.9.1's GetCellStyle() and GetStyle() methods:
+#### Excel Feature Extraction [DONE]
+GitCells now fully utilizes excelize v2.9.1's capabilities:
 
-1. **Font Information Extraction** [DONE]
+1. **Style Extraction** [DONE]
    - **Location:** `internal/converter/style_extraction.go`
-   - **Status:** Extracts font family, size, bold, italic, underline, color
+   - **Status:** Complete extraction of fonts, fills, borders, alignment, number formats
 
-2. **Fill/Background Color Extraction** [DONE]
-   - **Location:** `internal/converter/style_extraction.go`
-   - **Status:** Extracts fill type, pattern, foreground and background colors
+2. **Data Validation** [DONE]
+   - **Location:** `internal/converter/advanced_features.go`
+   - **Status:** Extracts validation rules including dropdowns, ranges, and custom validations
 
-3. **Border Extraction** [DONE]
-   - **Location:** `internal/converter/style_extraction.go`
-   - **Status:** Extracts all border sides with styles and colors
+3. **Conditional Formatting** [DONE]
+   - **Location:** `internal/converter/advanced_features.go`
+   - **Status:** Extracts conditional format rules and styles
 
-4. **Alignment Extraction** [DONE]
-   - **Location:** `internal/converter/style_extraction.go`
-   - **Status:** Extracts horizontal/vertical alignment, text wrapping, rotation
+4. **Rich Text Support** [DONE]
+   - **Location:** `internal/converter/advanced_features.go`
+   - **Status:** Preserves multi-format text within cells
 
-5. **Number Format Extraction** [DONE]
-   - **Location:** `internal/converter/style_extraction.go`
-   - **Status:** Extracts both standard and custom number formats
+5. **Excel Tables** [DONE]
+   - **Location:** `internal/converter/advanced_features.go`
+   - **Status:** Extracts structured table definitions
+
+6. **Charts & Pivot Tables** [DONE]
+   - **Location:** Already implemented in previous versions
+   - **Status:** Full extraction and preservation
 
 #### Remaining Excel Feature Limitations
 
