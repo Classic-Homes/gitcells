@@ -13,7 +13,7 @@ func TestSettingsModel_Navigation(t *testing.T) {
 	model.config = config.GetDefault()
 
 	// Test main menu navigation to features
-	model.cursor = 0 // Position on "Feature Settings"
+	model.cursor = 3 // Position on "Feature Settings" (now at index 3)
 	newModel, _ := model.handleSelectionAndReturn()
 	updatedModel := newModel.(SettingsModel)
 
