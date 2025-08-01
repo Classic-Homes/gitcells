@@ -17,14 +17,16 @@ RUN go mod download && go mod verify
 COPY . .
 
 # Build arguments
-ARG VERSION=dev
+ARG VERSION
 ARG BUILD_TIME
 ARG TARGETOS
 ARG TARGETARCH
 
-# Build binary
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
-    go build -ldflags="-s -w -X main.version=${VERSION} -X main.buildTime=${BUILD_TIME}" \
+# Build binary with version fallback
+RUN VERSION_TO_USE="${VERSION:-$(cat VERSION 2>/dev/null || echo dev)}" && \
+    BUILD_TIME_TO_USE="${BUILD_TIME:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" && \
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -ldflags="-s -w -X 'github.com/Classic-Homes/gitcells/internal/constants.Version=${VERSION_TO_USE}' -X 'github.com/Classic-Homes/gitcells/internal/constants.BuildTime=${BUILD_TIME_TO_USE}' -X 'github.com/Classic-Homes/gitcells/internal/constants.CommitHash=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)'" \
     -o gitcells ./cmd/gitcells
 
 # Final stage

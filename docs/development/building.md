@@ -106,8 +106,9 @@ go build -o gitcells ./cmd/gitcells
 # Build with version information
 VERSION=$(git describe --tags --always --dirty)
 BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+COMMIT_HASH=$(git rev-parse --short HEAD)
 
-go build -ldflags "-X main.version=$VERSION -X main.buildTime=$BUILD_TIME" \
+go build -ldflags "-s -w -X 'github.com/Classic-Homes/gitcells/internal/constants.Version=$VERSION' -X 'github.com/Classic-Homes/gitcells/internal/constants.BuildTime=$BUILD_TIME' -X 'github.com/Classic-Homes/gitcells/internal/constants.CommitHash=$COMMIT_HASH'" \
     -o gitcells ./cmd/gitcells
 ```
 
@@ -308,11 +309,14 @@ goreleaser release --clean
 ### Manual Release Build
 
 ```bash
-# Set version
+# Set version (optional - uses git describe by default)
 VERSION=v0.3.0
 
 # Build all platforms with version
 make release VERSION=$VERSION
+
+# Or use automatic version detection
+make release
 
 # Creates:
 # - dist/gitcells-darwin-amd64-v0.3.0

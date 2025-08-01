@@ -22,7 +22,22 @@ jobs:
       
     - name: Get version
       id: version
-      run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      run: |
+        TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+        echo "version=$TAG_VERSION" >> $GITHUB_OUTPUT
+        
+        # Validate that VERSION file matches the tag
+        if [[ -f VERSION ]]; then
+          FILE_VERSION=$(cat VERSION)
+          if [[ "$FILE_VERSION" != "$TAG_VERSION" ]]; then
+            echo "❌ ERROR: VERSION file ($FILE_VERSION) doesn't match git tag ($TAG_VERSION)"
+            echo "Please update VERSION file to match the tag or use: make version-set V=$TAG_VERSION"
+            exit 1
+          fi
+          echo "✅ VERSION file matches git tag: $TAG_VERSION"
+        else
+          echo "⚠️ WARNING: VERSION file not found, using tag version: $TAG_VERSION"
+        fi
       
     - name: Create Release
       id: create_release
@@ -96,7 +111,7 @@ jobs:
         mkdir -p dist/releases
         VERSION="${{ needs.create-release.outputs.version }}"
         GOOS=linux GOARCH=${{ matrix.arch }} CGO_ENABLED=0 go build \
-          -ldflags "-s -w -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.commitHash=$(git rev-parse --short HEAD)" \
+          -ldflags "-s -w -X 'github.com/Classic-Homes/gitcells/internal/constants.Version=${VERSION}' -X 'github.com/Classic-Homes/gitcells/internal/constants.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)' -X 'github.com/Classic-Homes/gitcells/internal/constants.CommitHash=$(git rev-parse --short HEAD)'" \
           -o dist/gitcells-linux-${{ matrix.arch }} ./cmd/gitcells
         
         # Create user-friendly executable name and archive
@@ -154,7 +169,7 @@ jobs:
         mkdir -p dist/releases
         VERSION="${{ needs.create-release.outputs.version }}"
         GOOS=darwin GOARCH=${{ matrix.arch }} CGO_ENABLED=0 go build \
-          -ldflags "-s -w -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.commitHash=$(git rev-parse --short HEAD)" \
+          -ldflags "-s -w -X 'github.com/Classic-Homes/gitcells/internal/constants.Version=${VERSION}' -X 'github.com/Classic-Homes/gitcells/internal/constants.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)' -X 'github.com/Classic-Homes/gitcells/internal/constants.CommitHash=$(git rev-parse --short HEAD)'" \
           -o dist/gitcells-darwin-${{ matrix.arch }} ./cmd/gitcells
         
         # Create user-friendly executable name and archive
@@ -200,7 +215,7 @@ jobs:
         $env:CGO_ENABLED = "0"
         $buildTime = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
         $commitHash = & git rev-parse --short HEAD
-        $ldflags = "-s -w -X main.version=$env:VERSION -X main.buildTime=$buildTime -X main.commitHash=$commitHash"
+        $ldflags = "-s -w -X 'github.com/Classic-Homes/gitcells/internal/constants.Version=$env:VERSION' -X 'github.com/Classic-Homes/gitcells/internal/constants.BuildTime=$buildTime' -X 'github.com/Classic-Homes/gitcells/internal/constants.CommitHash=$commitHash'"
         go build -ldflags $ldflags -o dist/gitcells-windows-amd64.exe ./cmd/gitcells
         
         # Create user-friendly executable name and archive

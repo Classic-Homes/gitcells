@@ -76,3 +76,4 @@ site/
 
 # Testing
 /.gitcells
+gitcells_logs_*

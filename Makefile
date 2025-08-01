@@ -1,7 +1,7 @@
 .PHONY: all build build-all test test-short test-coverage clean install install-dev lint fmt check deps docker docker-build docker-push release help
 
 # Build configuration
-VERSION ?= 1.0.0
+VERSION ?= $(shell cat VERSION 2>/dev/null || echo "dev")
 BUILD_TIME := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 COMMIT_HASH := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 LDFLAGS := -s -w -X 'github.com/Classic-Homes/gitcells/internal/constants.Version=$(VERSION)' -X 'github.com/Classic-Homes/gitcells/internal/constants.BuildTime=$(BUILD_TIME)' -X 'github.com/Classic-Homes/gitcells/internal/constants.CommitHash=$(COMMIT_HASH)'
@@ -279,6 +279,35 @@ version:
 	@echo "Build Time: $(BUILD_TIME)"
 	@echo "Commit Hash: $(COMMIT_HASH)"
 
+# Always run version info (no dependencies)
+.PHONY: version
+
+# Version management targets
+version-get:
+	@./scripts/version.sh get
+
+version-set:
+	@if [ -z "$(V)" ]; then \
+		echo "Usage: make version-set V=1.2.3"; \
+		exit 1; \
+	fi
+	@./scripts/version.sh set $(V)
+
+version-bump-major:
+	@./scripts/version.sh bump major
+
+version-bump-minor:
+	@./scripts/version.sh bump minor
+
+version-bump-patch:
+	@./scripts/version.sh bump patch
+
+version-sync:
+	@./scripts/version.sh sync
+
+version-check:
+	@./scripts/version.sh check
+
 # Development setup
 dev-setup:
 	@echo "🛠️  Setting up development environment..."
@@ -341,6 +370,15 @@ help:
 	@echo "  version    Show version information"
 	@echo "  dev-setup  Set up development environment"
 	@echo "  help       Show this help message"
+	@echo ""
+	@echo "Version Management Targets:"
+	@echo "  version-get        Get current version"
+	@echo "  version-set V=x.y.z Set version to x.y.z"
+	@echo "  version-bump-major Bump major version"
+	@echo "  version-bump-minor Bump minor version" 
+	@echo "  version-bump-patch Bump patch version"
+	@echo "  version-sync       Sync version to all files"
+	@echo "  version-check      Check version consistency"
 
 # Default goal
 .DEFAULT_GOAL := all
