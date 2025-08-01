@@ -2,6 +2,8 @@ package updater
 
 import (
 	"archive/tar"
+	"archive/zip"
+	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
@@ -146,7 +148,8 @@ func (u *Updater) Update(release *GitHubRelease) error {
 	var checksumURL string
 
 	for _, asset := range release.Assets {
-		if strings.Contains(asset.Name, assetName) && strings.HasSuffix(asset.Name, ".tar.gz") {
+		// Match exact asset name with appropriate extension
+		if asset.Name == assetName+".tar.gz" || asset.Name == assetName+".zip" {
 			downloadURL = asset.BrowserDownloadURL
 			expectedSize = asset.Size
 		}
@@ -204,7 +207,15 @@ func (u *Updater) Update(release *GitHubRelease) error {
 	}
 
 	// Extract binary from archive
-	binary, err := u.extractBinary(strings.NewReader(string(data)), assetName)
+	var binary io.Reader
+
+	// Determine archive type by the asset name in the URL
+	if strings.HasSuffix(downloadURL, ".zip") {
+		binary, err = u.extractBinaryFromZip(data, assetName)
+	} else {
+		binary, err = u.extractBinaryFromTarGz(strings.NewReader(string(data)), assetName)
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to extract binary: %w", err)
 	}
@@ -225,18 +236,35 @@ func (u *Updater) getAssetName() string {
 	os := runtime.GOOS
 	arch := runtime.GOARCH
 
-	// Convert Go arch names to common naming conventions
-	switch arch {
-	case "amd64":
-		arch = "x86_64"
-	case "386":
-		arch = "i386"
+	// Map to the actual asset naming convention used in releases
+	switch os {
+	case "darwin":
+		if arch == "arm64" {
+			return "gitcells-macos-apple-silicon"
+		} else {
+			return "gitcells-macos-intel"
+		}
+	case "linux":
+		if arch == "arm64" {
+			return "gitcells-linux-arm64"
+		} else {
+			return "gitcells-linux"
+		}
+	case "windows":
+		return "gitcells-windows"
+	default:
+		// Fallback to old format for compatibility
+		switch arch {
+		case "amd64":
+			arch = "x86_64"
+		case "386":
+			arch = "i386"
+		}
+		return fmt.Sprintf("%s_%s", os, arch)
 	}
-
-	return fmt.Sprintf("%s_%s", os, arch)
 }
 
-func (u *Updater) extractBinary(reader io.Reader, assetName string) (io.Reader, error) {
+func (u *Updater) extractBinaryFromTarGz(reader io.Reader, assetName string) (io.Reader, error) {
 	// For .tar.gz files
 	gzr, err := gzip.NewReader(reader)
 	if err != nil {
@@ -277,17 +305,65 @@ func (u *Updater) extractBinary(reader io.Reader, assetName string) (io.Reader, 
 	return nil, fmt.Errorf("gitcells binary not found in archive")
 }
 
+func (u *Updater) extractBinaryFromZip(data []byte, assetName string) (io.Reader, error) {
+	// For .zip files
+	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create zip reader: %w", err)
+	}
+
+	for _, file := range reader.File {
+		// Look for the gitcells binary (can have .exe extension on Windows)
+		baseName := strings.TrimSuffix(file.Name, ".exe")
+		if strings.Contains(baseName, "gitcells") && !strings.Contains(file.Name, "/") {
+			// Limit file size to prevent decompression bombs (100MB max)
+			const maxSize = 100 * 1024 * 1024
+			if file.UncompressedSize64 > maxSize {
+				return nil, fmt.Errorf("binary file too large (exceeds %d bytes)", maxSize)
+			}
+
+			rc, err := file.Open()
+			if err != nil {
+				return nil, fmt.Errorf("failed to open file in zip: %w", err)
+			}
+			defer rc.Close()
+
+			// Create a buffer to hold the binary
+			var buf strings.Builder
+			// Use limited reader to prevent decompression bombs
+			limitReader := io.LimitReader(rc, maxSize)
+			n, err := io.Copy(&buf, limitReader)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read binary from zip: %w", err)
+			}
+			if n == maxSize {
+				return nil, fmt.Errorf("binary file too large (exceeds %d bytes)", maxSize)
+			}
+			return strings.NewReader(buf.String()), nil
+		}
+	}
+
+	return nil, fmt.Errorf("gitcells binary not found in zip archive")
+}
+
 func (u *Updater) isNewerVersion(latest, current string) bool {
-	// Handle dev version
-	if current == "dev" {
+	// Handle dev version or commit hash
+	if current == "dev" || current == "unknown" {
 		return true
 	}
+
+	// If current looks like a commit hash (short hex string), assume update is available
+	if len(current) >= 6 && len(current) <= 10 && isHexString(current) {
+		return true
+	}
+
+	// Clean version strings
+	latest = strings.TrimPrefix(latest, "v")
+	current = strings.TrimPrefix(current, "v")
 
 	latestVersion, err := semver.NewVersion(latest)
 	if err != nil {
 		// Fallback to string comparison if semver parsing fails
-		latest = strings.TrimPrefix(latest, "v")
-		current = strings.TrimPrefix(current, "v")
 		return latest != current && latest > current
 	}
 
@@ -298,6 +374,16 @@ func (u *Updater) isNewerVersion(latest, current string) bool {
 	}
 
 	return latestVersion.GreaterThan(currentVersion)
+}
+
+// isHexString checks if a string contains only hexadecimal characters
+func isHexString(s string) bool {
+	for _, r := range s {
+		if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')) {
+			return false
+		}
+	}
+	return true
 }
 
 func (u *Updater) VerifyChecksum(data []byte, expectedChecksum string) error {
