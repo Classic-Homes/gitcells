@@ -69,20 +69,30 @@ func TestStyleExtraction(t *testing.T) {
 	require.NoError(t, err)
 
 	// Apply styles to cells
-	f.SetCellValue(sheetName, "A1", "Bold Italic Red Arial")
-	f.SetCellStyle(sheetName, "A1", "A1", style1)
+	err = f.SetCellValue(sheetName, "A1", "Bold Italic Red Arial")
+	require.NoError(t, err)
+	err = f.SetCellStyle(sheetName, "A1", "A1", style1)
+	require.NoError(t, err)
 
-	f.SetCellValue(sheetName, "B1", "Yellow Background")
-	f.SetCellStyle(sheetName, "B1", "B1", style2)
+	err = f.SetCellValue(sheetName, "B1", "Yellow Background")
+	require.NoError(t, err)
+	err = f.SetCellStyle(sheetName, "B1", "B1", style2)
+	require.NoError(t, err)
 
-	f.SetCellValue(sheetName, "C1", "Borders")
-	f.SetCellStyle(sheetName, "C1", "C1", style3)
+	err = f.SetCellValue(sheetName, "C1", "Borders")
+	require.NoError(t, err)
+	err = f.SetCellStyle(sheetName, "C1", "C1", style3)
+	require.NoError(t, err)
 
-	f.SetCellValue(sheetName, "D1", "Centered & Rotated")
-	f.SetCellStyle(sheetName, "D1", "D1", style4)
+	err = f.SetCellValue(sheetName, "D1", "Centered & Rotated")
+	require.NoError(t, err)
+	err = f.SetCellStyle(sheetName, "D1", "D1", style4)
+	require.NoError(t, err)
 
-	f.SetCellValue(sheetName, "E1", 1234.56)
-	f.SetCellStyle(sheetName, "E1", "E1", style5)
+	err = f.SetCellValue(sheetName, "E1", 1234.56)
+	require.NoError(t, err)
+	err = f.SetCellStyle(sheetName, "E1", "E1", style5)
+	require.NoError(t, err)
 
 	// Save file
 	testFile := "test_styles.xlsx"

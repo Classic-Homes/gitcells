@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/Classic-Homes/gitcells/internal/tui/adapter"
-	"github.com/Classic-Homes/gitcells/internal/tui/components"
 	"github.com/Classic-Homes/gitcells/internal/tui/messages"
 	"github.com/Classic-Homes/gitcells/internal/tui/styles"
 	tea "github.com/charmbracelet/bubbletea"
@@ -51,7 +50,6 @@ type ManualConversionModel struct {
 	errorMsg         string
 	showHelp         bool
 	converterAdapter *adapter.ConverterAdapter
-	progress         *components.SpinnerProgress
 }
 
 type ConversionOptions struct {
@@ -391,8 +389,7 @@ func (m *ManualConversionModel) toggleOption(index int) {
 
 func (m ManualConversionModel) handleProcessingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Only allow quit during processing
-	switch msg.String() {
-	case "ctrl+c":
+	if msg.String() == "ctrl+c" {
 		return m, func() tea.Msg { return messages.RequestMainMenuMsg{} }
 	}
 	return m, nil

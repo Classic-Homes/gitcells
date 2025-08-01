@@ -93,17 +93,6 @@ func (c *converter) extractConditionalFormats(f *excelize.File, sheetName string
 	return formats, nil
 }
 
-// extractSheetProtection extracts sheet protection settings
-func (c *converter) extractSheetProtection(f *excelize.File, sheetName string) *models.SheetProtection {
-	// Note: Excelize doesn't provide a method to read protection settings directly
-	// We would need to access the underlying XML structure for full extraction
-	// For now, we can detect if a sheet is protected but not the specific settings
-
-	// This is a placeholder - actual implementation would require XML parsing
-	// or enhancement to the excelize library
-	return nil
-}
-
 // convertConditionalStyle converts excelize conditional format style to our model
 func (c *converter) convertConditionalStyle(style interface{}) *models.CellStyle {
 	// This would convert the excelize style format to our CellStyle model
@@ -122,7 +111,7 @@ func (c *converter) extractRichText(f *excelize.File, sheetName, cellRef string)
 		return nil, err
 	}
 
-	var richTextRuns []models.RichTextRun
+	richTextRuns := make([]models.RichTextRun, 0, len(runs))
 	for _, run := range runs {
 		rtRun := models.RichTextRun{
 			Text: run.Text,
@@ -152,7 +141,7 @@ func (c *converter) extractTables(f *excelize.File, sheetName string) ([]models.
 		return nil, err
 	}
 
-	var excelTables []models.Table
+	excelTables := make([]models.Table, 0, len(tables))
 	for _, table := range tables {
 		showHeaders := false
 		if table.ShowHeaderRow != nil {
@@ -176,11 +165,4 @@ func (c *converter) extractTables(f *excelize.File, sheetName string) ([]models.
 	}
 
 	return excelTables, nil
-}
-
-// extractAutoFilter extracts AutoFilter settings from a sheet
-func (c *converter) extractAutoFilter(f *excelize.File, sheetName string) *models.AutoFilter {
-	// Note: Excelize doesn't provide a direct method to read AutoFilter settings
-	// This would require XML parsing or library enhancement
-	return nil
 }
