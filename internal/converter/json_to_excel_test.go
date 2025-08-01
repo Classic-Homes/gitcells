@@ -352,3 +352,130 @@ func TestRoundTripConversion(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, cellValue)
 }
+
+func TestJSONToExcel_WithStyles(t *testing.T) {
+	logger := logrus.New()
+	logger.SetLevel(logrus.WarnLevel)
+	conv := NewConverter(logger)
+
+	// Create a document with styled cells
+	doc := &models.ExcelDocument{
+		Version: "1.0",
+		Metadata: models.DocumentMetadata{
+			Created:    time.Now(),
+			Modified:   time.Now(),
+			AppVersion: "test",
+		},
+		Sheets: []models.Sheet{
+			{
+				Name:  "StyledSheet",
+				Index: 0,
+				Cells: map[string]models.Cell{
+					"A1": {
+						Value: "Bold Red Text",
+						Type:  models.CellTypeString,
+						Style: &models.CellStyle{
+							Font: &models.Font{
+								Bold:  true,
+								Color: "#FF0000",
+								Name:  "Arial",
+								Size:  12,
+							},
+						},
+					},
+					"B1": {
+						Value: "Blue Background",
+						Type:  models.CellTypeString,
+						Style: &models.CellStyle{
+							Fill: &models.Fill{
+								Type:    "pattern",
+								Pattern: "solid",
+								Color:   "#0000FF",
+							},
+						},
+					},
+					"C1": {
+						Value: "Bordered Cell",
+						Type:  models.CellTypeString,
+						Style: &models.CellStyle{
+							Border: &models.Border{
+								Left: &models.BorderLine{
+									Style: "thin",
+									Color: "#000000",
+								},
+								Top: &models.BorderLine{
+									Style: "thick",
+									Color: "#000000",
+								},
+							},
+						},
+					},
+					"D1": {
+						Value: "Aligned & Formatted",
+						Type:  models.CellTypeNumber,
+						Style: &models.CellStyle{
+							Alignment: &models.Alignment{
+								Horizontal: "center",
+								Vertical:   "middle",
+								WrapText:   true,
+							},
+							NumberFormat: "0.00%",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Convert to Excel with style preservation
+	tempDir := t.TempDir()
+	outputFile := filepath.Join(tempDir, "styled.xlsx")
+
+	err := conv.JSONToExcel(doc, outputFile, ConvertOptions{
+		PreserveStyles: true,
+	})
+	require.NoError(t, err)
+
+	// Verify the output file exists and can be opened
+	f, err := excelize.OpenFile(outputFile)
+	require.NoError(t, err)
+	defer func() { _ = f.Close() }()
+
+	// Verify sheet was created
+	sheetList := f.GetSheetList()
+	assert.Contains(t, sheetList, "StyledSheet")
+
+	// Verify cell values were preserved
+	value, err := f.GetCellValue("StyledSheet", "A1")
+	assert.NoError(t, err)
+	assert.Equal(t, "Bold Red Text", value)
+
+	value, err = f.GetCellValue("StyledSheet", "B1")
+	assert.NoError(t, err)
+	assert.Equal(t, "Blue Background", value)
+
+	value, err = f.GetCellValue("StyledSheet", "C1")
+	assert.NoError(t, err)
+	assert.Equal(t, "Bordered Cell", value)
+
+	value, err = f.GetCellValue("StyledSheet", "D1")
+	assert.NoError(t, err)
+	assert.Equal(t, "Aligned & Formatted", value)
+
+	// Verify that styles were actually applied by checking that cells have non-zero style IDs
+	styleID, err := f.GetCellStyle("StyledSheet", "A1")
+	assert.NoError(t, err)
+	assert.Greater(t, styleID, 0, "Cell A1 should have a style applied")
+
+	styleID, err = f.GetCellStyle("StyledSheet", "B1")
+	assert.NoError(t, err)
+	assert.Greater(t, styleID, 0, "Cell B1 should have a style applied")
+
+	styleID, err = f.GetCellStyle("StyledSheet", "C1")
+	assert.NoError(t, err)
+	assert.Greater(t, styleID, 0, "Cell C1 should have a style applied")
+
+	styleID, err = f.GetCellStyle("StyledSheet", "D1")
+	assert.NoError(t, err)
+	assert.Greater(t, styleID, 0, "Cell D1 should have a style applied")
+}
