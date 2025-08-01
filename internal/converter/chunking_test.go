@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Classic-Homes/gitcells/internal/constants"
 	"github.com/Classic-Homes/gitcells/pkg/models"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -55,7 +56,7 @@ func TestSheetBasedChunking(t *testing.T) {
 		// Create temp directory with .git to simulate git repo
 		tempDir := t.TempDir()
 		gitDir := filepath.Join(tempDir, ".git")
-		err := os.Mkdir(gitDir, 0755)
+		err := os.Mkdir(gitDir, constants.DirPermissions)
 		require.NoError(t, err)
 
 		basePath := filepath.Join(tempDir, "test_workbook.json")
@@ -103,7 +104,7 @@ func TestSheetBasedChunking(t *testing.T) {
 		// Create temp directory with .git
 		tempDir := t.TempDir()
 		gitDir := filepath.Join(tempDir, ".git")
-		err := os.Mkdir(gitDir, 0755)
+		err := os.Mkdir(gitDir, constants.DirPermissions)
 		require.NoError(t, err)
 
 		basePath := filepath.Join(tempDir, "test_workbook.json")

@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Classic-Homes/gitcells/internal/constants"
 	"github.com/Classic-Homes/gitcells/internal/tui/adapter"
 	"github.com/Classic-Homes/gitcells/internal/tui/components"
 	"github.com/Classic-Homes/gitcells/internal/tui/messages"
@@ -442,7 +443,7 @@ func (m *SetupModel) saveConfig() {
 	}
 
 	// Create directory if needed
-	if err := os.MkdirAll(m.config.Directory, 0755); err != nil {
+	if err := os.MkdirAll(m.config.Directory, constants.DirPermissions); err != nil {
 		m.error = fmt.Sprintf("Failed to create directory: %v", err)
 		return
 	}

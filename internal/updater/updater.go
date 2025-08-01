@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Classic-Homes/gitcells/internal/constants"
 	"github.com/Masterminds/semver/v3"
 	"github.com/inconshreveable/go-update"
 )
@@ -211,7 +212,7 @@ func (u *Updater) Update(release *GitHubRelease) error {
 	// Apply the update with backup
 	err = update.Apply(binary, update.Options{
 		// Create a backup of the current binary
-		TargetMode: 0755,
+		TargetMode: constants.DirPermissions,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to apply update: %w", err)

@@ -1,6 +1,10 @@
 package config
 
-import "time"
+import (
+	"time"
+
+	"github.com/Classic-Homes/gitcells/internal/constants"
+)
 
 // DefaultConfigYAML provides the default configuration template
 const DefaultConfigYAML = `version: 1.0
@@ -9,21 +13,21 @@ git:
   branch: main
   auto_push: false
   auto_pull: true
-  user_name: "GitCells"
-  user_email: "gitcells@localhost"
-  commit_template: "GitCells: {action} {filename} at {timestamp}"
+  user_name: "" + constants.DefaultGitUserName + ""
+  user_email: "" + constants.DefaultGitUserEmail + ""
+  commit_template: "" + constants.DefaultCommitTemplate + ""
 
 watcher:
   directories: []
   ignore_patterns:
-    - "~$*"
-    - "*.tmp"
-    - ".~lock.*"
+    - "" + constants.ExcelTempPrefix + "*"
+    - "" + constants.TempFilePattern + ""
+    - "" + constants.LockFilePattern + ""
   debounce_delay: 2s
   file_extensions:
-    - ".xlsx"
-    - ".xls"
-    - ".xlsm"
+    - "" + constants.ExtXLSX + ""
+    - "" + constants.ExtXLS + ""
+    - "" + constants.ExtXLSM + ""
 
 converter:
   preserve_formulas: true
@@ -54,15 +58,15 @@ func GetDefault() *Config {
 			Branch:         "main",
 			AutoPush:       false,
 			AutoPull:       true,
-			UserName:       "GitCells",
-			UserEmail:      "gitcells@localhost",
-			CommitTemplate: "GitCells: {action} {filename} at {timestamp}",
+			UserName:       constants.DefaultGitUserName,
+			UserEmail:      constants.DefaultGitUserEmail,
+			CommitTemplate: constants.DefaultCommitTemplate,
 		},
 		Watcher: WatcherConfig{
 			Directories:    []string{},
-			IgnorePatterns: []string{"~$*", "*.tmp", ".~lock.*"},
+			IgnorePatterns: constants.DefaultIgnorePatterns,
 			DebounceDelay:  2 * time.Second,
-			FileExtensions: []string{".xlsx", ".xls", ".xlsm"},
+			FileExtensions: constants.ExcelExtensions,
 		},
 		Converter: ConverterConfig{
 			PreserveFormulas: true,

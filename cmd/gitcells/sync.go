@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Classic-Homes/gitcells/internal/config"
+	"github.com/Classic-Homes/gitcells/internal/constants"
 	"github.com/Classic-Homes/gitcells/internal/converter"
 	"github.com/Classic-Homes/gitcells/internal/git"
 	"github.com/Classic-Homes/gitcells/internal/utils"
@@ -173,8 +174,12 @@ func newSyncCommand(logger *logrus.Logger) *cobra.Command {
 	}
 
 	cmd.Flags().Bool("commit", false, "commit JSON changes to git (if repository exists)")
-	cmd.Flags().StringSlice("include", []string{"*.xlsx", "*.xls", "*.xlsm"}, "file patterns to include")
-	cmd.Flags().StringSlice("exclude", []string{"~$*", "*.tmp"}, "file patterns to exclude")
+	includePatterns := make([]string, len(constants.ExcelExtensions))
+	for i, ext := range constants.ExcelExtensions {
+		includePatterns[i] = "*" + ext
+	}
+	cmd.Flags().StringSlice("include", includePatterns, "file patterns to include")
+	cmd.Flags().StringSlice("exclude", []string{constants.ExcelTempPrefix + "*", constants.TempFilePattern}, "file patterns to exclude")
 
 	return cmd
 }

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Classic-Homes/gitcells/internal/constants"
 	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/Classic-Homes/gitcells/pkg/models"
 )
@@ -70,15 +71,15 @@ func (s *SheetBasedChunking) WriteChunks(doc *models.ExcelDocument, basePath str
 	}
 
 	// Create the .gitcells/data directory structure mirroring the source structure
-	chunkDir := filepath.Join(gitRoot, ".gitcells", "data", relPath, excelFile+"_chunks")
-	if err := os.MkdirAll(chunkDir, 0755); err != nil {
+	chunkDir := filepath.Join(gitRoot, constants.GitCellsDataDir, relPath, excelFile+constants.ChunksDirSuffix)
+	if err := os.MkdirAll(chunkDir, constants.DirPermissions); err != nil {
 		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "WriteChunks", chunkDir, "failed to create chunk directory")
 	}
 
 	chunkFiles := make([]string, 0, len(doc.Sheets)+1)
 
 	// Write main metadata file
-	mainFile := filepath.Join(chunkDir, "workbook.json")
+	mainFile := filepath.Join(chunkDir, constants.WorkbookFileName)
 	mainDoc := &models.ExcelDocument{
 		Version:      doc.Version,
 		Metadata:     doc.Metadata,
@@ -124,11 +125,11 @@ func (s *SheetBasedChunking) WriteChunks(doc *models.ExcelDocument, basePath str
 	}
 
 	// Write chunk metadata
-	metadataFile := filepath.Join(chunkDir, ".gitcells_chunks.json")
+	metadataFile := filepath.Join(chunkDir, constants.ChunkMetadataFile)
 	metadata := &ChunkMetadata{
 		Version:     "1.0",
 		Strategy:    "sheet-based",
-		MainFile:    "workbook.json",
+		MainFile:    constants.WorkbookFileName,
 		ChunkFiles:  s.getRelativeChunkFiles(chunkDir, chunkFiles),
 		TotalSheets: len(doc.Sheets),
 		Created:     doc.Metadata.Created.Format("2006-01-02T15:04:05Z07:00"),
@@ -147,7 +148,7 @@ func (s *SheetBasedChunking) ReadChunks(basePath string) (*models.ExcelDocument,
 	var chunkDir string
 
 	// If basePath is already a chunk directory, use it directly
-	if strings.Contains(basePath, ".gitcells/data/") && strings.HasSuffix(basePath, "_chunks") {
+	if strings.Contains(basePath, constants.GitCellsDataDir+string(filepath.Separator)) && strings.HasSuffix(basePath, constants.ChunksDirSuffix) {
 		chunkDir = basePath
 	} else {
 		// Otherwise, calculate the chunk directory location
@@ -162,11 +163,11 @@ func (s *SheetBasedChunking) ReadChunks(basePath string) (*models.ExcelDocument,
 			relPath = ""
 		}
 
-		chunkDir = filepath.Join(gitRoot, ".gitcells", "data", relPath, excelFile+"_chunks")
+		chunkDir = filepath.Join(gitRoot, constants.GitCellsDataDir, relPath, excelFile+constants.ChunksDirSuffix)
 	}
 
 	// Read chunk metadata
-	metadataFile := filepath.Join(chunkDir, ".gitcells_chunks.json")
+	metadataFile := filepath.Join(chunkDir, constants.ChunkMetadataFile)
 	metadataData, err := os.ReadFile(metadataFile)
 	if err != nil {
 		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "ReadChunks", metadataFile, "failed to read chunk metadata")
@@ -223,7 +224,7 @@ func (s *SheetBasedChunking) GetChunkPaths(basePath string) ([]string, error) {
 	// Determine where chunks are stored
 	var chunkDir string
 
-	if strings.Contains(basePath, ".gitcells/data/") && strings.HasSuffix(basePath, "_chunks") {
+	if strings.Contains(basePath, constants.GitCellsDataDir+string(filepath.Separator)) && strings.HasSuffix(basePath, constants.ChunksDirSuffix) {
 		chunkDir = basePath
 	} else {
 		excelDir := filepath.Dir(basePath)
@@ -237,7 +238,7 @@ func (s *SheetBasedChunking) GetChunkPaths(basePath string) ([]string, error) {
 			relPath = ""
 		}
 
-		chunkDir = filepath.Join(gitRoot, ".gitcells", "data", relPath, excelFile+"_chunks")
+		chunkDir = filepath.Join(gitRoot, constants.GitCellsDataDir, relPath, excelFile+constants.ChunksDirSuffix)
 	}
 
 	// Check if chunk directory exists
@@ -246,7 +247,7 @@ func (s *SheetBasedChunking) GetChunkPaths(basePath string) ([]string, error) {
 	}
 
 	// Read chunk metadata
-	metadataFile := filepath.Join(chunkDir, ".gitcells_chunks.json")
+	metadataFile := filepath.Join(chunkDir, constants.ChunkMetadataFile)
 	metadataData, err := os.ReadFile(metadataFile)
 	if err != nil {
 		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "GetChunkPaths", metadataFile, "failed to read chunk metadata")

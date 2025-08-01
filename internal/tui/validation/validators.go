@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/Classic-Homes/gitcells/internal/constants"
 )
 
 // ValidateDirectory checks if a directory path is valid
@@ -50,7 +52,9 @@ func ValidateExcelPattern(pattern string) error {
 	}
 
 	// Ensure it targets Excel files
-	validExtensions := []string{".xlsx", ".xls", ".xlsm", ".xlsb"}
+	validExtensions := make([]string, len(constants.ExcelExtensions)+1)
+	copy(validExtensions, constants.ExcelExtensions)
+	validExtensions[len(constants.ExcelExtensions)] = ".xlsb"
 	hasValidExt := false
 
 	for _, ext := range validExtensions {
@@ -192,13 +196,15 @@ func InspectDirectory(path string) (*DirectoryInfo, error) {
 	}
 
 	// Check for .gitcells.yaml
-	gitcellsPath := filepath.Join(path, ".gitcells.yaml")
+	gitcellsPath := filepath.Join(path, constants.ConfigFileName)
 	if _, err := os.Stat(gitcellsPath); err == nil {
 		info.HasGitCells = true
 	}
 
 	// Count Excel files
-	excelExts := []string{".xlsx", ".xls", ".xlsm", ".xlsb"}
+	excelExts := make([]string, len(constants.ExcelExtensions)+1)
+	copy(excelExts, constants.ExcelExtensions)
+	excelExts[len(constants.ExcelExtensions)] = ".xlsb"
 	walkErr := filepath.Walk(path, func(p string, fileInfo os.FileInfo, err error) error {
 		if err != nil {
 			return nil // Continue walking

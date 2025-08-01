@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Classic-Homes/gitcells/internal/constants"
 	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/Classic-Homes/gitcells/pkg/models"
 	"github.com/sirupsen/logrus"
@@ -86,7 +87,7 @@ func findExcelFiles(dir string, patterns []string) ([]string, error) {
 		}
 
 		// Skip .gitcells directory
-		if strings.Contains(path, ".gitcells") {
+		if strings.Contains(path, constants.GitCellsDir) {
 			if d.IsDir() {
 				return filepath.SkipDir
 			}
@@ -94,7 +95,7 @@ func findExcelFiles(dir string, patterns []string) ([]string, error) {
 		}
 
 		// Skip temporary Excel files
-		if strings.HasPrefix(d.Name(), "~$") {
+		if strings.HasPrefix(d.Name(), constants.ExcelTempPrefix) {
 			return nil
 		}
 
@@ -146,19 +147,19 @@ func getFileStatus(excelPath string, logger *logrus.Logger) (FileStatus, error) 
 		relPath = excelPath
 	}
 
-	jsonDir := filepath.Join(gitRoot, ".gitcells", "data", filepath.Dir(relPath))
+	jsonDir := filepath.Join(gitRoot, constants.GitCellsDataDir, filepath.Dir(relPath))
 	baseName := strings.TrimSuffix(filepath.Base(excelPath), filepath.Ext(excelPath))
 
 	// Check for chunked files
-	chunkDir := filepath.Join(jsonDir, baseName+"_chunks")
-	workbookJsonPath := filepath.Join(chunkDir, "workbook.json")
+	chunkDir := filepath.Join(jsonDir, baseName+constants.ChunksDirSuffix)
+	workbookJsonPath := filepath.Join(chunkDir, constants.WorkbookFileName)
 
 	// First check for chunked workbook.json
 	if _, err := os.Stat(workbookJsonPath); err == nil {
 		status.JSONPath = workbookJsonPath
 	} else {
 		// Fallback to single JSON file
-		status.JSONPath = filepath.Join(jsonDir, baseName+".json")
+		status.JSONPath = filepath.Join(jsonDir, baseName+constants.ExtJSON)
 	}
 
 	// Check if JSON exists

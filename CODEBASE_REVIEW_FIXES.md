@@ -68,10 +68,10 @@
 **Location**: Multiple files
 
 **Fix**: Create central constants package
-- [ ] Create `internal/constants/files.go` for file-related constants
-- [ ] Move all file permissions to constants
-- [ ] Move all file extensions to constants
-- [ ] Update all references
+- [x] Create `internal/constants/files.go` for file-related constants
+- [x] Move all file permissions to constants
+- [x] Move all file extensions to constants
+- [x] Update all references
 
 ### 7. Add Missing Tests
 **Issue**: Limited test coverage for some components

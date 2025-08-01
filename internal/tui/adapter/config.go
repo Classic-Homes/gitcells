@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/Classic-Homes/gitcells/internal/config"
+	"github.com/Classic-Homes/gitcells/internal/constants"
 	"github.com/Classic-Homes/gitcells/internal/tui/types"
 	"github.com/spf13/viper"
 )
@@ -24,7 +25,7 @@ func NewConfigAdapter(directory string) *ConfigAdapter {
 // SaveSetupConfig converts TUI setup config to internal config format and saves it
 func (ca *ConfigAdapter) SaveSetupConfig(setup types.SetupConfig) error {
 	// Create directory if it doesn't exist
-	if err := os.MkdirAll(setup.Directory, 0755); err != nil {
+	if err := os.MkdirAll(setup.Directory, constants.DirPermissions); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 

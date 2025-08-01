@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Classic-Homes/gitcells/internal/constants"
 	"github.com/sirupsen/logrus"
 )
 
@@ -338,15 +339,15 @@ func (p *Progress) Finish() {
 func GetLogFilePath() string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return "./gitcells.log"
+		return "." + string(filepath.Separator) + constants.LogFileName
 	}
 
-	logDir := filepath.Join(homeDir, ".gitcells", "logs")
-	if err := os.MkdirAll(logDir, 0755); err != nil {
-		return "./gitcells.log"
+	logDir := filepath.Join(homeDir, constants.GitCellsDir, "logs")
+	if err := os.MkdirAll(logDir, constants.DirPermissions); err != nil {
+		return "." + string(filepath.Separator) + constants.LogFileName
 	}
 
-	return filepath.Join(logDir, "gitcells.log")
+	return filepath.Join(logDir, constants.LogFileName)
 }
 
 // RotateLogFile rotates the log file if it exceeds the maximum size
