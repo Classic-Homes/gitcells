@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/Classic-Homes/gitcells/internal/tui"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -81,13 +84,6 @@ func newInitCommand(logger *logrus.Logger) *cobra.Command {
 
 			logger.Infof("Created GitCells configuration at %s", configPath)
 
-			// Initialize git repo if requested
-			initGit, _ := cmd.Flags().GetBool("git")
-			if initGit {
-				// TODO: Initialize git repository
-				logger.Info("Git initialization will be implemented with git client")
-			}
-
 			// Create .gitignore
 			gitignorePath := filepath.Join(dir, ".gitignore")
 			gitignoreContent := `# Excel temporary files
@@ -105,6 +101,71 @@ Thumbs.db
 `
 			if err := os.WriteFile(gitignorePath, []byte(gitignoreContent), filePermissions); err != nil {
 				logger.Warnf("Failed to create .gitignore: %v", err)
+			} else {
+				logger.Info("Created .gitignore file")
+			}
+
+			// Initialize git repo if requested
+			initGit, _ := cmd.Flags().GetBool("git")
+			if initGit {
+				absDir, err := filepath.Abs(dir)
+				if err != nil {
+					return fmt.Errorf("failed to get absolute path: %w", err)
+				}
+
+				// Check if directory is already a git repository
+				_, err = git.PlainOpen(absDir)
+				switch err {
+				case nil:
+					logger.Info("Directory is already a git repository")
+				case git.ErrRepositoryNotExists:
+					// Initialize new git repository
+					logger.Info("Initializing git repository...")
+					repo, err := git.PlainInit(absDir, false)
+					if err != nil {
+						return fmt.Errorf("failed to initialize git repository: %w", err)
+					}
+
+					// Create initial commit if there are files
+					worktree, err := repo.Worktree()
+					if err != nil {
+						return fmt.Errorf("failed to get worktree: %w", err)
+					}
+
+					// Add .gitcells.yaml to git
+					if _, err := worktree.Add(".gitcells.yaml"); err != nil {
+						logger.Warnf("Failed to add .gitcells.yaml to git: %v", err)
+					}
+
+					// Add .gitignore to git
+					if _, err := worktree.Add(".gitignore"); err != nil {
+						logger.Warnf("Failed to add .gitignore to git: %v", err)
+					}
+
+					// Check if there are changes to commit
+					status, err := worktree.Status()
+					if err != nil {
+						logger.Warnf("Failed to get git status: %v", err)
+					} else if !status.IsClean() {
+						// Create initial commit
+						commit, err := worktree.Commit("Initial GitCells setup", &git.CommitOptions{
+							Author: &object.Signature{
+								Name:  "GitCells",
+								Email: "gitcells@localhost",
+								When:  time.Now(),
+							},
+						})
+						if err != nil {
+							logger.Warnf("Failed to create initial commit: %v", err)
+						} else {
+							logger.Infof("Created initial commit: %s", commit.String()[:8])
+						}
+					}
+
+					logger.Info("Git repository initialized successfully")
+				default:
+					return fmt.Errorf("failed to check git repository: %w", err)
+				}
 			}
 
 			logger.Info("GitCells initialized successfully!")
