@@ -326,3 +326,218 @@ func TestConvertPivotFunction(t *testing.T) {
 		})
 	}
 }
+
+func TestSheetSelectionConversion(t *testing.T) {
+	logger := logrus.New()
+	logger.SetLevel(logrus.WarnLevel)
+	conv := NewConverter(logger)
+
+	// Test with complex.xlsx which has multiple sheets
+	t.Run("convert specific sheets by name", func(t *testing.T) {
+		options := ConvertOptions{
+			SheetsToConvert:  []string{"Sheet1"},
+			IgnoreEmptyCells: true,
+		}
+
+		doc, err := conv.ExcelToJSON("../../test/testdata/sample_files/complex.xlsx", options)
+		require.NoError(t, err)
+		require.NotNil(t, doc)
+
+		// Should only have Sheet1
+		assert.Len(t, doc.Sheets, 1)
+		assert.Equal(t, "Sheet1", doc.Sheets[0].Name)
+	})
+
+	t.Run("exclude specific sheets", func(t *testing.T) {
+		options := ConvertOptions{
+			ExcludeSheets:    []string{"Summary"},
+			IgnoreEmptyCells: true,
+		}
+
+		doc, err := conv.ExcelToJSON("../../test/testdata/sample_files/complex.xlsx", options)
+		require.NoError(t, err)
+		require.NotNil(t, doc)
+
+		// Should have all sheets except Summary
+		assert.Len(t, doc.Sheets, 1)
+		assert.Equal(t, "Sheet1", doc.Sheets[0].Name)
+		
+		// Ensure Summary sheet is not included
+		for _, sheet := range doc.Sheets {
+			assert.NotEqual(t, "Summary", sheet.Name)
+		}
+	})
+
+	t.Run("convert specific sheets by index", func(t *testing.T) {
+		options := ConvertOptions{
+			SheetIndices:     []int{0}, // First sheet only
+			IgnoreEmptyCells: true,
+		}
+
+		doc, err := conv.ExcelToJSON("../../test/testdata/sample_files/complex.xlsx", options)
+		require.NoError(t, err)
+		require.NotNil(t, doc)
+
+		// Should only have first sheet
+		assert.Len(t, doc.Sheets, 1)
+		assert.Equal(t, 0, doc.Sheets[0].Index)
+	})
+
+	t.Run("convert multiple specific sheets", func(t *testing.T) {
+		options := ConvertOptions{
+			SheetsToConvert:  []string{"Sheet1", "Summary"},
+			IgnoreEmptyCells: true,
+		}
+
+		doc, err := conv.ExcelToJSON("../../test/testdata/sample_files/complex.xlsx", options)
+		require.NoError(t, err)
+		require.NotNil(t, doc)
+
+		// Should have both sheets
+		assert.Len(t, doc.Sheets, 2)
+		
+		sheetNames := make(map[string]bool)
+		for _, sheet := range doc.Sheets {
+			sheetNames[sheet.Name] = true
+		}
+		
+		assert.True(t, sheetNames["Sheet1"])
+		assert.True(t, sheetNames["Summary"])
+	})
+
+	t.Run("no sheets match filter", func(t *testing.T) {
+		options := ConvertOptions{
+			SheetsToConvert:  []string{"NonExistentSheet"},
+			IgnoreEmptyCells: true,
+		}
+
+		doc, err := conv.ExcelToJSON("../../test/testdata/sample_files/complex.xlsx", options)
+		require.NoError(t, err)
+		require.NotNil(t, doc)
+
+		// Should have no sheets
+		assert.Len(t, doc.Sheets, 0)
+	})
+
+	t.Run("exclude all sheets", func(t *testing.T) {
+		options := ConvertOptions{
+			ExcludeSheets:    []string{"Sheet1", "Summary"},
+			IgnoreEmptyCells: true,
+		}
+
+		doc, err := conv.ExcelToJSON("../../test/testdata/sample_files/complex.xlsx", options)
+		require.NoError(t, err)
+		require.NotNil(t, doc)
+
+		// Should have no sheets
+		assert.Len(t, doc.Sheets, 0)
+	})
+}
+
+func TestGetExcelSheetNames(t *testing.T) {
+	logger := logrus.New()
+	logger.SetLevel(logrus.WarnLevel)
+	conv := NewConverter(logger)
+
+	t.Run("get sheet names from simple file", func(t *testing.T) {
+		sheetNames, err := conv.GetExcelSheetNames("../../test/testdata/sample_files/simple.xlsx")
+		require.NoError(t, err)
+		require.NotNil(t, sheetNames)
+		
+		assert.Len(t, sheetNames, 1)
+		assert.Equal(t, "Sheet1", sheetNames[0])
+	})
+
+	t.Run("get sheet names from complex file", func(t *testing.T) {
+		sheetNames, err := conv.GetExcelSheetNames("../../test/testdata/sample_files/complex.xlsx")
+		require.NoError(t, err)
+		require.NotNil(t, sheetNames)
+		
+		assert.Len(t, sheetNames, 2)
+		assert.Contains(t, sheetNames, "Sheet1")
+		assert.Contains(t, sheetNames, "Summary")
+	})
+
+	t.Run("error with non-existent file", func(t *testing.T) {
+		sheetNames, err := conv.GetExcelSheetNames("../../test/testdata/sample_files/nonexistent.xlsx")
+		assert.Error(t, err)
+		assert.Nil(t, sheetNames)
+	})
+}
+
+func TestShouldProcessSheet(t *testing.T) {
+	logger := logrus.New()
+	conv := &converter{logger: logger}
+
+	tests := []struct {
+		name      string
+		sheetName string
+		index     int
+		options   ConvertOptions
+		expected  bool
+	}{
+		{
+			name:      "no filters - should process",
+			sheetName: "Sheet1",
+			index:     0,
+			options:   ConvertOptions{},
+			expected:  true,
+		},
+		{
+			name:      "sheet in include list",
+			sheetName: "Sheet1",
+			index:     0,
+			options:   ConvertOptions{SheetsToConvert: []string{"Sheet1", "Sheet2"}},
+			expected:  true,
+		},
+		{
+			name:      "sheet not in include list",
+			sheetName: "Sheet3",
+			index:     2,
+			options:   ConvertOptions{SheetsToConvert: []string{"Sheet1", "Sheet2"}},
+			expected:  false,
+		},
+		{
+			name:      "sheet in exclude list",
+			sheetName: "Sheet1",
+			index:     0,
+			options:   ConvertOptions{ExcludeSheets: []string{"Sheet1"}},
+			expected:  false,
+		},
+		{
+			name:      "sheet not in exclude list",
+			sheetName: "Sheet2",
+			index:     1,
+			options:   ConvertOptions{ExcludeSheets: []string{"Sheet1"}},
+			expected:  true,
+		},
+		{
+			name:      "index in include list",
+			sheetName: "Sheet2",
+			index:     1,
+			options:   ConvertOptions{SheetIndices: []int{0, 1}},
+			expected:  true,
+		},
+		{
+			name:      "index not in include list",
+			sheetName: "Sheet3",
+			index:     2,
+			options:   ConvertOptions{SheetIndices: []int{0, 1}},
+			expected:  false,
+		},
+		{
+			name:      "excluded overrides include",
+			sheetName: "Sheet1",
+			index:     0,
+			options:   ConvertOptions{SheetsToConvert: []string{"Sheet1"}, ExcludeSheets: []string{"Sheet1"}},
+			expected:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := conv.shouldProcessSheet(tt.sheetName, tt.index, tt.options)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

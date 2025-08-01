@@ -14,6 +14,9 @@ type Converter interface {
 	// File-based operations with automatic chunking
 	ExcelToJSONFile(inputPath, outputPath string, options ConvertOptions) error
 	JSONFileToExcel(inputPath, outputPath string, options ConvertOptions) error
+	
+	// Utility operations
+	GetExcelSheetNames(filePath string) ([]string, error)
 }
 
 type ConvertOptions struct {
@@ -28,6 +31,11 @@ type ConvertOptions struct {
 	ProgressCallback    func(stage string, current, total int) // Progress reporting
 	ShowProgressBar     bool                                   // Enable built-in progress display
 	ChunkingStrategy    string                                 // "sheet-based" or "hybrid" (future), defaults to "sheet-based"
+	
+	// Sheet selection options
+	SheetsToConvert []string // Specific sheet names to convert (empty = convert all)
+	ExcludeSheets   []string // Sheet names to exclude from conversion
+	SheetIndices    []int    // Specific sheet indices to convert (0-based, empty = convert all)
 }
 
 type converter struct {

@@ -55,6 +55,19 @@ func newConvertCommand(logger *logrus.Logger) *cobra.Command {
 				CompactJSON:      getBoolFlag(cmd, "compact"),
 				ChunkingStrategy: "sheet-based",
 			}
+			
+			// Add sheet selection options for Excel to JSON conversion
+			if isExcelToJSON {
+				if sheetsToConvert, _ := cmd.Flags().GetStringSlice("sheets"); len(sheetsToConvert) > 0 {
+					opts.SheetsToConvert = sheetsToConvert
+				}
+				if excludeSheets, _ := cmd.Flags().GetStringSlice("exclude-sheets"); len(excludeSheets) > 0 {
+					opts.ExcludeSheets = excludeSheets
+				}
+				if sheetIndices, _ := cmd.Flags().GetIntSlice("sheet-indices"); len(sheetIndices) > 0 {
+					opts.SheetIndices = sheetIndices
+				}
+			}
 
 			if isExcelToJSON {
 				logger.Infof("Converting Excel to JSON: %s -> %s", inputFile, outputFile)
@@ -78,6 +91,11 @@ func newConvertCommand(logger *logrus.Logger) *cobra.Command {
 	cmd.Flags().Bool("preserve-styles", true, "preserve cell styles")
 	cmd.Flags().Bool("preserve-comments", true, "preserve cell comments")
 	cmd.Flags().Bool("compact", false, "output compact JSON")
+	
+	// Sheet selection flags (only applicable for Excel to JSON conversion)
+	cmd.Flags().StringSlice("sheets", []string{}, "comma-separated list of sheet names to convert (default: all sheets)")
+	cmd.Flags().StringSlice("exclude-sheets", []string{}, "comma-separated list of sheet names to exclude from conversion")
+	cmd.Flags().IntSlice("sheet-indices", []int{}, "comma-separated list of sheet indices to convert (0-based, default: all sheets)")
 
 	return cmd
 }

@@ -58,23 +58,31 @@ func (c *converter) ExcelToJSON(filePath string, options ConvertOptions) (*model
 
 	// Process each sheet with progress tracking
 	sheetList := f.GetSheetList()
-	totalSheets := len(sheetList)
+	sheetsToProcess := c.filterSheets(sheetList, options)
+	totalSheets := len(sheetsToProcess)
 
 	if options.ProgressCallback != nil {
 		options.ProgressCallback("Initializing", 0, totalSheets)
 	}
 
-	for index, sheetName := range sheetList {
-		if options.ProgressCallback != nil {
-			options.ProgressCallback("Processing sheets", index, totalSheets)
+	processedIndex := 0
+	for originalIndex, sheetName := range sheetList {
+		// Skip sheets not in our filtered list
+		if !c.shouldProcessSheet(sheetName, originalIndex, options) {
+			continue
 		}
 
-		sheet, err := c.processSheet(f, sheetName, index, options)
+		if options.ProgressCallback != nil {
+			options.ProgressCallback("Processing sheets", processedIndex, totalSheets)
+		}
+
+		sheet, err := c.processSheet(f, sheetName, originalIndex, options)
 		if err != nil {
 			c.logger.Warnf("Failed to process sheet %s: %v", sheetName, err)
 			continue
 		}
 		doc.Sheets = append(doc.Sheets, *sheet)
+		processedIndex++
 	}
 
 	if options.ProgressCallback != nil {
@@ -248,3 +256,50 @@ func (c *converter) calculateChecksum(filePath string) (string, error) {
 
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
+
+// filterSheets returns the list of sheets that should be processed based on options
+func (c *converter) filterSheets(allSheets []string, options ConvertOptions) []string {
+	var filtered []string
+	
+	for index, sheetName := range allSheets {
+		if c.shouldProcessSheet(sheetName, index, options) {
+			filtered = append(filtered, sheetName)
+		}
+	}
+	
+	return filtered
+}
+
+// shouldProcessSheet determines if a sheet should be processed based on filtering options
+func (c *converter) shouldProcessSheet(sheetName string, index int, options ConvertOptions) bool {
+	// If ExcludeSheets is specified, check if this sheet should be excluded
+	for _, excludeSheet := range options.ExcludeSheets {
+		if sheetName == excludeSheet {
+			return false
+		}
+	}
+	
+	// If SheetsToConvert is specified, only process sheets in this list
+	if len(options.SheetsToConvert) > 0 {
+		for _, includeSheet := range options.SheetsToConvert {
+			if sheetName == includeSheet {
+				return true
+			}
+		}
+		return false
+	}
+	
+	// If SheetIndices is specified, only process sheets at these indices
+	if len(options.SheetIndices) > 0 {
+		for _, includeIndex := range options.SheetIndices {
+			if index == includeIndex {
+				return true
+			}
+		}
+		return false
+	}
+	
+	// If no specific filters are set, process all sheets (except those excluded)
+	return true
+}
+

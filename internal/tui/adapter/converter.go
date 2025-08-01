@@ -46,6 +46,28 @@ func (ca *ConverterAdapter) ConvertFile(excelPath string) (*ConversionResult, er
 	}, nil
 }
 
+// ConvertFileWithSheetOptions converts a single Excel file to JSON with sheet selection options
+func (ca *ConverterAdapter) ConvertFileWithSheetOptions(excelPath string, sheetOptions SheetSelectionOptions) (*ConversionResult, error) {
+	jsonPath := GetJSONPath(excelPath)
+
+	// Create options with sheet selection
+	options := ca.options
+	options.SheetsToConvert = sheetOptions.SheetsToConvert
+	options.ExcludeSheets = sheetOptions.ExcludeSheets
+	options.SheetIndices = sheetOptions.SheetIndices
+
+	err := ca.converter.ExcelToJSONFile(excelPath, jsonPath, options)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ConversionResult{
+		ExcelPath: excelPath,
+		JSONPath:  jsonPath,
+		Success:   true,
+	}, nil
+}
+
 // GetPendingConversions returns list of Excel files that need conversion
 func (ca *ConverterAdapter) GetPendingConversions(directory string, pattern string) ([]string, error) {
 	// Find Excel files matching pattern
@@ -94,6 +116,38 @@ type ConversionStats struct {
 	PendingConversions int
 	FailedConversions  int
 	TotalJSONSize      int64
+}
+
+// SheetSelectionOptions contains options for selecting specific sheets
+type SheetSelectionOptions struct {
+	SheetsToConvert []string // Specific sheet names to convert
+	ExcludeSheets   []string // Sheet names to exclude
+	SheetIndices    []int    // Specific sheet indices to convert (0-based)
+}
+
+// SheetInfo contains information about a sheet in an Excel file
+type SheetInfo struct {
+	Name  string
+	Index int
+}
+
+// GetExcelSheets returns a list of sheet names and indices from an Excel file
+func (ca *ConverterAdapter) GetExcelSheets(excelPath string) ([]SheetInfo, error) {
+	// Use the optimized method to get sheet names without processing data
+	sheetNames, err := ca.converter.GetExcelSheetNames(excelPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read Excel file: %w", err)
+	}
+
+	sheets := make([]SheetInfo, len(sheetNames))
+	for i, name := range sheetNames {
+		sheets[i] = SheetInfo{
+			Name:  name,
+			Index: i,
+		}
+	}
+
+	return sheets, nil
 }
 
 // ValidatePattern checks if a file pattern is valid
