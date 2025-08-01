@@ -1,10 +1,10 @@
 .PHONY: all build build-all test test-short test-coverage clean install install-dev lint fmt check deps docker docker-build docker-push release help
 
 # Build configuration
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+VERSION ?= 1.0.0
 BUILD_TIME := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 COMMIT_HASH := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-LDFLAGS := -s -w -X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -X main.commitHash=$(COMMIT_HASH)
+LDFLAGS := -s -w -X 'github.com/Classic-Homes/gitcells/internal/constants.Version=$(VERSION)' -X 'github.com/Classic-Homes/gitcells/internal/constants.BuildTime=$(BUILD_TIME)' -X 'github.com/Classic-Homes/gitcells/internal/constants.CommitHash=$(COMMIT_HASH)'
 BINARY := gitcells
 DOCKER_REGISTRY ?= classichomes
 DOCKER_IMAGE := $(DOCKER_REGISTRY)/gitcells

@@ -18,17 +18,25 @@ The easiest way to install GitCells is to download a pre-built binary for your p
 
 1. Download the latest release:
 ```bash
-curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-darwin-amd64 -o gitcells
+# For Intel Macs
+curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-macos-intel.tar.gz -o gitcells-macos-intel.tar.gz
+tar -xzf gitcells-macos-intel.tar.gz
+
+# For Apple Silicon Macs
+curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-macos-apple-silicon.tar.gz -o gitcells-macos-apple-silicon.tar.gz
+tar -xzf gitcells-macos-apple-silicon.tar.gz
 ```
 
-2. Make it executable:
+2. Move to your PATH:
 ```bash
-chmod +x gitcells
-```
+# For Intel Macs
+sudo mv gitcells-macos-intel /usr/local/bin/gitcells
 
-3. Move to your PATH:
-```bash
-sudo mv gitcells /usr/local/bin/
+# For Apple Silicon Macs
+sudo mv gitcells-macos-apple-silicon /usr/local/bin/gitcells
+
+# Make executable
+sudo chmod +x /usr/local/bin/gitcells
 ```
 
 4. Verify installation:
@@ -40,17 +48,25 @@ gitcells version
 
 1. Download the latest release:
 ```bash
-curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-linux-amd64 -o gitcells
+# For x86_64 Linux
+curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-linux.tar.gz -o gitcells-linux.tar.gz
+tar -xzf gitcells-linux.tar.gz
+
+# For ARM64 Linux
+curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-linux-arm64.tar.gz -o gitcells-linux-arm64.tar.gz
+tar -xzf gitcells-linux-arm64.tar.gz
 ```
 
-2. Make it executable:
+2. Move to your PATH:
 ```bash
-chmod +x gitcells
-```
+# For x86_64 Linux
+sudo mv gitcells-linux /usr/local/bin/gitcells
 
-3. Move to your PATH:
-```bash
-sudo mv gitcells /usr/local/bin/
+# For ARM64 Linux
+sudo mv gitcells-linux-arm64 /usr/local/bin/gitcells
+
+# Make executable
+sudo chmod +x /usr/local/bin/gitcells
 ```
 
 4. Verify installation:
@@ -61,9 +77,9 @@ gitcells version
 #### Windows
 
 1. Download the latest release from [GitHub Releases](https://github.com/Classic-Homes/gitcells/releases)
-2. Extract `gitcells-windows-amd64.exe`
-3. Rename to `gitcells.exe`
-4. Add the directory containing `gitcells.exe` to your PATH environment variable
+2. Download `gitcells-windows.zip` or `gitcells-windows.tar.gz`
+3. Extract the archive to get `gitcells-windows.exe`
+4. Rename to `gitcells.exe` and place in a directory in your PATH
 5. Open a new Command Prompt or PowerShell and verify:
 ```cmd
 gitcells version

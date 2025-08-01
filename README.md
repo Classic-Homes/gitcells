@@ -477,7 +477,9 @@ jobs:
       - uses: actions/checkout@v3
       - name: Download GitCells
         run: |
-          curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-linux-amd64 -o gitcells
+          curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-linux.tar.gz -o gitcells-linux.tar.gz
+          tar -xzf gitcells-linux.tar.gz
+          mv gitcells-linux gitcells
           chmod +x gitcells
       - name: Convert Excel files
         run: ./gitcells convert *.xlsx

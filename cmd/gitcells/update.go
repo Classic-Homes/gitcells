@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/Classic-Homes/gitcells/internal/constants"
 	"github.com/Classic-Homes/gitcells/internal/updater"
 	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/sirupsen/logrus"
@@ -26,7 +27,7 @@ This command will:
 
 Use --prerelease to include pre-release versions as update targets.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			u := updater.NewWithPrerelease(version, prerelease)
+			u := updater.NewWithPrerelease(constants.Version, prerelease)
 
 			logger.Info("Checking for updates...")
 			release, hasUpdate, err := u.CheckForUpdate()
@@ -36,14 +37,14 @@ Use --prerelease to include pre-release versions as update targets.`,
 
 			if !hasUpdate {
 				if prerelease {
-					fmt.Printf("GitCells is already up to date (version %s, including pre-releases)\n", version)
+					fmt.Printf("GitCells is already up to date (constants.Version %s, including pre-releases)\n", constants.Version)
 				} else {
-					fmt.Printf("GitCells is already up to date (version %s)\n", version)
+					fmt.Printf("GitCells is already up to date (constants.Version %s)\n", constants.Version)
 				}
 				return nil
 			}
 
-			fmt.Printf("New version available: %s -> %s\n", version, release.TagName)
+			fmt.Printf("New constants.Version available: %s -> %s\n", constants.Version, release.TagName)
 			if release.Prerelease {
 				fmt.Printf("⚠️  Pre-release: %s\n", release.Name)
 			} else {
@@ -73,7 +74,7 @@ Use --prerelease to include pre-release versions as update targets.`,
 			}
 
 			logger.Info("Downloading and installing update...")
-			fmt.Printf("Updating GitCells from %s to %s...\n", version, release.TagName)
+			fmt.Printf("Updating GitCells from %s to %s...\n", constants.Version, release.TagName)
 
 			if err := u.Update(release); err != nil {
 				return utils.WrapError(err, utils.ErrorTypeNetwork, "update", "failed to update")
@@ -102,10 +103,10 @@ func newVersionCommand(logger *logrus.Logger) *cobra.Command {
 		Short: "Show version information",
 		Long:  `Display the current version of GitCells and optionally check for updates`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("GitCells version %s (built %s)\n", version, buildTime)
+			fmt.Printf("GitCells version %s (built %s)\n", constants.Version, constants.BuildTime)
 
 			if checkUpdate {
-				u := updater.NewWithPrerelease(version, prerelease)
+				u := updater.NewWithPrerelease(constants.Version, prerelease)
 				logger.Debug("Checking for updates...")
 
 				release, hasUpdate, err := u.CheckForUpdate()

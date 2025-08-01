@@ -11,23 +11,17 @@ import (
 )
 
 var (
-	version   = "dev"
-	buildTime = "unknown"
-	logger    *logrus.Logger
+	logger *logrus.Logger
 )
 
 func main() {
 	logger = setupLogger()
 
-	// Set version information in constants package
-	constants.SetVersion(version)
-	constants.SetBuildTime(buildTime)
-
 	rootCmd := &cobra.Command{
 		Use:     "gitcells",
 		Short:   "Version control for Excel files",
 		Long:    `GitCells converts Excel files to JSON for version control and collaboration`,
-		Version: fmt.Sprintf("%s (built %s)", version, buildTime),
+		Version: fmt.Sprintf("%s (built %s)", constants.Version, constants.BuildTime),
 	}
 
 	// Add commands
