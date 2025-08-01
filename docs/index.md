@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="GitCells Logo" width="200">
+</p>
+
 # Welcome to GitCells
 
 GitCells bridges Excel and Git, enabling version control for spreadsheet files by converting them to trackable JSON format.
@@ -46,7 +50,7 @@ GitCells solves a common problem: Excel files are binary formats that don't work
     ```bash
     # Download the latest release
     curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-windows.exe -o gitcells.exe
-    
+
     # Add to PATH and verify
     gitcells version
     ```
@@ -57,11 +61,11 @@ GitCells solves a common problem: Excel files are binary formats that don't work
     ```bash
     # Download the latest release
     curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-macos -o gitcells
-    
+
     # Make executable and move to PATH
     chmod +x gitcells
     sudo mv gitcells /usr/local/bin/
-    
+
     # Verify installation
     gitcells version
     ```
@@ -72,11 +76,11 @@ GitCells solves a common problem: Excel files are binary formats that don't work
     ```bash
     # Download the latest release
     curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-linux -o gitcells
-    
+
     # Make executable and move to PATH
     chmod +x gitcells
     sudo mv gitcells /usr/local/bin/
-    
+
     # Verify installation
     gitcells version
     ```
