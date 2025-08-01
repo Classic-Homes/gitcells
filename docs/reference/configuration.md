@@ -1,524 +1,286 @@
 # Configuration Reference
 
-Complete reference for GitCells configuration options.
+This reference documents all configuration options available in GitCells. Configuration is stored in YAML format in `.gitcells.yaml`.
 
 ## Configuration File
 
-GitCells uses a YAML configuration file named `.gitcells.yml` in your project root.
+### File Locations
 
-### File Locations (in order of precedence)
+GitCells searches for configuration in this order:
+1. Path specified by `--config` flag
+2. `.gitcells.yaml` in current directory
+3. `.gitcells.yaml` in parent directories (up to Git root)
+4. `~/.gitcells.yaml` (user home directory)
+5. `/etc/gitcells/config.yaml` (system-wide)
 
-1. Command line: `--config /path/to/config.yml`
-2. Current directory: `./.gitcells.yml`
-3. Parent directories: `../.gitcells.yml` (recursively)
-4. User home: `~/.gitcells/config.yml`
-5. System: `/etc/gitcells/config.yml`
-
-## Core Configuration
-
-### Basic Settings
+### File Structure
 
 ```yaml
-# .gitcells.yml
-version: "1.0"
+version: 1.0  # Configuration version (required)
 
-# Project settings
-project:
-  name: "My Excel Project"
-  description: "Financial reports and analysis"
-  
-# File handling
-files:
-  patterns:
-    - "*.xlsx"
-    - "*.xlsm"
-    - "*.xlsb"
-  
-  ignore:
-    - "~$*"        # Excel temp files
-    - "*.tmp"
-    - ".~lock.*"   # LibreOffice locks
-    - "backup/*"
-    - "archive/*"
-  
-  max_size: "50MB"
-  encoding: "utf-8"
+git:          # Git integration settings
+watcher:      # File watching settings
+converter:    # Conversion settings
+advanced:     # Advanced settings
 ```
 
-### Conversion Settings
+## Complete Configuration Options
 
-```yaml
-conversion:
-  # JSON output options
-  json:
-    pretty: true
-    indent: 2
-    compress: false
-    include_metadata: true
-    include_formatting: true
-    include_empty_cells: false
-  
-  # Performance options
-  performance:
-    parallel: true
-    workers: 4
-    cache: true
-    cache_ttl: "24h"
-    streaming: auto  # auto|true|false
-  
-  # Sheet handling
-  sheets:
-    include_hidden: false
-    include_very_hidden: false
-    preserve_order: true
-    
-  # Cell handling
-  cells:
-    preserve_formulas: true
-    evaluate_formulas: false
-    include_comments: true
-    include_validation: true
-```
+### Root Level
 
-## Watch Configuration
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `version` | string | required | Configuration version (must be "1.0") |
 
-### Basic Watch Settings
+### git
 
-```yaml
-watch:
-  enabled: true
-  
-  # Directories to watch
-  directories:
-    - "."
-    - "reports/"
-    - "data/"
-  
-  # Watch behavior
-  recursive: true
-  follow_symlinks: false
-  polling: false  # Use polling instead of native events
-  interval: "1s"  # Polling interval
-  
-  # Debouncing
-  debounce: "2s"
-  batch_changes: true
-  batch_timeout: "5m"
-```
+Git integration settings.
 
-### Auto-commit Configuration
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `branch` | string | `"main"` | Git branch to use for commits |
+| `auto_push` | boolean | `false` | Automatically push after commits |
+| `auto_pull` | boolean | `true` | Pull before operations |
+| `user_name` | string | `"GitCells"` | Git user name for commits |
+| `user_email` | string | `"gitcells@localhost"` | Git user email for commits |
+| `commit_template` | string | `"GitCells: {action} {filename} at {timestamp}"` | Commit message template |
+| `co_authors` | []string | `[]` | Co-authors to add to commits |
+| `gpg_sign` | boolean | `false` | Sign commits with GPG |
+| `remote` | string | `"origin"` | Remote name for push/pull |
 
-```yaml
-auto_commit:
-  enabled: true
-  
-  # Commit strategy
-  strategy: "immediate"  # immediate|batch|scheduled
-  
-  # Commit message template
-  message:
-    template: "{action} {filename} - {summary}"
-    
-    # Available variables:
-    # {filename} - Base filename
-    # {filepath} - Full file path
-    # {action} - create|update|delete
-    # {timestamp} - ISO timestamp
-    # {user} - System username
-    # {hostname} - Machine name
-    # {summary} - Change summary
-    # {sheets} - Changed sheet names
-    # {cells} - Number of cells changed
-    
-    prefix: "[GitCells]"
-    suffix: ""
-    max_length: 72
-    
-  # Commit options
-  sign_commits: false
-  gpg_key: ""
-  author: "{user} <{user}@{hostname}>"
-```
+#### Commit Template Variables
 
-## Sync Configuration
+- `{action}` - Action performed (created, modified, deleted)
+- `{filename}` - Name of the Excel file
+- `{timestamp}` - ISO 8601 timestamp
+- `{user}` - System username
+- `{hostname}` - Machine hostname
+- `{branch}` - Current Git branch
 
-```yaml
-sync:
-  # Sync direction
-  direction: "auto"  # auto|excel-to-json|json-to-excel
-  
-  # Conflict handling
-  conflict_resolution:
-    strategy: "prompt"  # prompt|ours|theirs|newer|merge
-    
-    # Automatic resolution rules
-    rules:
-      - pattern: "*revenue*"
-        strategy: "max"
-      - pattern: "*cost*"
-        strategy: "min"
-      - sheet: "Summary"
-        strategy: "theirs"
-      - range: "A1:A10"
-        strategy: "ours"
-  
-  # Validation
-  validation:
-    before_sync: true
-    after_sync: true
-    fail_on_warning: false
-    fail_on_error: true
-```
+### watcher
 
-## Team Configuration
+File system watching configuration.
 
-```yaml
-team:
-  # Locking
-  locking:
-    enabled: true
-    timeout: "30m"
-    allow_break: ["admin", "manager"]
-    
-  # Permissions
-  permissions:
-    default: "read"
-    
-    roles:
-      admin:
-        - all: "*"
-      
-      editor:
-        - edit: ["reports/*", "data/*"]
-        - create: true
-        - delete: false
-      
-      viewer:
-        - read: "*"
-        - edit: []
-  
-  # Notifications
-  notifications:
-    email:
-      enabled: true
-      smtp:
-        host: "smtp.company.com"
-        port: 587
-        username: "gitcells@company.com"
-        password: "${SMTP_PASSWORD}"
-      
-      recipients:
-        changes: ["team@company.com"]
-        conflicts: ["admin@company.com"]
-        errors: ["support@company.com"]
-    
-    slack:
-      enabled: true
-      webhook: "${SLACK_WEBHOOK}"
-      channels:
-        changes: "#excel-updates"
-        conflicts: "#excel-alerts"
-    
-    webhooks:
-      - url: "https://api.company.com/gitcells"
-        events: ["change", "conflict", "error"]
-        headers:
-          Authorization: "Bearer ${API_TOKEN}"
-```
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `directories` | []string | `["."]` | Directories to watch |
+| `ignore_patterns` | []string | `["~$*", "*.tmp", ".~lock.*"]` | Glob patterns to ignore |
+| `debounce_delay` | duration | `"2s"` | Delay before processing changes |
+| `file_extensions` | []string | `[".xlsx", ".xls", ".xlsm"]` | File extensions to watch |
+| `recursive` | boolean | `true` | Watch directories recursively |
+| `follow_symlinks` | boolean | `false` | Follow symbolic links |
+| `max_depth` | integer | `10` | Maximum directory depth |
+| `poll_interval` | duration | `"0s"` | Polling interval (0 = use native events) |
 
-## Security Configuration
+#### Duration Format
 
-```yaml
-security:
-  # Encryption
-  encryption:
-    enabled: false
-    algorithm: "AES-256"
-    key_file: "~/.gitcells/key"
-  
-  # File protection
-  protection:
-    remove_macros: false
-    remove_external_links: false
-    remove_personal_info: true
-    
-  # Audit
-  audit:
-    enabled: true
-    log_file: ".gitcells/audit.log"
-    include_cell_values: false
-    retention: "90d"
-```
+Durations use Go duration format:
+- `"300ms"` - 300 milliseconds
+- `"1.5s"` - 1.5 seconds
+- `"2m"` - 2 minutes
+- `"1h30m"` - 1 hour 30 minutes
 
-## Performance Configuration
+### converter
 
-```yaml
-performance:
-  # Memory management
-  memory:
-    max_heap: "2GB"
-    gc_interval: "5m"
-    low_memory_mode: false
-  
-  # Caching
-  cache:
-    enabled: true
-    directory: ".gitcells/cache"
-    max_size: "1GB"
-    ttl: "24h"
-    compression: true
-  
-  # Parallel processing
-  parallel:
-    enabled: true
-    max_workers: 8
-    queue_size: 100
-    
-  # File handling
-  files:
-    chunk_size: "10MB"
-    buffer_size: "64KB"
-    use_mmap: true
-```
+Excel/JSON conversion settings.
 
-## Hooks Configuration
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `preserve_formulas` | boolean | `true` | Preserve Excel formulas |
+| `preserve_styles` | boolean | `true` | Preserve cell styles |
+| `preserve_comments` | boolean | `true` | Preserve cell comments |
+| `preserve_charts` | boolean | `true` | Preserve charts |
+| `preserve_pivot_tables` | boolean | `true` | Preserve pivot tables |
+| `preserve_images` | boolean | `true` | Preserve embedded images |
+| `preserve_macros` | boolean | `false` | Preserve VBA macros |
+| `compact_json` | boolean | `false` | Output compact JSON |
+| `ignore_empty_cells` | boolean | `true` | Skip empty cells in output |
+| `ignore_hidden_sheets` | boolean | `false` | Skip hidden sheets |
+| `max_cells_per_sheet` | integer | `1000000` | Maximum cells per sheet |
+| `chunking_strategy` | string | `"sheet-based"` | Strategy for large files |
+| `max_chunk_size` | string | `"10MB"` | Maximum chunk size |
+| `number_precision` | integer | `15` | Decimal precision for numbers |
+| `date_format` | string | `"2006-01-02T15:04:05Z07:00"` | Date format (Go format) |
+| `formula_r1c1` | boolean | `true` | Include R1C1 formula notation |
+| `include_metadata` | boolean | `true` | Include file metadata |
 
-```yaml
-hooks:
-  # Pre-conversion hooks
-  pre_convert:
-    - name: "Validate data"
-      script: "./scripts/validate.sh"
-      args: ["{filepath}"]
-      on_error: "abort"  # abort|continue|warn
-      timeout: "30s"
-    
-    - name: "Backup file"
-      script: "./scripts/backup.sh"
-      on_error: "warn"
-  
-  # Post-conversion hooks
-  post_convert:
-    - name: "Update dashboard"
-      script: "./scripts/update-dashboard.py"
-      args: ["{filepath}", "{changes}"]
-      async: true
-  
-  # Error hooks
-  on_error:
-    - name: "Send alert"
-      script: "./scripts/alert.sh"
-      args: ["{error}", "{filepath}"]
-  
-  # Custom triggers
-  triggers:
-    - name: "Large change detection"
-      condition: "cells_changed > 100"
-      script: "./scripts/review-required.sh"
-    
-    - name: "Formula change"
-      condition: "formulas_changed > 0"
-      script: "./scripts/validate-formulas.sh"
-```
+#### Chunking Strategies
 
-## Environment Variables
+- `"sheet-based"` - One chunk per sheet
+- `"row-based"` - Split by row count
+- `"size-based"` - Split by file size
+- `"disabled"` - No chunking
 
-```yaml
-# Use environment variables
-database:
-  host: "${DB_HOST}"
-  port: "${DB_PORT:5432}"  # With default
-  password: "${DB_PASSWORD}"
-  
-# Or use env section
-env:
-  - DB_HOST=localhost
-  - DB_PORT=5432
-  - LOG_LEVEL=info
-```
+### advanced
 
-## Profiles
+Advanced settings for performance and debugging.
 
-```yaml
-# Define multiple profiles
-profiles:
-  development:
-    watch:
-      auto_commit: true
-      debounce: "1s"
-    conversion:
-      json:
-        pretty: true
-  
-  production:
-    watch:
-      auto_commit: false
-      debounce: "10s"
-    security:
-      audit:
-        enabled: true
-    performance:
-      cache:
-        enabled: true
-  
-  ci:
-    watch:
-      enabled: false
-    validation:
-      fail_on_warning: true
-```
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `worker_threads` | integer | `4` | Number of worker threads |
+| `enable_cache` | boolean | `true` | Enable conversion cache |
+| `cache_dir` | string | `".gitcells.cache"` | Cache directory location |
+| `cache_ttl` | duration | `"24h"` | Cache time-to-live |
+| `log_level` | string | `"info"` | Log level |
+| `log_file` | string | `""` | Log file path (empty = stdout) |
+| `log_format` | string | `"text"` | Log format (text, json) |
+| `enable_profiling` | boolean | `false` | Enable performance profiling |
+| `profile_dir` | string | `".gitcells.profile"` | Profile output directory |
+| `memory_limit` | string | `"0"` | Memory limit (0 = unlimited) |
+| `temp_dir` | string | system temp | Temporary file directory |
+| `parallel_conversions` | integer | `2` | Max parallel conversions |
+| `http_timeout` | duration | `"30s"` | HTTP timeout for updates |
+| `disable_telemetry` | boolean | `false` | Disable anonymous usage stats |
 
-Activate profile:
-```bash
-gitcells --profile production watch
-# Or
-export GITCELLS_PROFILE=production
-```
+#### Log Levels
 
-## Advanced Configuration
+- `"debug"` - Detailed debugging information
+- `"info"` - General information
+- `"warn"` - Warnings only
+- `"error"` - Errors only
 
-### Custom Converters
-
-```yaml
-converters:
-  custom:
-    - name: "Legacy Excel"
-      pattern: "*.xls"
-      handler: "./converters/legacy.py"
-    
-    - name: "Special Format"
-      pattern: "*special*.xlsx"
-      handler: "./converters/special.js"
-```
-
-### Plugins
-
-```yaml
-plugins:
-  - name: "jira-integration"
-    path: "~/.gitcells/plugins/jira"
-    config:
-      url: "https://jira.company.com"
-      project: "EXCEL"
-  
-  - name: "s3-backup"
-    path: "gitcells-plugin-s3"
-    config:
-      bucket: "excel-backups"
-      region: "us-east-1"
-```
-
-### Logging
-
-```yaml
-logging:
-  level: "info"  # debug|info|warn|error
-  
-  outputs:
-    - type: "file"
-      path: ".gitcells/logs/gitcells.log"
-      rotation: "daily"
-      retention: "7d"
-      format: "json"
-    
-    - type: "console"
-      format: "text"
-      color: true
-    
-    - type: "syslog"
-      facility: "local0"
-      tag: "gitcells"
-```
-
-## Validation
-
-Validate your configuration:
-
-```bash
-gitcells config --validate
-```
-
-Schema validation:
-```bash
-gitcells config --schema > schema.json
-```
-
-## Examples
+## Configuration Examples
 
 ### Minimal Configuration
 
 ```yaml
-# .gitcells.yml
-watch:
-  enabled: true
+version: 1.0
+
+watcher:
+  directories: ["."]
+```
+
+### Development Configuration
+
+```yaml
+version: 1.0
+
+git:
+  branch: develop
+  commit_template: "[{branch}] {user}: {action} {filename}"
+
+watcher:
+  directories: ["./src", "./tests"]
+  ignore_patterns: ["~$*", "*.tmp", "test_*", "debug_*"]
+  debounce_delay: 1s
+
+converter:
+  compact_json: true
+  ignore_empty_cells: true
+
+advanced:
+  log_level: debug
+  enable_profiling: true
+```
+
+### Production Configuration
+
+```yaml
+version: 1.0
+
+git:
+  auto_push: true
+  auto_pull: true
+  gpg_sign: true
+  commit_template: "Excel Update: {filename} by {user}"
+
+watcher:
+  directories: ["/shared/excel/files"]
+  debounce_delay: 10s
+  follow_symlinks: true
+
+converter:
+  preserve_formulas: true
+  preserve_styles: true
+  preserve_comments: true
+  preserve_charts: true
+  preserve_pivot_tables: true
+  chunking_strategy: size-based
+  max_chunk_size: 25MB
+
+advanced:
+  worker_threads: 8
+  enable_cache: true
+  cache_ttl: 48h
+  log_level: warn
+  log_file: /var/log/gitcells/gitcells.log
+  memory_limit: 2GB
+```
+
+### Network Drive Configuration
+
+```yaml
+version: 1.0
+
+watcher:
+  directories: ["//fileserver/shared/excel"]
+  debounce_delay: 15s
+  poll_interval: 5s  # Use polling for network drives
+
+converter:
+  chunking_strategy: size-based
+  max_chunk_size: 5MB
+
+advanced:
+  worker_threads: 2
+  parallel_conversions: 1
+  http_timeout: 60s
+```
+
+## Environment Variable Overrides
+
+Configuration values can be overridden using environment variables:
+
+```bash
+# Override pattern: GITCELLS_<SECTION>_<KEY>
+export GITCELLS_GIT_AUTO_PUSH=true
+export GITCELLS_WATCHER_DEBOUNCE_DELAY=5s
+export GITCELLS_CONVERTER_COMPACT_JSON=true
+export GITCELLS_ADVANCED_LOG_LEVEL=debug
+```
+
+## Validation
+
+Validate configuration file:
+
+```bash
+gitcells init --validate
+```
+
+Common validation errors:
+- Unknown configuration keys
+- Invalid data types
+- Invalid duration formats
+- Mutually exclusive options
+
+## Migration
+
+### From v0.x to v1.0
+
+```yaml
+# Old format (v0.x)
+watch_dirs: [".", "./reports"]
+auto_commit: true
+
+# New format (v1.0)
+version: 1.0
+watcher:
+  directories: [".", "./reports"]
+git:
   auto_commit: true
 ```
 
-### Financial Team Configuration
+## Best Practices
 
-```yaml
-# .gitcells.yml
-project:
-  name: "Financial Reports"
-
-files:
-  patterns: ["reports/*.xlsx", "budgets/*.xlsx"]
-  max_size: "25MB"
-
-watch:
-  enabled: true
-  debounce: "5s"
-  
-auto_commit:
-  message:
-    template: "[Finance] {user}: {action} {filename}"
-  
-team:
-  notifications:
-    email:
-      recipients:
-        changes: ["finance@company.com"]
-        
-security:
-  audit:
-    enabled: true
-  protection:
-    remove_personal_info: true
-```
-
-### Research Team Configuration
-
-```yaml
-# .gitcells.yml
-project:
-  name: "Research Data"
-
-conversion:
-  json:
-    include_metadata: true
-    include_empty_cells: true
-
-sync:
-  validation:
-    before_sync: true
-    after_sync: true
-
-hooks:
-  pre_convert:
-    - name: "Validate data integrity"
-      script: "./validate-research-data.py"
-      on_error: "abort"
-
-security:
-  encryption:
-    enabled: true
-  audit:
-    enabled: true
-    include_cell_values: true
-```
+1. **Version Control**: Always include `.gitcells.yaml` in Git
+2. **Environment-Specific**: Use separate configs for dev/prod
+3. **Documentation**: Comment complex configurations
+4. **Security**: Don't store sensitive data in config
+5. **Performance**: Tune based on file sizes and system resources
 
 ## Next Steps
 
-- Review [command reference](commands.md)
-- Learn about [troubleshooting](troubleshooting.md)
-- Explore [team workflows](../guides/collaboration.md)
+- See [Command Reference](commands.md) for using configuration
+- Review [User Guide](../user-guide/configuration.md) for examples
+- Check [JSON Format](json-format.md) for output configuration
+- Read [Troubleshooting](../user-guide/troubleshooting.md) for issues

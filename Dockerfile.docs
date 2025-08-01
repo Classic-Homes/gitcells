@@ -1,0 +1,26 @@
+# Documentation Dockerfile
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /docs
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy documentation files
+COPY mkdocs.yml .
+COPY docs/ docs/
+
+# Expose port for development server
+EXPOSE 8000
+
+# Default command serves the documentation
+CMD ["mkdocs", "serve", "--dev-addr=0.0.0.0:8000"]

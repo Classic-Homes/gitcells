@@ -1,114 +1,187 @@
-# Installation Guide
+# Installation
 
-## Quick Install
+GitCells can be installed in several ways depending on your operating system and preferences. Choose the method that works best for you.
 
-### macOS/Linux
+## System Requirements
 
-Run this command in your terminal:
+- **Operating System**: macOS, Linux, or Windows
+- **Git**: Version 2.0 or higher (for Git integration features)
+- **Disk Space**: Approximately 30MB for the binary
 
+## Installation Methods
+
+### Using Pre-built Binaries (Recommended)
+
+The easiest way to install GitCells is to download a pre-built binary for your platform.
+
+#### macOS
+
+1. Download the latest release:
 ```bash
-curl -sSL https://raw.githubusercontent.com/Classic-Homes/gitcells/main/scripts/install.sh | bash
+curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-darwin-amd64 -o gitcells
 ```
 
-### Windows
-
-Run this command in PowerShell as Administrator:
-
-```powershell
-iwr -useb https://raw.githubusercontent.com/Classic-Homes/gitcells/main/scripts/install.ps1 | iex
+2. Make it executable:
+```bash
+chmod +x gitcells
 ```
 
-## Manual Installation
-
-### 1. Download the Binary
-
-Download the appropriate version for your system from the [releases page](https://github.com/Classic-Homes/gitcells/releases):
-
-- **macOS**: `gitcells-darwin-amd64` (Intel) or `gitcells-darwin-arm64` (Apple Silicon)
-- **Windows**: `gitcells-windows-amd64.exe`
-- **Linux**: `gitcells-linux-amd64`
-
-### 2. Install the Binary
-
-#### macOS/Linux
-
+3. Move to your PATH:
 ```bash
-# Make it executable
-chmod +x gitcells-*
+sudo mv gitcells /usr/local/bin/
+```
 
-# Move to a directory in your PATH
-sudo mv gitcells-* /usr/local/bin/gitcells
+4. Verify installation:
+```bash
+gitcells version
+```
 
-# Verify installation
-gitcells --version
+#### Linux
+
+1. Download the latest release:
+```bash
+curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-linux-amd64 -o gitcells
+```
+
+2. Make it executable:
+```bash
+chmod +x gitcells
+```
+
+3. Move to your PATH:
+```bash
+sudo mv gitcells /usr/local/bin/
+```
+
+4. Verify installation:
+```bash
+gitcells version
 ```
 
 #### Windows
 
-1. Rename the downloaded file to `gitcells.exe`
-2. Move it to `C:\Program Files\GitCells\`
-3. Add `C:\Program Files\GitCells\` to your PATH environment variable
-4. Open a new Command Prompt and verify: `gitcells --version`
+1. Download the latest release from [GitHub Releases](https://github.com/Classic-Homes/gitcells/releases)
+2. Extract `gitcells-windows-amd64.exe`
+3. Rename to `gitcells.exe`
+4. Add the directory containing `gitcells.exe` to your PATH environment variable
+5. Open a new Command Prompt or PowerShell and verify:
+```cmd
+gitcells version
+```
 
-## Building from Source
+### Building from Source
 
-### Prerequisites
+If you prefer to build GitCells from source, you'll need Go 1.21 or higher installed.
 
-- Go 1.19 or later
-- Git
-- Make (optional)
-
-### Build Steps
-
+1. Clone the repository:
 ```bash
-# Clone the repository
 git clone https://github.com/Classic-Homes/gitcells.git
 cd gitcells
-
-# Build
-go build -o gitcells cmd/gitcells/main.go
-
-# Or use make
-make build
-
-# Install
-sudo mv gitcells /usr/local/bin/
 ```
 
-## Verifying Installation
+2. Install dependencies:
+```bash
+go mod download
+```
 
-Run these commands to verify GitCells is properly installed:
+3. Build the binary:
+```bash
+make build
+```
+
+This will create binaries for all supported platforms in the `dist/` directory.
+
+4. Install locally:
+```bash
+# macOS/Linux
+sudo cp dist/gitcells-$(go env GOOS)-$(go env GOARCH) /usr/local/bin/gitcells
+
+# Windows (run as Administrator)
+copy dist\gitcells-windows-amd64.exe C:\Windows\System32\gitcells.exe
+```
+
+### Using Docker
+
+GitCells is also available as a Docker image:
 
 ```bash
-# Check version
-gitcells --version
-
-# View help
-gitcells --help
-
-# Check Git integration
-git --version
+docker pull ghcr.io/classic-homes/gitcells:latest
 ```
 
-## Uninstalling
+To use GitCells with Docker:
+```bash
+docker run -v $(pwd):/workspace ghcr.io/classic-homes/gitcells:latest [command]
+```
+
+## Post-Installation Setup
+
+After installation, you may want to:
+
+1. **Enable Auto-completion** (bash/zsh):
+```bash
+gitcells completion bash > /etc/bash_completion.d/gitcells
+# or for zsh
+gitcells completion zsh > "${fpath[1]}/_gitcells"
+```
+
+2. **Check for Updates**:
+```bash
+gitcells update --check
+```
+
+3. **Initialize GitCells** in your project:
+```bash
+gitcells init
+```
+
+## Updating GitCells
+
+GitCells includes a self-update feature:
+
+```bash
+# Check for updates
+gitcells update --check
+
+# Update to latest stable version
+gitcells update
+
+# Update to latest version (including pre-releases)
+gitcells update --prerelease
+```
+
+## Uninstallation
+
+To uninstall GitCells:
 
 ### macOS/Linux
-
 ```bash
-curl -sSL https://raw.githubusercontent.com/Classic-Homes/gitcells/main/scripts/uninstall.sh | bash
+sudo rm /usr/local/bin/gitcells
 ```
 
 ### Windows
+Remove `gitcells.exe` from your PATH directory.
 
-```powershell
-# Remove from Program Files
-Remove-Item -Path "C:\Program Files\GitCells" -Recurse -Force
+### Docker
+```bash
+docker rmi ghcr.io/classic-homes/gitcells:latest
+```
 
-# Remove from PATH (manually through System Properties)
+## Troubleshooting Installation
+
+### Permission Denied
+If you get a permission denied error, ensure you're using `sudo` for system directories or install to a user directory in your PATH.
+
+### Command Not Found
+Make sure the GitCells binary is in a directory listed in your PATH environment variable.
+
+### Version Compatibility
+If you encounter issues, ensure you're using a compatible version:
+```bash
+gitcells version --check-update
 ```
 
 ## Next Steps
 
-- Follow the [Quick Start Guide](quickstart.md) to begin using GitCells
-- Learn about [Basic Concepts](concepts.md) 
-- Configure GitCells with a [configuration file](../reference/configuration.md)
+- Read the [Quick Start Guide](quickstart.md) to begin using GitCells
+- Learn about [Basic Concepts](concepts.md) to understand how GitCells works
+- Configure GitCells for your project with the [Configuration Guide](../user-guide/configuration.md)

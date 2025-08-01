@@ -1,490 +1,494 @@
 # Command Reference
 
-Complete reference for all GitCells commands.
+This reference documents all GitCells commands, their options, and usage examples.
 
 ## Global Options
 
-Options available for all commands:
+These options work with all commands:
 
 ```bash
---config PATH      # Use custom config file
---verbose, -v      # Verbose output
---quiet, -q        # Suppress output
---json             # JSON output format
---no-color         # Disable colored output
---help, -h         # Show help
---version          # Show version
+gitcells [global options] command [command options] [arguments...]
 ```
 
-## Core Commands
+### Global Flags
 
-### gitcells init
+- `--config string` - Specify configuration file path (default: `.gitcells.yaml`)
+- `--verbose` - Enable verbose logging
+- `--tui` - Launch Terminal User Interface
+- `--help, -h` - Show help
+- `--version, -v` - Show version information
 
-Initialize GitCells in a directory.
+## Commands Overview
+
+| Command | Description |
+|---------|-------------|
+| `init` | Initialize GitCells in a directory |
+| `watch` | Watch directories for Excel file changes |
+| `convert` | Convert between Excel and JSON formats |
+| `sync` | Synchronize Excel files with their JSON representations |
+| `status` | Show status of tracked files |
+| `diff` | Show differences between file versions |
+| `update` | Update GitCells to the latest version |
+| `version` | Display version information |
+| `tui` | Launch Terminal User Interface |
+
+## init
+
+Initialize GitCells configuration in a directory.
+
+### Synopsis
 
 ```bash
-gitcells init [options]
+gitcells init [directory] [flags]
 ```
 
-**Options:**
-- `--force`: Overwrite existing configuration
-- `--team`: Use team-oriented defaults
-- `--minimal`: Minimal configuration
-- `--wizard`: Interactive setup wizard
+### Description
 
-**Examples:**
+Creates a `.gitcells.yaml` configuration file and optionally initializes a Git repository. If no directory is specified, uses the current directory.
+
+### Flags
+
+- `--force` - Overwrite existing configuration
+- `--git` - Initialize Git repository (default: true)
+- `--tui` - Use TUI setup wizard
+
+### Examples
+
 ```bash
+# Initialize in current directory
 gitcells init
-gitcells init --team
-gitcells init --wizard
+
+# Initialize in specific directory
+gitcells init /path/to/excel/files
+
+# Force overwrite existing config
+gitcells init --force
+
+# Skip Git initialization
+gitcells init --git=false
+
+# Use interactive setup wizard
+gitcells init --tui
 ```
 
-### gitcells convert
+### Output
+
+Creates:
+- `.gitcells.yaml` - Configuration file
+- `.gitignore` - Git ignore patterns (if Git enabled)
+
+## watch
+
+Monitor directories for Excel file changes.
+
+### Synopsis
+
+```bash
+gitcells watch [directories...] [flags]
+```
+
+### Description
+
+Starts file system monitoring for specified directories. Automatically converts Excel files to JSON when changes are detected.
+
+### Flags
+
+- `--auto-commit` - Automatically commit changes to Git (default: true)
+- `--auto-push` - Automatically push commits to remote (default: false)
+
+### Examples
+
+```bash
+# Watch current directory
+gitcells watch .
+
+# Watch multiple directories
+gitcells watch ./reports ./data /shared/excel
+
+# Watch without auto-commit
+gitcells watch --auto-commit=false .
+
+# Watch with auto-push
+gitcells watch --auto-push=true .
+
+# Watch with custom config
+gitcells watch --config prod.yaml ./production
+```
+
+### Behavior
+
+1. Monitors specified directories recursively
+2. Detects create, modify, and delete events
+3. Applies debounce delay from configuration
+4. Converts modified Excel files to JSON
+5. Optionally commits changes to Git
+
+## convert
 
 Convert between Excel and JSON formats.
 
+### Synopsis
+
 ```bash
-gitcells convert <file|pattern> [options]
+gitcells convert <file> [flags]
 ```
 
-**Options:**
-- `--output PATH`: Output location
-- `--pretty`: Pretty-print JSON
-- `--force`: Overwrite existing files
-- `--recursive`: Process subdirectories
-- `--parallel N`: Use N parallel workers
-- `--sheets LIST`: Convert specific sheets only
-- `--skip-hidden`: Skip hidden sheets
-- `--data-only`: Skip formatting information
-- `--compress`: Compress JSON output
+### Description
 
-**Examples:**
+Converts Excel files to JSON or JSON files back to Excel. Direction is determined by file extension.
+
+### Flags
+
+- `-o, --output string` - Output file path (auto-generated if not specified)
+- `--preserve-formulas` - Preserve Excel formulas (default: true)
+- `--preserve-styles` - Preserve cell styles (default: true)
+- `--preserve-comments` - Preserve cell comments (default: true)
+- `--compact` - Output compact JSON (default: false)
+
+### Examples
+
 ```bash
-gitcells convert report.xlsx
-gitcells convert *.xlsx --pretty
-gitcells convert data/ --recursive --parallel 4
-gitcells convert report.xlsx --sheets "Summary,Data"
+# Convert Excel to JSON (auto-names as file.xlsx.json)
+gitcells convert Budget.xlsx
+
+# Convert with specific output
+gitcells convert Budget.xlsx -o /backup/Budget.json
+
+# Convert JSON back to Excel
+gitcells convert Budget.xlsx.json
+
+# Compact JSON output
+gitcells convert Report.xlsx --compact
+
+# Minimal conversion (data only)
+gitcells convert Data.xlsx \
+  --preserve-formulas=false \
+  --preserve-styles=false \
+  --preserve-comments=false
 ```
 
-### gitcells sync
+### File Naming
 
-Synchronize Excel and JSON file pairs.
+- Excel → JSON: Adds `.json` extension (e.g., `file.xlsx` → `file.xlsx.json`)
+- JSON → Excel: Removes `.json` extension (e.g., `file.xlsx.json` → `file.xlsx`)
+
+## sync
+
+Synchronize Excel files with their JSON representations.
+
+### Synopsis
 
 ```bash
-gitcells sync [file|pattern] [options]
+gitcells sync [directories...] [flags]
 ```
 
-**Options:**
-- `--all`: Sync all tracked files
-- `--direction [excel-to-json|json-to-excel|auto]`: Sync direction
-- `--force`: Force sync even if up-to-date
-- `--dry-run`: Show what would be done
+### Description
 
-**Examples:**
+Ensures all Excel files have up-to-date JSON representations and vice versa. Useful after pulling changes from Git.
+
+### Flags
+
+- `--direction string` - Sync direction: "both", "excel-to-json", "json-to-excel" (default: "both")
+- `--force` - Force overwrite newer files
+
+### Examples
+
 ```bash
-gitcells sync
-gitcells sync report.xlsx
-gitcells sync --all
-gitcells sync --direction json-to-excel
+# Sync current directory
+gitcells sync .
+
+# Sync specific directories
+gitcells sync ./reports ./data
+
+# Only update JSON from Excel
+gitcells sync --direction excel-to-json .
+
+# Only restore Excel from JSON
+gitcells sync --direction json-to-excel .
+
+# Force sync even if destination is newer
+gitcells sync --force .
 ```
 
-### gitcells status
+### Sync Logic
 
-Show status of Excel files.
+1. Compares timestamps of Excel and JSON files
+2. Updates older file from newer file
+3. Creates missing JSON files from Excel
+4. Recreates missing Excel files from JSON
+
+## status
+
+Show status of tracked Excel files.
+
+### Synopsis
 
 ```bash
-gitcells status [file|pattern] [options]
+gitcells status [flags]
 ```
 
-**Options:**
-- `--detailed`: Show detailed information
-- `--format [table|json|csv]`: Output format
-- `--filter [modified|synced|conflicted|untracked]`: Filter by status
-- `--since TIME`: Show changes since time
+### Description
 
-**Examples:**
+Displays information about tracked Excel files, their JSON representations, and Git status.
+
+### Flags
+
+- `--detailed` - Show detailed file information
+- `--format string` - Output format: "table", "json", "yaml" (default: "table")
+
+### Examples
+
 ```bash
+# Show basic status
 gitcells status
+
+# Show detailed information
 gitcells status --detailed
-gitcells status --filter modified
-gitcells status --since yesterday
+
+# Output as JSON
+gitcells status --format json
+
+# Output as YAML
+gitcells status --format yaml
 ```
 
-### gitcells diff
+### Output Information
 
-Show differences between versions.
+- File count and total size
+- Last modification times
+- Sync status (up-to-date, needs update)
+- Git status (committed, modified, untracked)
+- Conversion errors
+
+## diff
+
+Show differences between Excel file versions.
+
+### Synopsis
 
 ```bash
-gitcells diff <file> [commit] [options]
+gitcells diff [file] [flags]
 ```
 
-**Options:**
-- `--format [summary|detailed|json]`: Output format
-- `--sheets LIST`: Diff specific sheets only
-- `--filter [values|formulas|formatting]`: Filter changes
-- `--threshold N`: Only show changes above threshold
-- `--export PATH`: Export diff to file
-- `--visual`: Open visual diff tool
+### Description
 
-**Examples:**
-```bash
-gitcells diff report.xlsx
-gitcells diff report.xlsx HEAD~1
-gitcells diff report.xlsx --filter formulas
-gitcells diff report.xlsx abc123..def456 --visual
-```
+Compares Excel files by examining their JSON representations. Can compare with Git history or between specific versions.
 
-### gitcells watch
+### Flags
 
-Watch for file changes and auto-sync.
+- `--from string` - Source version (Git ref or file path)
+- `--to string` - Target version (Git ref or file path) (default: "working")
+- `--format string` - Output format: "unified", "side-by-side", "json" (default: "unified")
+- `--sheets string` - Comma-separated list of sheets to compare
+
+### Examples
 
 ```bash
-gitcells watch [directory] [options]
+# Compare with last commit
+gitcells diff Budget.xlsx
+
+# Compare with specific commit
+gitcells diff Budget.xlsx --from HEAD~3
+
+# Compare two commits
+gitcells diff Budget.xlsx --from HEAD~3 --to HEAD
+
+# Compare specific sheets only
+gitcells diff Report.xlsx --sheets "Summary,Data"
+
+# Side-by-side diff
+gitcells diff Sales.xlsx --format side-by-side
+
+# JSON output for processing
+gitcells diff Data.xlsx --format json
 ```
 
-**Options:**
-- `--patterns LIST`: File patterns to watch
-- `--ignore LIST`: Patterns to ignore
-- `--debounce N`: Debounce delay in seconds
-- `--daemon`: Run as background daemon
-- `--stop`: Stop running watch
-- `--status`: Show watch status
-- `--log`: Show live log
+### Diff Output
 
-**Examples:**
-```bash
-gitcells watch
-gitcells watch reports/
-gitcells watch --patterns "*.xlsx,*.xlsm"
-gitcells watch --daemon
-gitcells watch --stop
-```
+Shows:
+- Changed cell values
+- Modified formulas
+- Style changes
+- Added/removed cells
+- Sheet structure changes
 
-## Conflict Commands
+## update
 
-### gitcells conflict
+Update GitCells to the latest version.
 
-Show and manage conflicts.
-
-```bash
-gitcells conflict <file> [options]
-```
-
-**Options:**
-- `--check`: Check for conflicts only
-- `--show`: Show conflict details
-- `--visual`: Open visual conflict viewer
-- `--export PATH`: Export conflicts to file
-
-**Examples:**
-```bash
-gitcells conflict budget.xlsx
-gitcells conflict --check
-gitcells conflict budget.xlsx --visual
-```
-
-### gitcells resolve
-
-Resolve conflicts in files.
+### Synopsis
 
 ```bash
-gitcells resolve <file> [options]
+gitcells update [flags]
 ```
 
-**Options:**
-- `--interactive`: Interactive resolution
-- `--strategy [ours|theirs|base|newer|max|min]`: Resolution strategy
-- `--cell CELL`: Resolve specific cell
-- `--sheet SHEET`: Resolve specific sheet
-- `--auto`: Use configured auto-resolution rules
+### Description
 
-**Examples:**
-```bash
-gitcells resolve budget.xlsx --interactive
-gitcells resolve budget.xlsx --strategy theirs
-gitcells resolve budget.xlsx --cell B5 --use ours
-```
+Checks for and installs updates from GitHub releases.
 
-### gitcells merge
+### Flags
 
-Three-way merge for Excel files.
+- `--check` - Only check for updates, don't install
+- `--force` - Skip confirmation prompt
+- `--prerelease` - Include pre-release versions
+
+### Examples
 
 ```bash
-gitcells merge <base> <ours> <theirs> [options]
+# Check for updates
+gitcells update --check
+
+# Update to latest stable
+gitcells update
+
+# Update without confirmation
+gitcells update --force
+
+# Update to latest including pre-releases
+gitcells update --prerelease
+
+# Check for pre-releases
+gitcells update --prerelease --check
 ```
 
-**Options:**
-- `--output PATH`: Output file path
-- `--strategy NAME`: Merge strategy
-- `--visual`: Use visual merge tool
+### Update Process
 
-**Examples:**
-```bash
-gitcells merge base.xlsx mine.xlsx theirs.xlsx
-gitcells merge base.xlsx mine.xlsx theirs.xlsx --output merged.xlsx
-```
+1. Checks GitHub for latest release
+2. Compares with current version
+3. Downloads appropriate binary
+4. Verifies checksum
+5. Replaces current binary
+6. Preserves configuration
 
-## Advanced Commands
+## version
 
-### gitcells validate
+Display version information.
 
-Validate Excel files and conversions.
-
-```bash
-gitcells validate <file> [options]
-```
-
-**Options:**
-- `--check-formulas`: Validate all formulas
-- `--check-references`: Check external references
-- `--check-circular`: Detect circular references
-- `--round-trip`: Test Excel→JSON→Excel conversion
-
-**Examples:**
-```bash
-gitcells validate report.xlsx
-gitcells validate *.xlsx --check-formulas
-gitcells validate report.xlsx --round-trip
-```
-
-### gitcells history
-
-Show file history.
+### Synopsis
 
 ```bash
-gitcells history <file> [options]
+gitcells version [flags]
 ```
 
-**Options:**
-- `--limit N`: Limit number of entries
-- `--since DATE`: Show history since date
-- `--until DATE`: Show history until date
-- `--format [table|json|timeline]`: Output format
-- `--changes`: Include change details
+### Description
 
-**Examples:**
-```bash
-gitcells history budget.xlsx
-gitcells history budget.xlsx --limit 10
-gitcells history budget.xlsx --since 2024-01-01 --changes
-```
+Shows current GitCells version and optionally checks for updates.
 
-### gitcells blame
+### Flags
 
-Show who changed specific cells.
+- `--check-update` - Check for available updates
+- `--prerelease` - Include pre-release versions when checking
+
+### Examples
 
 ```bash
-gitcells blame <file> <cell> [options]
+# Show version
+gitcells version
+
+# Show version and check for updates
+gitcells version --check-update
+
+# Check including pre-releases
+gitcells version --check-update --prerelease
 ```
 
-**Options:**
-- `--sheet SHEET`: Specify sheet
-- `--range RANGE`: Blame cell range
-- `--format [table|json]`: Output format
+### Output
 
-**Examples:**
-```bash
-gitcells blame budget.xlsx B5
-gitcells blame budget.xlsx A1:D10 --sheet Summary
+```
+GitCells version 0.3.0 (built 2024-01-15)
+✅ You are running the latest version
 ```
 
-### gitcells lock
+## tui
 
-Lock files or ranges.
+Launch the Terminal User Interface.
 
-```bash
-gitcells lock <file> [options]
-```
-
-**Options:**
-- `--sheet SHEET`: Lock specific sheet
-- `--range RANGE`: Lock cell range
-- `--message MSG`: Lock message
-- `--force`: Override existing lock
-
-**Examples:**
-```bash
-gitcells lock budget.xlsx
-gitcells lock budget.xlsx --sheet Revenue
-gitcells lock budget.xlsx --range A1:D10 --message "Updating formulas"
-```
-
-### gitcells unlock
-
-Unlock files or ranges.
+### Synopsis
 
 ```bash
-gitcells unlock <file> [options]
+gitcells tui
 ```
 
-**Options:**
-- `--force`: Force unlock (admin only)
-- `--all`: Unlock all locks
+### Description
 
-**Examples:**
-```bash
-gitcells unlock budget.xlsx
-gitcells unlock budget.xlsx --force
-gitcells unlock --all
-```
+Opens an interactive terminal interface for managing GitCells operations.
 
-## Utility Commands
-
-### gitcells config
-
-Manage configuration.
+### Examples
 
 ```bash
-gitcells config [options]
+# Launch TUI
+gitcells tui
+
+# Launch TUI with custom config
+gitcells --config custom.yaml tui
 ```
 
-**Options:**
-- `--get KEY`: Get configuration value
-- `--set KEY VALUE`: Set configuration value
-- `--list`: List all configuration
-- `--edit`: Open config in editor
-- `--validate`: Validate configuration
+### TUI Features
 
-**Examples:**
-```bash
-gitcells config --list
-gitcells config --get watch.debounce
-gitcells config --set watch.debounce 5s
-gitcells config --edit
-```
-
-### gitcells cache
-
-Manage cache.
-
-```bash
-gitcells cache [command] [options]
-```
-
-**Commands:**
-- `clear`: Clear all cache
-- `size`: Show cache size
-- `prune`: Remove old entries
-
-**Examples:**
-```bash
-gitcells cache clear
-gitcells cache size
-gitcells cache prune --older-than 7d
-```
-
-### gitcells export
-
-Export Excel data.
-
-```bash
-gitcells export <file> [options]
-```
-
-**Options:**
-- `--format [csv|pdf|html|markdown]`: Export format
-- `--sheets LIST`: Export specific sheets
-- `--output PATH`: Output location
-- `--readonly`: Create read-only copy
-
-**Examples:**
-```bash
-gitcells export report.xlsx --format pdf
-gitcells export report.xlsx --format csv --sheets "Data"
-gitcells export *.xlsx --readonly --output exports/
-```
-
-### gitcells import
-
-Import data into Excel.
-
-```bash
-gitcells import <source> <target> [options]
-```
-
-**Options:**
-- `--format [csv|json|xml]`: Source format
-- `--sheet SHEET`: Target sheet
-- `--append`: Append to existing data
-- `--create`: Create file if not exists
-
-**Examples:**
-```bash
-gitcells import data.csv report.xlsx
-gitcells import data.json report.xlsx --sheet "Imported"
-gitcells import api-response.json report.xlsx --create
-```
-
-## Diagnostic Commands
-
-### gitcells doctor
-
-Check system and configuration.
-
-```bash
-gitcells doctor [options]
-```
-
-**Options:**
-- `--fix`: Attempt to fix issues
-- `--verbose`: Detailed diagnosis
-
-**Examples:**
-```bash
-gitcells doctor
-gitcells doctor --fix
-gitcells doctor --verbose
-```
-
-### gitcells debug
-
-Debug information and logs.
-
-```bash
-gitcells debug [options]
-```
-
-**Options:**
-- `--logs`: Show recent logs
-- `--config`: Show active configuration
-- `--env`: Show environment info
-- `--trace`: Enable trace logging
-
-**Examples:**
-```bash
-gitcells debug --logs
-gitcells debug --config
-gitcells debug --trace convert report.xlsx
-```
-
-## Exit Codes
-
-- `0`: Success
-- `1`: General error
-- `2`: Command syntax error
-- `3`: File not found
-- `4`: Permission denied
-- `5`: Conflict detected
-- `6`: Validation failed
-- `7`: Lock conflict
-- `8`: Network error
+- Setup wizard
+- Status dashboard
+- Error log viewer
+- Settings management
+- Interactive configuration
 
 ## Environment Variables
 
-- `GITCELLS_CONFIG`: Path to config file
-- `GITCELLS_HOME`: GitCells home directory
-- `GITCELLS_LOG_LEVEL`: Log level (debug|info|warn|error)
-- `GITCELLS_NO_COLOR`: Disable colors
-- `GITCELLS_EDITOR`: Editor for config editing
+GitCells respects these environment variables:
 
-## Configuration File
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `GITCELLS_CONFIG` | Configuration file path | `.gitcells.yaml` |
+| `GITCELLS_LOG_LEVEL` | Log level (debug, info, warn, error) | `info` |
+| `GITCELLS_NO_COLOR` | Disable colored output | `false` |
+| `GITCELLS_WORKER_THREADS` | Number of worker threads | `4` |
+| `GITCELLS_CACHE_DIR` | Cache directory | `.gitcells.cache` |
 
-Default location: `.gitcells.yml`
+## Exit Codes
 
-See [Configuration Reference](configuration.md) for details.
+GitCells uses standard exit codes:
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | General error |
+| 2 | Configuration error |
+| 3 | File not found |
+| 4 | Permission denied |
+| 5 | Git error |
+| 6 | Conversion error |
+| 7 | Network error |
+
+## Shell Completion
+
+Enable command completion for your shell:
+
+### Bash
+
+```bash
+gitcells completion bash > /etc/bash_completion.d/gitcells
+```
+
+### Zsh
+
+```bash
+gitcells completion zsh > "${fpath[1]}/_gitcells"
+```
+
+### Fish
+
+```bash
+gitcells completion fish > ~/.config/fish/completions/gitcells.fish
+```
+
+### PowerShell
+
+```powershell
+gitcells completion powershell | Out-String | Invoke-Expression
+```
 
 ## Next Steps
 
-- Learn about [configuration options](configuration.md)
-- Read [troubleshooting guide](troubleshooting.md)
-- Explore [advanced workflows](../guides/collaboration.md)
+- Review [Configuration Reference](configuration.md) for all options
+- Understand the [JSON Format](json-format.md)
+- Learn about [API Usage](api.md) for programmatic access
+- Check [Troubleshooting](../user-guide/troubleshooting.md) for issues

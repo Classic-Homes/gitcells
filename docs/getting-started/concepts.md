@@ -1,143 +1,181 @@
 # Basic Concepts
 
-Understanding these core concepts will help you use GitCells effectively.
+Understanding how GitCells works will help you get the most out of it. This guide explains the key concepts in simple terms.
 
-## Excel to JSON Conversion
+## The Problem GitCells Solves
 
-GitCells converts Excel files into structured JSON that preserves:
+Excel files are binary files, which means:
+- Git can't show you what changed inside the file
+- Multiple people editing the same file causes conflicts
+- File history takes up lots of space
+- You can't search for specific changes across versions
 
-- **Cell Values**: Numbers, text, dates, booleans
-- **Formulas**: Complete formula expressions
-- **Formatting**: Colors, fonts, borders, number formats
+GitCells solves these problems by converting Excel files to a text format that Git understands.
+
+## How GitCells Works
+
+### 1. The Conversion Process
+
+Think of GitCells as a translator between Excel and Git:
+
+```
+Excel File (.xlsx) → GitCells → JSON File (.json) → Git
+```
+
+- **Excel File**: Your normal spreadsheet file
+- **GitCells**: The translator that converts between formats
+- **JSON File**: A text version of your spreadsheet that Git can track
+- **Git**: The version control system that tracks changes
+
+### 2. What Gets Preserved
+
+GitCells preserves everything important from your Excel files:
+
+- **Cell Values**: All your data (numbers, text, dates)
+- **Formulas**: Including complex formulas and references
+- **Formatting**: Bold, italic, colors, borders, etc.
+- **Comments**: Cell comments and notes
 - **Structure**: Merged cells, hidden rows/columns
-- **Metadata**: Sheet names, print settings, protection
+- **Charts**: Chart definitions and data
+- **Pivot Tables**: Complete pivot table configurations
 
-### Why JSON?
+### 3. The JSON Format
 
-- **Human-readable**: Easy to review changes
-- **Git-friendly**: Line-based diffs work perfectly
-- **Preserves everything**: No data loss during conversion
-- **Mergeable**: Git can merge non-conflicting changes
+JSON is a human-readable text format. Here's a simple example:
 
-## File Pairs
-
-Each Excel file has a corresponding JSON file:
-
-```
-financial-report.xlsx  ←→  financial-report.json
-sales-data.xlsx       ←→  sales-data.json
-```
-
-GitCells keeps these synchronized automatically.
-
-## The GitCells Directory
-
-`.gitcells/` stores:
-- Conversion cache
-- Temporary files
-- Sync state
-- Lock files
-
-This directory should be in your `.gitignore`.
-
-## Version Control Benefits
-
-### Track Changes
-```bash
-# Who changed the formula in cell B5?
-git blame financial-report.json | grep "B5"
-
-# When was the budget updated?
-git log -p -- budget.json | grep "total_budget"
+```json
+{
+  "sheets": [{
+    "name": "Sales Data",
+    "cells": {
+      "A1": {
+        "value": "Month",
+        "style": { "bold": true }
+      },
+      "B1": {
+        "value": "Revenue",
+        "style": { "bold": true }
+      },
+      "B2": {
+        "value": 5000,
+        "formula": "=SUM(C2:E2)"
+      }
+    }
+  }]
+}
 ```
 
-### Collaboration
-- Multiple people can work on different sheets
-- Changes are merged automatically
-- Conflicts are detected and can be resolved
+You can actually read and understand what's in your spreadsheet!
 
-### History
-- Revert to any previous version
-- Compare versions side-by-side
-- Create audit trails
+## Key Concepts
 
-## Sync States
+### File Watching
 
-Files can be in different states:
+GitCells can watch folders for changes:
+- You edit and save an Excel file
+- GitCells detects the change immediately
+- It automatically converts the file to JSON
+- The JSON file is saved alongside your Excel file
 
-1. **In Sync**: Excel and JSON match perfectly
-2. **Excel Newer**: Excel changed, needs conversion
-3. **JSON Newer**: JSON changed, needs reverse conversion
-4. **Conflicted**: Both changed, requires resolution
+### Bidirectional Conversion
 
-## Automatic Operations
+GitCells works both ways:
+- **Excel → JSON**: For tracking changes in Git
+- **JSON → Excel**: To restore or share spreadsheets
 
-When watching is enabled, GitCells:
+This means you can always get back to a regular Excel file.
 
-1. **Detects Changes**: Monitors Excel files
-2. **Converts**: Updates JSON representation
-3. **Commits**: Creates Git commit with changes
-4. **Syncs**: Keeps file pairs synchronized
+### Git Integration
 
-## Working with Git
+When integrated with Git, GitCells can:
+- Automatically commit changes when you save Excel files
+- Show detailed differences between versions
+- Help merge changes from multiple people
+- Maintain a complete history of all changes
 
-GitCells enhances Git, it doesn't replace it:
+### The .gitcells.yaml Configuration
 
-```bash
-# GitCells commands
-gitcells convert   # Convert files
-gitcells watch     # Monitor changes
+This file tells GitCells how to behave:
+- Which folders to watch
+- What files to ignore
+- How to format commit messages
+- Whether to auto-commit changes
 
-# Regular Git commands
-git add            # Stage changes
-git commit         # Commit changes
-git push/pull      # Share with team
+## Workflow Examples
+
+### Solo User Workflow
+
+1. Initialize GitCells in your Excel folder
+2. Start the file watcher
+3. Edit your Excel files normally
+4. GitCells automatically tracks all changes
+5. View history anytime with `gitcells status`
+
+### Team Workflow
+
+1. Set up a Git repository for the team
+2. Everyone installs GitCells
+3. Team members clone the repository
+4. Each person runs `gitcells watch`
+5. Changes are automatically tracked and can be shared
+6. Git shows who changed what and when
+
+### Manual Conversion Workflow
+
+Sometimes you just want to convert files:
+1. Convert Excel to JSON to see the content
+2. Edit the JSON file directly (advanced users)
+3. Convert back to Excel
+4. Share the file with others
+
+## File Structure
+
+After using GitCells, your folder might look like this:
+
+```
+MyExcelFiles/
+├── .gitcells.yaml          # GitCells configuration
+├── .git/                   # Git repository (if using Git)
+├── Budget2024.xlsx         # Your Excel file
+├── Budget2024.xlsx.json    # JSON version (auto-created)
+├── Sales.xlsx              # Another Excel file
+└── Sales.xlsx.json         # Its JSON version
 ```
 
-## Best Practices
+## Important Notes
 
-### 1. Close Before Pull
-Always close Excel files before `git pull` to avoid conflicts.
+### Your Excel Files Are Safe
 
-### 2. Commit Logical Changes
-Group related changes together:
-```bash
-git add budget.json forecast.json
-git commit -m "Update Q4 financial projections"
-```
+- GitCells never modifies your original Excel files
+- It only creates additional JSON files
+- You can delete JSON files anytime (though you'll lose history)
+- Excel files work normally with or without GitCells
 
-### 3. Use Branches
-Create branches for major changes:
-```bash
-git checkout -b new-product-line
-# Make Excel changes
-git checkout main
-git merge new-product-line
-```
+### Storage Considerations
 
-### 4. Review JSON Changes
-Before committing, review what changed:
-```bash
-git diff financial-report.json
-```
+- JSON files are usually larger than Excel files
+- But Git compresses them efficiently
+- Overall repository size is manageable
+- Old versions are compressed even more
 
-## Common Patterns
+### Performance
 
-### Daily Workflow
-1. `git pull` - Get latest changes
-2. Open Excel, make changes
-3. `gitcells watch` - Auto-track changes
-4. `git push` - Share with team
+- Small to medium Excel files: Instant conversion
+- Large Excel files (>10MB): May take a few seconds
+- Very large files (>100MB): Consider splitting them
 
-### Monthly Reporting
-1. Create branch: `git checkout -b monthly-report-jan`
-2. Update all reports in Excel
-3. Review: `gitcells status`
-4. Commit: `git commit -am "January monthly reports"`
-5. Merge: `git checkout main && git merge monthly-report-jan`
+## Common Terms
+
+- **Repository (Repo)**: A folder tracked by Git
+- **Commit**: A saved snapshot of your files
+- **JSON**: JavaScript Object Notation - a text format for data
+- **Binary File**: Files that aren't human-readable (like Excel files)
+- **Text File**: Files you can read in a text editor
+- **Watcher**: The GitCells component that monitors file changes
 
 ## Next Steps
 
-- Try the [hands-on tutorials](../guides/converting.md)
-- Learn about [configuration options](../reference/configuration.md)
-- Explore [advanced workflows](../guides/collaboration.md)
+Now that you understand the basics:
+- Follow the [Quick Start Guide](quickstart.md) to try GitCells
+- Learn about [Configuration Options](../user-guide/configuration.md)
+- Explore [Git Integration](../user-guide/git-integration.md) for team collaboration

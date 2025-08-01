@@ -1,348 +1,425 @@
-# JSON Format Specification
+# JSON Format Reference
 
-Detailed specification of the GitCells JSON format for Excel files.
+This reference documents the JSON format used by GitCells to represent Excel files. Understanding this format helps with debugging, custom processing, and conflict resolution.
 
-## Overview
+## Format Overview
 
-GitCells converts Excel files to a structured JSON format that preserves all data, formulas, formatting, and metadata while being Git-friendly and human-readable.
+GitCells converts Excel files to a structured JSON format that preserves all important spreadsheet features while being human-readable and Git-friendly.
 
-## Format Version
+## JSON Structure
 
-Current format version: **1.0**
-
-```json
-{
-  "gitcells_version": "1.0",
-  "metadata": {
-    "format_version": "1.0"
-  }
-}
-```
-
-## Top-Level Structure
+### Root Object
 
 ```json
 {
-  "gitcells_version": "1.0",
-  "metadata": {},
-  "properties": {},
-  "sheets": [],
-  "defined_names": {},
-  "styles": {},
-  "themes": {},
-  "custom_xml": {}
+  "version": "1.0",
+  "metadata": { ... },
+  "properties": { ... },
+  "sheets": [ ... ],
+  "defined_names": { ... },
+  "vba_project": { ... }
 }
 ```
 
-## Metadata Section
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `version` | string | Yes | Format version (currently "1.0") |
+| `metadata` | object | Yes | File metadata |
+| `properties` | object | No | Document properties |
+| `sheets` | array | Yes | Array of sheet objects |
+| `defined_names` | object | No | Named ranges |
+| `vba_project` | object | No | VBA macro information |
 
-Contains conversion and file metadata:
+### Metadata Object
+
+Contains information about the file and conversion process.
 
 ```json
 {
   "metadata": {
-    "format_version": "1.0",
     "created": "2024-01-15T10:30:00Z",
     "modified": "2024-01-15T14:45:00Z",
-    "converted_at": "2024-01-15T15:00:00Z",
-    "converter_version": "gitcells-1.5.0",
-    "source_file": {
-      "name": "report.xlsx",
-      "size": 524288,
-      "hash": "sha256:abc123..."
-    },
-    "excel_version": "16.0",
-    "features_used": [
-      "formulas",
-      "conditional_formatting",
-      "charts",
-      "pivot_tables"
-    ]
+    "app_version": "gitcells-0.3.0",
+    "original_file": "Budget2024.xlsx",
+    "file_size": 125432,
+    "checksum": "sha256:abcdef1234567890",
+    "conversion_time": 1.234
   }
 }
 ```
 
-## Properties Section
+| Field | Type | Description |
+|-------|------|-------------|
+| `created` | string | ISO 8601 creation timestamp |
+| `modified` | string | ISO 8601 modification timestamp |
+| `app_version` | string | GitCells version used |
+| `original_file` | string | Original filename |
+| `file_size` | integer | Size in bytes |
+| `checksum` | string | SHA256 checksum |
+| `conversion_time` | number | Conversion duration in seconds |
 
-Document-level properties:
+### Properties Object
+
+Document properties from Excel.
 
 ```json
 {
   "properties": {
-    "title": "Q4 Financial Report",
-    "subject": "Quarterly Financials",
+    "title": "Annual Budget 2024",
+    "subject": "Financial Planning",
     "author": "John Doe",
-    "manager": "Jane Smith",
+    "last_modified_by": "Jane Smith",
     "company": "Acme Corp",
     "category": "Finance",
-    "keywords": ["finance", "quarterly", "report"],
-    "comments": "Final version for board review",
-    "last_modified_by": "Jane Smith",
-    "revision": 15,
-    "version": "1.0",
-    "created_date": "2024-01-01T09:00:00Z",
-    "modified_date": "2024-01-15T14:45:00Z",
-    "custom_properties": {
+    "keywords": ["budget", "2024", "finance"],
+    "comments": "Approved by board on 2024-01-10",
+    "custom": {
       "department": "Finance",
-      "fiscal_year": "2024",
-      "confidentiality": "Internal"
+      "project_code": "FIN-2024-001"
     }
   }
 }
 ```
 
-## Sheets Section
+### Sheet Object
 
-Array of sheet objects:
+Represents a single worksheet.
 
 ```json
 {
+  "name": "Summary",
+  "index": 0,
+  "visible": true,
+  "protection": { ... },
+  "cells": { ... },
+  "merged_cells": [ ... ],
+  "row_heights": { ... },
+  "column_widths": { ... },
+  "charts": [ ... ],
+  "pivot_tables": [ ... ],
+  "conditional_formats": [ ... ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Sheet name |
+| `index` | integer | Sheet index (0-based) |
+| `visible` | boolean | Sheet visibility |
+| `protection` | object | Sheet protection settings |
+| `cells` | object | Cell data (key: cell reference) |
+| `merged_cells` | array | Merged cell ranges |
+| `row_heights` | object | Custom row heights |
+| `column_widths` | object | Custom column widths |
+| `charts` | array | Chart definitions |
+| `pivot_tables` | array | Pivot table definitions |
+| `conditional_formats` | array | Conditional formatting rules |
+
+### Cell Object
+
+Represents a single cell.
+
+```json
+{
+  "A1": {
+    "value": "Annual Budget",
+    "type": "string",
+    "formula": "",
+    "formula_r1c1": "",
+    "array_formula": null,
+    "style": { ... },
+    "comment": { ... },
+    "hyperlink": { ... },
+    "data_validation": { ... }
+  },
+  "B2": {
+    "value": 150000,
+    "type": "number",
+    "formula": "=SUM(B3:B10)",
+    "formula_r1c1": "=SUM(R[1]C:R[8]C)",
+    "number_format": "$#,##0.00",
+    "style": { ... }
+  }
+}
+```
+
+#### Cell Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `value` | any | Cell value (string, number, boolean, null) |
+| `type` | string | Value type: "string", "number", "boolean", "date", "error", "formula" |
+| `formula` | string | A1-style formula |
+| `formula_r1c1` | string | R1C1-style formula |
+| `array_formula` | object | Array formula information |
+| `style` | object | Cell styling |
+| `comment` | object | Cell comment |
+| `hyperlink` | object | Hyperlink information |
+| `data_validation` | object | Validation rules |
+| `number_format` | string | Number format string |
+
+### Style Object
+
+Cell formatting information.
+
+```json
+{
+  "style": {
+    "font": {
+      "name": "Calibri",
+      "size": 11,
+      "bold": true,
+      "italic": false,
+      "underline": false,
+      "strike": false,
+      "color": "#000000"
+    },
+    "fill": {
+      "type": "solid",
+      "color": "#FFFF00",
+      "pattern": "none"
+    },
+    "border": {
+      "top": { "style": "thin", "color": "#000000" },
+      "right": { "style": "thin", "color": "#000000" },
+      "bottom": { "style": "thick", "color": "#000000" },
+      "left": { "style": "thin", "color": "#000000" }
+    },
+    "alignment": {
+      "horizontal": "center",
+      "vertical": "middle",
+      "wrap_text": true,
+      "text_rotation": 0
+    }
+  }
+}
+```
+
+### Array Formula Object
+
+For cells with array formulas.
+
+```json
+{
+  "array_formula": {
+    "range": "A1:C3",
+    "formula": "{=MMULT(E1:F2,H1:I2)}",
+    "is_master": true
+  }
+}
+```
+
+### Comment Object
+
+Cell comments and notes.
+
+```json
+{
+  "comment": {
+    "author": "John Doe",
+    "text": "Verify this calculation with finance team",
+    "created": "2024-01-15T10:30:00Z",
+    "visible": false,
+    "width": 200,
+    "height": 100
+  }
+}
+```
+
+### Hyperlink Object
+
+```json
+{
+  "hyperlink": {
+    "type": "url",
+    "target": "https://example.com/report",
+    "tooltip": "View detailed report"
+  }
+}
+```
+
+Types: "url", "email", "file", "cell"
+
+### Data Validation Object
+
+```json
+{
+  "data_validation": {
+    "type": "list",
+    "formula1": "=$A$1:$A$10",
+    "formula2": "",
+    "allow_blank": true,
+    "show_dropdown": true,
+    "error_title": "Invalid Entry",
+    "error_message": "Please select from the list"
+  }
+}
+```
+
+### Merged Cells Array
+
+```json
+{
+  "merged_cells": [
+    { "range": "A1:D1" },
+    { "range": "B5:C8" }
+  ]
+}
+```
+
+### Chart Object
+
+```json
+{
+  "charts": [{
+    "name": "Sales Chart",
+    "type": "column",
+    "position": {
+      "from": { "col": 5, "row": 1 },
+      "to": { "col": 10, "row": 15 }
+    },
+    "series": [{
+      "name": "Q1 Sales",
+      "categories": "Sheet1!$A$2:$A$10",
+      "values": "Sheet1!$B$2:$B$10"
+    }],
+    "title": "Quarterly Sales",
+    "legend": { "position": "bottom" }
+  }]
+}
+```
+
+### Pivot Table Object
+
+```json
+{
+  "pivot_tables": [{
+    "name": "SalesPivot",
+    "source_range": "A1:D100",
+    "target_cell": "F5",
+    "rows": ["Region", "Product"],
+    "columns": ["Quarter"],
+    "values": [{
+      "field": "Sales",
+      "function": "sum"
+    }],
+    "filters": ["Year"]
+  }]
+}
+```
+
+## Data Types
+
+### Cell Value Types
+
+| Type | JSON Type | Example | Description |
+|------|-----------|---------|-------------|
+| string | string | `"Hello"` | Text values |
+| number | number | `123.45` | Numeric values |
+| boolean | boolean | `true` | TRUE/FALSE |
+| date | string | `"2024-01-15T00:00:00Z"` | ISO 8601 dates |
+| error | object | `{"error": "#DIV/0!"}` | Excel errors |
+| empty | null | `null` | Empty cells |
+
+### Number Formats
+
+Common Excel number formats preserved:
+
+- `"General"` - Default format
+- `"0.00"` - Two decimal places
+- `"$#,##0.00"` - Currency
+- `"0.00%"` - Percentage
+- `"mm/dd/yyyy"` - Date
+- `"@"` - Text
+
+### Formula Representation
+
+Formulas are stored in both A1 and R1C1 notation:
+
+```json
+{
+  "formula": "=SUM(A1:A10)",
+  "formula_r1c1": "=SUM(R1C1:R10C1)"
+}
+```
+
+## Working with the JSON
+
+### Reading with jq
+
+```bash
+# Get all sheet names
+cat file.xlsx.json | jq '.sheets[].name'
+
+# Get value of cell A1 from first sheet
+cat file.xlsx.json | jq '.sheets[0].cells.A1.value'
+
+# Find all cells with formulas
+cat file.xlsx.json | jq '.sheets[].cells | to_entries[] | select(.value.formula != "")'
+
+# Extract all comments
+cat file.xlsx.json | jq '.sheets[].cells | to_entries[] | select(.value.comment != null)'
+```
+
+### Python Example
+
+```python
+import json
+
+# Load GitCells JSON
+with open('Budget.xlsx.json', 'r') as f:
+    workbook = json.load(f)
+
+# Access sheet data
+for sheet in workbook['sheets']:
+    print(f"Sheet: {sheet['name']}")
+    
+    # Access cells
+    for cell_ref, cell_data in sheet['cells'].items():
+        value = cell_data.get('value')
+        formula = cell_data.get('formula')
+        
+        if formula:
+            print(f"  {cell_ref}: {formula} = {value}")
+        else:
+            print(f"  {cell_ref}: {value}")
+```
+
+### JavaScript Example
+
+```javascript
+const fs = require('fs');
+
+// Load GitCells JSON
+const workbook = JSON.parse(fs.readFileSync('Budget.xlsx.json', 'utf8'));
+
+// Process sheets
+workbook.sheets.forEach(sheet => {
+    console.log(`Sheet: ${sheet.name}`);
+    
+    // Find all cells with values over 1000
+    Object.entries(sheet.cells).forEach(([ref, cell]) => {
+        if (cell.type === 'number' && cell.value > 1000) {
+            console.log(`  ${ref}: ${cell.value}`);
+        }
+    });
+});
+```
+
+## Compact vs Pretty Format
+
+### Pretty Format (Default)
+
+```json
+{
+  "version": "1.0",
   "sheets": [
     {
-      "name": "Summary",
-      "sheet_id": 1,
-      "state": "visible",
-      "type": "worksheet",
-      "properties": {},
-      "cells": {},
-      "merges": [],
-      "conditional_formatting": [],
-      "data_validations": [],
-      "charts": [],
-      "images": [],
-      "comments": {},
-      "dimensions": {}
-    }
-  ]
-}
-```
-
-### Sheet Properties
-
-```json
-{
-  "properties": {
-    "tab_color": "#FF0000",
-    "zoom": 100,
-    "gridlines": true,
-    "headings": true,
-    "protection": {
-      "protected": true,
-      "password": "hashed:...",
-      "options": {
-        "select_locked_cells": true,
-        "select_unlocked_cells": true,
-        "format_cells": false,
-        "insert_columns": false,
-        "insert_rows": false
-      }
-    },
-    "print_setup": {
-      "orientation": "landscape",
-      "paper_size": "A4",
-      "margins": {
-        "top": 0.75,
-        "bottom": 0.75,
-        "left": 0.7,
-        "right": 0.7,
-        "header": 0.3,
-        "footer": 0.3
-      }
-    }
-  }
-}
-```
-
-### Cell Representation
-
-Cells are stored in a dictionary with cell address as key:
-
-```json
-{
-  "cells": {
-    "A1": {
-      "value": "Revenue",
-      "type": "string",
-      "style": "s1",
-      "hyperlink": null,
-      "comment": null
-    },
-    "B1": {
-      "value": 150000,
-      "type": "number",
-      "formula": "=SUM(B2:B10)",
-      "style": "s2",
-      "number_format": "#,##0.00"
-    },
-    "C1": {
-      "value": "2024-01-15",
-      "type": "date",
-      "style": "s3",
-      "number_format": "yyyy-mm-dd"
-    }
-  }
-}
-```
-
-### Cell Types
-
-Supported cell types:
-
-1. **string**: Text values
-2. **number**: Numeric values (integer or float)
-3. **boolean**: True/False values
-4. **date**: Date/time values (ISO 8601 format)
-5. **error**: Error values (#DIV/0!, #N/A, etc.)
-6. **formula**: Cells with formulas
-
-### Cell Properties
-
-Complete cell object:
-
-```json
-{
-  "B5": {
-    "value": 42.5,
-    "type": "number",
-    "formula": "=A5*1.5",
-    "style": "s10",
-    "number_format": "0.00",
-    "hyperlink": {
-      "type": "url",
-      "target": "https://example.com",
-      "tooltip": "Click for details"
-    },
-    "comment": {
-      "text": "Verified by accounting",
-      "author": "John Doe",
-      "timestamp": "2024-01-15T10:00:00Z",
-      "visible": false
-    },
-    "validation": {
-      "type": "list",
-      "formula1": "Valid,Invalid,Pending",
-      "allow_blank": true,
-      "show_dropdown": true,
-      "error_title": "Invalid Entry",
-      "error_message": "Please select from the list"
-    }
-  }
-}
-```
-
-### Merged Cells
-
-```json
-{
-  "merges": [
-    {
-      "range": "A1:C1",
-      "value_cell": "A1"
-    },
-    {
-      "range": "D5:F8",
-      "value_cell": "D5"
-    }
-  ]
-}
-```
-
-### Conditional Formatting
-
-```json
-{
-  "conditional_formatting": [
-    {
-      "range": "B2:B100",
-      "rules": [
-        {
-          "type": "cell_value",
-          "operator": "greater_than",
-          "value": 1000,
-          "format": {
-            "fill": {
-              "type": "solid",
-              "color": "#00FF00"
-            },
-            "font": {
-              "bold": true
-            }
-          }
-        }
-      ]
-    }
-  ]
-}
-```
-
-## Styles Section
-
-Centralized style definitions:
-
-```json
-{
-  "styles": {
-    "s1": {
-      "font": {
-        "name": "Calibri",
-        "size": 11,
-        "bold": true,
-        "italic": false,
-        "underline": "none",
-        "color": "#000000"
-      },
-      "fill": {
-        "type": "solid",
-        "color": "#FFFF00"
-      },
-      "borders": {
-        "top": {"style": "thin", "color": "#000000"},
-        "bottom": {"style": "thin", "color": "#000000"},
-        "left": {"style": "thin", "color": "#000000"},
-        "right": {"style": "thin", "color": "#000000"}
-      },
-      "alignment": {
-        "horizontal": "center",
-        "vertical": "middle",
-        "wrap_text": true,
-        "indent": 0,
-        "rotation": 0
-      }
-    }
-  }
-}
-```
-
-## Charts Section
-
-Chart definitions within sheets:
-
-```json
-{
-  "charts": [
-    {
-      "id": "chart1",
-      "type": "column",
-      "title": "Revenue by Quarter",
-      "position": {
-        "from": {"col": 5, "row": 2},
-        "to": {"col": 12, "row": 15}
-      },
-      "series": [
-        {
-          "name": "Revenue",
-          "categories": "A2:A5",
-          "values": "B2:B5"
-        }
-      ],
-      "axes": {
-        "primary_category": {
-          "title": "Quarter"
-        },
-        "primary_value": {
-          "title": "Revenue ($)",
-          "min": 0,
-          "max": 200000
+      "name": "Sheet1",
+      "cells": {
+        "A1": {
+          "value": "Hello",
+          "type": "string"
         }
       }
     }
@@ -350,203 +427,68 @@ Chart definitions within sheets:
 }
 ```
 
-## Defined Names
+### Compact Format
 
-Named ranges and formulas:
+```json
+{"version":"1.0","sheets":[{"name":"Sheet1","cells":{"A1":{"value":"Hello","type":"string"}}}]}
+```
+
+Enable with: `gitcells convert --compact file.xlsx`
+
+## Handling Large Files
+
+For large Excel files, GitCells may split the JSON into chunks:
+
+### Chunked Structure
+
+```
+Budget.xlsx.json          # Main file with metadata
+Budget.xlsx.chunk1.json   # First chunk of data
+Budget.xlsx.chunk2.json   # Second chunk of data
+```
+
+### Main File with Chunks
 
 ```json
 {
-  "defined_names": {
-    "Revenue_Total": {
-      "scope": "workbook",
-      "reference": "Summary!$B$10",
-      "comment": "Total revenue for the year"
+  "version": "1.0",
+  "metadata": { ... },
+  "chunks": [
+    {
+      "filename": "Budget.xlsx.chunk1.json",
+      "sheets": ["Sheet1", "Sheet2"],
+      "size": 5242880
     },
-    "Tax_Rate": {
-      "scope": "workbook",
-      "reference": "0.25",
-      "comment": "Corporate tax rate"
-    },
-    "Quarterly_Data": {
-      "scope": "Summary",
-      "reference": "Summary!$A$1:$D$10"
-    }
-  }
-}
-```
-
-## Data Validation
-
-```json
-{
-  "data_validations": [
     {
-      "range": "D2:D100",
-      "type": "list",
-      "formula1": "$Z$1:$Z$10",
-      "allow_blank": true,
-      "show_dropdown": true,
-      "show_input_message": true,
-      "input_title": "Select Status",
-      "input_message": "Choose from the list",
-      "show_error_message": true,
-      "error_style": "stop",
-      "error_title": "Invalid Entry",
-      "error_message": "Please select a valid status"
+      "filename": "Budget.xlsx.chunk2.json",
+      "sheets": ["Sheet3"],
+      "size": 3145728
     }
   ]
 }
 ```
 
-## Images and Objects
+## Version Compatibility
 
-```json
-{
-  "images": [
-    {
-      "id": "img1",
-      "name": "Company Logo",
-      "position": {
-        "from": {"col": 0, "row": 0, "col_offset": 0, "row_offset": 0},
-        "to": {"col": 2, "row": 3, "col_offset": 0, "row_offset": 0}
-      },
-      "data": "base64:iVBORw0KGgo...",
-      "mime_type": "image/png",
-      "alt_text": "Acme Corp Logo"
-    }
-  ]
-}
-```
+### Version 1.0
 
-## Pivot Tables
+Current version with full feature support.
 
-```json
-{
-  "pivot_tables": [
-    {
-      "name": "Sales Summary",
-      "source_range": "Data!A1:F1000",
-      "location": "G5",
-      "rows": ["Region", "Product"],
-      "columns": ["Quarter"],
-      "values": [
-        {
-          "field": "Revenue",
-          "function": "sum",
-          "name": "Total Revenue"
-        }
-      ],
-      "filters": ["Year"],
-      "style": "PivotStyleLight16"
-    }
-  ]
-}
-```
+### Future Versions
 
-## Formula Representation
-
-### Basic Formulas
-
-```json
-{
-  "formula": "=A1+B1",
-  "formula": "=SUM(A1:A10)",
-  "formula": "=IF(A1>100,\"High\",\"Low\")"
-}
-```
-
-### Array Formulas
-
-```json
-{
-  "formula": "=SUM(A1:A10*B1:B10)",
-  "array_formula": true,
-  "array_range": "C1:C1"
-}
-```
-
-### External References
-
-```json
-{
-  "formula": "='[Budget.xlsx]Summary'!A1",
-  "external_references": [
-    {
-      "workbook": "Budget.xlsx",
-      "sheet": "Summary",
-      "range": "A1"
-    }
-  ]
-}
-```
-
-## Compression
-
-For large files, the JSON can be compressed:
-
-```json
-{
-  "compression": {
-    "enabled": true,
-    "algorithm": "gzip",
-    "cells": "compressed:H4sIAAAAAAAA..."
-  }
-}
-```
-
-## Extensibility
-
-Custom extensions can be added:
-
-```json
-{
-  "extensions": {
-    "com.company.custom": {
-      "version": "1.0",
-      "data": {}
-    }
-  }
-}
-```
+Future versions will maintain backward compatibility. New fields may be added but existing fields won't be removed or changed in breaking ways.
 
 ## Best Practices
 
-1. **Minimize Size**: Omit default values
-2. **Preserve Precision**: Use full numeric precision
-3. **Maintain Order**: Keep sheet order
-4. **Handle Special Characters**: Properly escape JSON
-5. **Version Compatibility**: Include format version
-
-## Migration
-
-### From Version 0.9
-
-```json
-{
-  "migration": {
-    "from_version": "0.9",
-    "to_version": "1.0",
-    "changes": [
-      "Renamed 'formatting' to 'conditional_formatting'",
-      "Added 'themes' section",
-      "Changed date format to ISO 8601"
-    ]
-  }
-}
-```
-
-## Validation
-
-Validate JSON against schema:
-
-```bash
-gitcells validate-json file.json --schema
-```
-
-Schema available at: https://gitcells.com/schema/v1.0/gitcells.json
+1. **Preserve Formulas**: Always keep formula information for accurate reconstruction
+2. **Use R1C1**: R1C1 notation helps with formula relocation
+3. **Include Metadata**: Helps track file origin and conversion details
+4. **Validate JSON**: Ensure JSON is valid before committing
+5. **Consider Size**: Use compact format for large files
 
 ## Next Steps
 
-- Learn about [conversion process](../guides/converting.md)
-- Review [configuration options](configuration.md)
-- Understand [troubleshooting](troubleshooting.md)
+- See [Converting Files](../user-guide/converting.md) for conversion examples
+- Review [Git Integration](../user-guide/git-integration.md) for version control
+- Check [API Reference](api.md) for programmatic access
+- Read [Troubleshooting](../user-guide/troubleshooting.md) for JSON issues

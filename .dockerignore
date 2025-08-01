@@ -4,7 +4,8 @@
 
 # Documentation
 *.md
-docs/
+# Don't ignore docs/ as it's needed for Dockerfile.docs
+# docs/
 
 # Development files
 .vscode/

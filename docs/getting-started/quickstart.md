@@ -1,127 +1,168 @@
 # Quick Start Guide
 
-Get up and running with GitCells in 5 minutes!
+This guide will help you get started with GitCells in just a few minutes. No technical expertise required!
 
-## Step 1: Initialize GitCells
+## What You'll Learn
 
-Navigate to your Excel project directory and initialize GitCells:
+- How to set up GitCells for your Excel files
+- How to track changes to your Excel files automatically
+- How to view what changed in your Excel files
+
+## Step 1: Open Terminal (Command Line)
+
+First, we need to open the terminal application:
+
+- **Windows**: Press `Windows + R`, type `cmd`, and press Enter
+- **Mac**: Press `Cmd + Space`, type `terminal`, and press Enter
+- **Linux**: Press `Ctrl + Alt + T`
+
+Don't worry if you've never used the terminal before - we'll guide you through each step!
+
+## Step 2: Navigate to Your Excel Files
+
+In the terminal, navigate to the folder containing your Excel files. For example:
 
 ```bash
-cd /path/to/your/excel/project
+# Windows example
+cd C:\Users\YourName\Documents\ExcelFiles
+
+# Mac example
+cd /Users/YourName/Documents/ExcelFiles
+
+# Linux example
+cd /home/yourname/Documents/ExcelFiles
+```
+
+💡 **Tip**: You can also drag and drop a folder onto the terminal window to get its path!
+
+## Step 3: Initialize GitCells
+
+Now let's set up GitCells in your folder. Type this command and press Enter:
+
+```bash
 gitcells init
 ```
 
-This creates:
-- `.gitcells/` directory for GitCells data
-- `.gitcells.yml` configuration file
-- `.gitignore` entries for Excel temporary files
+This creates a configuration file that tells GitCells how to handle your Excel files.
 
-## Step 2: Convert Your First Excel File
+## Step 4: Start Tracking Your Excel Files
 
-Convert an Excel file to JSON:
+### Option A: Use the Interactive Interface (Recommended for Beginners)
+
+Type this command to open GitCells' user-friendly interface:
 
 ```bash
-gitcells convert myspreadsheet.xlsx
+gitcells tui
 ```
 
-This creates `myspreadsheet.json` with all your Excel data, formulas, and formatting preserved.
+You'll see a menu with these options:
+- **Setup Wizard** - Helps configure GitCells for your needs
+- **Status Dashboard** - Shows which Excel files are being tracked
+- **Settings** - Manage GitCells settings
+- **Error Logs** - View any problems that occurred
 
-## Step 3: Track Changes
+Use the arrow keys to navigate and press Enter to select an option.
 
-View what's changed in your Excel files:
+### Option B: Start Watching Automatically
+
+If you prefer, you can start watching your Excel files directly:
+
+```bash
+gitcells watch .
+```
+
+This tells GitCells to watch the current folder (the `.` means "current folder") for any Excel file changes.
+
+## Step 5: Make Changes to Your Excel Files
+
+Now the magic happens! 
+
+1. Open any Excel file in your folder
+2. Make some changes (add data, modify formulas, etc.)
+3. Save the file
+
+GitCells will automatically:
+- Detect that your Excel file changed
+- Convert it to a trackable format
+- Save a snapshot of the changes
+
+You'll see messages in the terminal showing what GitCells is doing.
+
+## Step 6: View Your File History
+
+To see what files GitCells is tracking:
 
 ```bash
 gitcells status
 ```
 
-See detailed differences:
+This shows:
+- Which Excel files are being tracked
+- When they were last modified
+- If there are any pending changes
+
+## What's Next?
+
+### View Changes in Detail
+
+To see what changed in a specific Excel file:
 
 ```bash
-gitcells diff myspreadsheet.xlsx
+gitcells diff YourFile.xlsx
 ```
 
-## Step 4: Enable Auto-sync
+This shows exactly what cells, formulas, or data changed.
 
-Start watching for changes and auto-commit them:
+### Convert Files Manually
+
+You can also convert files between Excel and JSON format:
 
 ```bash
-gitcells watch
+# Convert Excel to JSON (to see the trackable format)
+gitcells convert YourFile.xlsx
+
+# Convert JSON back to Excel
+gitcells convert YourFile.xlsx.json
 ```
 
-Now any changes to Excel files are automatically:
-- Converted to JSON
-- Committed to Git
-- Tracked with descriptive messages
+### Keep GitCells Updated
 
-## Common Workflows
-
-### Team Collaboration
-
-1. Team member A makes changes in Excel
-2. GitCells auto-converts and commits
-3. Push changes: `git push`
-4. Team member B pulls: `git pull`
-5. GitCells auto-converts JSON back to Excel
-
-### Review Changes
+Check for updates regularly:
 
 ```bash
-# See recent changes
-git log --oneline -10
-
-# View specific change
-gitcells diff myspreadsheet.xlsx HEAD~1
-
-# Revert changes
-git checkout HEAD~1 -- myspreadsheet.json
-gitcells sync
+gitcells update --check
 ```
 
-### Working with Multiple Files
+If an update is available, install it with:
 
 ```bash
-# Convert all Excel files
-gitcells convert *.xlsx
-
-# Watch specific directory
-gitcells watch --dir reports/
-
-# Sync all files
-gitcells sync
+gitcells update
 ```
 
-## Tips for Success
+## Common Questions
 
-1. **Commit Often**: Use Git's commit history to track incremental changes
-2. **Use Branches**: Create branches for major changes or experiments
-3. **Write Good Messages**: GitCells auto-generates messages, but you can amend them
-4. **Close Excel**: Close Excel files before pulling changes to avoid conflicts
+**Q: Where are my Excel files?**  
+A: GitCells doesn't move or modify your original Excel files. It creates companion JSON files that track the changes.
 
-## Example: Financial Report Workflow
+**Q: Can I still use Excel normally?**  
+A: Yes! GitCells works in the background. Use Excel exactly as you always have.
 
-```bash
-# Start a new feature branch
-git checkout -b update-q4-figures
+**Q: What if I make a mistake?**  
+A: GitCells tracks all changes, so you can always see previous versions of your files.
 
-# Make changes in Excel
-# GitCells auto-tracks them
+**Q: Do I need to keep the terminal open?**  
+A: Yes, when using the `watch` command. The terminal needs to stay open for GitCells to monitor your files. You can minimize it.
 
-# Review changes
-gitcells status
-gitcells diff financial-report.xlsx
+## Getting Help
 
-# Commit with custom message
-git add .
-git commit -m "Update Q4 revenue figures and projections"
+If you run into any issues:
 
-# Merge back
-git checkout main
-git merge update-q4-figures
-```
+1. Check the [Troubleshooting Guide](../user-guide/troubleshooting.md)
+2. Use the TUI interface (`gitcells tui`) and check the Error Logs
+3. Visit our [GitHub Issues page](https://github.com/Classic-Homes/gitcells/issues)
 
 ## Next Steps
 
-- Learn about [Basic Concepts](concepts.md)
-- Explore [Advanced Features](../guides/converting.md)
-- Configure [Auto-sync](../guides/auto-sync.md)
-- Read about [Conflict Resolution](../guides/conflicts.md)
+- Learn more about [How GitCells Works](concepts.md)
+- Explore [Configuration Options](../user-guide/configuration.md) to customize GitCells
+- Set up [Automatic Git Integration](../user-guide/git-integration.md) for team collaboration
