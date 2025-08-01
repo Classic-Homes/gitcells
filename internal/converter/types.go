@@ -309,72 +309,88 @@ func (c *converter) extractCharts(f interface{}, sheetName string) ([]models.Cha
 
 // extractChartsFromExcelFile extracts chart information from excelize File object
 func (c *converter) extractChartsFromExcelFile(f *excelize.File, sheetName string) ([]models.Chart, error) {
-	charts := []models.Chart{}
-
-	// First attempt: try to extract charts using heuristic detection
-	// This checks for patterns that might indicate chart source data
-
 	c.logger.Debugf("Attempting chart extraction for sheet: %s", sheetName)
 
-	// Try to get sheet information that might indicate charts
-	sheetMap := f.GetSheetMap()
-	sheetIndex := -1
-	for index, name := range sheetMap {
-		if name == sheetName {
-			sheetIndex = index
-			break
-		}
-	}
-
-	if sheetIndex == -1 {
+	// Verify sheet exists
+	if !c.sheetExists(f, sheetName) {
 		c.logger.Debugf("Sheet %s not found in workbook", sheetName)
-		return charts, nil
+		return []models.Chart{}, nil
 	}
 
-	// Check if there are any pictures or drawings (charts might be stored as drawings)
-	pics, _ := f.GetPictures(sheetName, "A1") // This will return empty for non-picture cells
-
-	// Detect potential chart data patterns
+	// Detect charts through pictures and data patterns
+	hasPictures := c.detectPictures(f, sheetName)
 	chartData := c.analyzeChartDataPatterns(f, sheetName)
 
-	if len(pics) > 0 || len(chartData) > 0 {
-		for i, data := range chartData {
-			chart := models.Chart{
-				ID:    fmt.Sprintf("chart_%s_%d", sheetName, i+1),
-				Type:  c.inferChartType(data),
-				Title: fmt.Sprintf("Chart %d in %s", i+1, sheetName),
-				Position: models.ChartPosition{
-					X:      float64(i * 100),
-					Y:      0,
-					Width:  400,
-					Height: 300,
-				},
-				Series: c.createChartSeries(data),
-			}
-			charts = append(charts, chart)
-		}
+	// Build charts from detected patterns
+	charts := c.buildChartsFromPatterns(sheetName, chartData)
 
-		if len(chartData) == 0 && len(pics) > 0 {
-			// Fallback: create a generic chart if we detect pictures but no data patterns
-			chart := models.Chart{
-				ID:    fmt.Sprintf("chart_%s_1", sheetName),
-				Type:  "unknown",
-				Title: fmt.Sprintf("Chart detected in %s", sheetName),
-				Position: models.ChartPosition{
-					X:      0,
-					Y:      0,
-					Width:  400,
-					Height: 300,
-				},
-				Series: []models.ChartSeries{},
-			}
-			charts = append(charts, chart)
-		}
+	// Add fallback chart if pictures detected but no data patterns
+	if hasPictures && len(chartData) == 0 {
+		charts = append(charts, c.createFallbackChart(sheetName))
+	}
 
+	if len(charts) > 0 {
 		c.logger.Debugf("Detected %d potential charts in sheet %s", len(charts), sheetName)
 	}
 
 	return charts, nil
+}
+
+// sheetExists checks if a sheet exists in the workbook
+func (c *converter) sheetExists(f *excelize.File, sheetName string) bool {
+	sheetMap := f.GetSheetMap()
+	for _, name := range sheetMap {
+		if name == sheetName {
+			return true
+		}
+	}
+	return false
+}
+
+// detectPictures checks if there are any pictures in the sheet (potential charts)
+func (c *converter) detectPictures(f *excelize.File, sheetName string) bool {
+	// Check if there are any pictures or drawings (charts might be stored as drawings)
+	pics, _ := f.GetPictures(sheetName, "A1") // This will return empty for non-picture cells
+	return len(pics) > 0
+}
+
+// buildChartsFromPatterns creates chart models from detected data patterns
+func (c *converter) buildChartsFromPatterns(sheetName string, patterns []ChartDataPattern) []models.Chart {
+	charts := []models.Chart{}
+
+	for i, pattern := range patterns {
+		chart := models.Chart{
+			ID:    fmt.Sprintf("chart_%s_%d", sheetName, i+1),
+			Type:  c.inferChartType(pattern),
+			Title: fmt.Sprintf("Chart %d in %s", i+1, sheetName),
+			Position: models.ChartPosition{
+				X:      float64(i * 100),
+				Y:      0,
+				Width:  400,
+				Height: 300,
+			},
+			Series: c.createChartSeries(pattern),
+		}
+		charts = append(charts, chart)
+	}
+
+	return charts
+}
+
+// createFallbackChart creates a generic chart when pictures are detected but no data patterns
+func (c *converter) createFallbackChart(sheetName string) models.Chart {
+	return models.Chart{
+		ID:    fmt.Sprintf("chart_%s_1", sheetName),
+		Type:  "unknown",
+		Title: fmt.Sprintf("Chart detected in %s", sheetName),
+		Position: models.ChartPosition{
+			X:      0,
+			Y:      0,
+			Width:  400,
+			Height: 300,
+		},
+		Series: []models.ChartSeries{},
+	}
 }
 
 // isNumeric checks if a string represents a numeric value
@@ -399,66 +415,120 @@ type ChartDataPattern struct {
 func (c *converter) analyzeChartDataPatterns(f *excelize.File, sheetName string) []ChartDataPattern {
 	patterns := []ChartDataPattern{}
 
+	// Get sheet data
 	rows, err := f.GetRows(sheetName)
-	if err != nil || len(rows) < 2 {
+	if err != nil || !c.hasMinimumDataForChart(rows) {
 		return patterns
 	}
 
-	// Look for tabular data patterns (headers + data)
+	// Find maximum columns
+	maxCols := c.findMaxColumns(rows)
+	if maxCols < 2 {
+		return patterns
+	}
+
+	// Analyze first row as potential headers
+	headers := rows[0]
+	if len(headers) >= 2 {
+		pattern := c.analyzeTabularData(f, sheetName, rows, headers)
+		if pattern != nil {
+			patterns = append(patterns, *pattern)
+		}
+	}
+
+	return patterns
+}
+
+// hasMinimumDataForChart checks if there's enough data for a chart
+func (c *converter) hasMinimumDataForChart(rows [][]string) bool {
+	return len(rows) >= 2
+}
+
+// findMaxColumns finds the maximum number of columns across all rows
+func (c *converter) findMaxColumns(rows [][]string) int {
 	maxCols := 0
 	for _, row := range rows {
 		if len(row) > maxCols {
 			maxCols = len(row)
 		}
 	}
+	return maxCols
+}
 
-	if maxCols < 2 {
-		return patterns
+// analyzeTabularData analyzes tabular data for chart patterns
+func (c *converter) analyzeTabularData(f *excelize.File, sheetName string, rows [][]string, headers []string) *ChartDataPattern {
+	stats := c.calculateDataStats(f, sheetName, rows, headers)
+
+	// Need at least 2 numeric columns and 2 data rows for a valid chart pattern
+	if stats.numericCols < 2 || stats.dataRows < 2 {
+		return nil
 	}
 
-	// Check if first row looks like headers
-	headers := rows[0]
-	if len(headers) >= 2 {
-		// Count numeric columns in subsequent rows
-		numericCols := 0
-		dataRows := 0
+	return c.createChartPattern(headers, stats)
+}
 
-		for colIndex := 0; colIndex < len(headers) && colIndex < 10; colIndex++ {
-			hasNumeric := false
-			for rowIndex := 1; rowIndex < len(rows) && rowIndex < 20; rowIndex++ {
-				if colIndex < len(rows[rowIndex]) {
-					cellName, _ := excelize.CoordinatesToCellName(colIndex+1, rowIndex+1)
-					cellValue, _ := f.GetCellValue(sheetName, cellName)
-					if c.isNumeric(cellValue) && cellValue != "" {
-						hasNumeric = true
-						if rowIndex > dataRows {
-							dataRows = rowIndex
-						}
-					}
+// dataStats holds statistics about data columns
+type dataStats struct {
+	numericCols int
+	dataRows    int
+}
+
+// calculateDataStats calculates statistics about numeric columns and data rows
+func (c *converter) calculateDataStats(f *excelize.File, sheetName string, rows [][]string, headers []string) dataStats {
+	stats := dataStats{}
+
+	// Analyze up to 10 columns and 20 rows for performance
+	maxCols := len(headers)
+	if maxCols > 10 {
+		maxCols = 10
+	}
+
+	maxRows := len(rows)
+	if maxRows > 20 {
+		maxRows = 20
+	}
+
+	for colIndex := 0; colIndex < maxCols; colIndex++ {
+		if c.isNumericColumn(f, sheetName, rows, colIndex, maxRows, &stats.dataRows) {
+			stats.numericCols++
+		}
+	}
+
+	return stats
+}
+
+// isNumericColumn checks if a column contains numeric data
+func (c *converter) isNumericColumn(f *excelize.File, sheetName string, rows [][]string, colIndex, maxRows int, dataRows *int) bool {
+	hasNumeric := false
+
+	for rowIndex := 1; rowIndex < maxRows; rowIndex++ {
+		if colIndex < len(rows[rowIndex]) {
+			cellName, _ := excelize.CoordinatesToCellName(colIndex+1, rowIndex+1)
+			cellValue, _ := f.GetCellValue(sheetName, cellName)
+			if c.isNumeric(cellValue) && cellValue != "" {
+				hasNumeric = true
+				if rowIndex > *dataRows {
+					*dataRows = rowIndex
 				}
 			}
-			if hasNumeric {
-				numericCols++
-			}
-		}
-
-		// If we have at least 2 numeric columns and some data rows, it's a potential chart
-		if numericCols >= 2 && dataRows >= 2 {
-			headerEndCol, _ := excelize.CoordinatesToCellName(len(headers), 1)
-			dataEndCol, _ := excelize.CoordinatesToCellName(len(headers), dataRows)
-
-			pattern := ChartDataPattern{
-				HeaderRange: fmt.Sprintf("A1:%s", headerEndCol),
-				DataRange:   fmt.Sprintf("A2:%s", dataEndCol),
-				Headers:     headers,
-				NumericCols: numericCols,
-				DataRows:    dataRows - 1, // Exclude header row
-			}
-			patterns = append(patterns, pattern)
 		}
 	}
 
-	return patterns
+	return hasNumeric
+}
+
+// createChartPattern creates a ChartDataPattern from headers and statistics
+func (c *converter) createChartPattern(headers []string, stats dataStats) *ChartDataPattern {
+	headerEndCol, _ := excelize.CoordinatesToCellName(len(headers), 1)
+	dataEndCol, _ := excelize.CoordinatesToCellName(len(headers), stats.dataRows)
+
+	return &ChartDataPattern{
+		HeaderRange: fmt.Sprintf("A1:%s", headerEndCol),
+		DataRange:   fmt.Sprintf("A2:%s", dataEndCol),
+		Headers:     headers,
+		NumericCols: stats.numericCols,
+		DataRows:    stats.dataRows - 1, // Exclude header row
+	}
 }
 
 // inferChartType tries to infer the chart type based on data patterns
