@@ -16,7 +16,7 @@ const (
 	ModeMenu Mode = iota
 	ModeSetup
 	ModeDashboard
-	ModeDiff
+	ModeTools
 	ModeSettings
 	ModeErrorLog
 )
@@ -29,7 +29,7 @@ type Model struct {
 	menuCursor    int
 	setupModel    tea.Model
 	dashModel     tea.Model
-	diffModel     tea.Model
+	toolsModel    tea.Model
 	settingsModel tea.Model
 	errorLogModel tea.Model
 }
@@ -47,7 +47,7 @@ var menuItems = []struct {
 }{
 	{"Setup Wizard", "Configure GitCells for your Excel tracking repository", ModeSetup},
 	{"Status Dashboard", "Monitor Excel file tracking and conversion status", ModeDashboard},
-	{"Diff Viewer", "Compare Excel files and view differences side-by-side", ModeDiff},
+	{"Tools", "Access conversion tools and diff viewer", ModeTools},
 	{"Settings", "Update, uninstall, and manage GitCells system settings", ModeSettings},
 	{"Error Logs", "View application errors and troubleshooting information", ModeErrorLog},
 }
@@ -117,11 +117,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.dashModel = models.NewDashboardEnhancedModel()
 			}
 			return m, m.dashModel.Init()
-		case ModeDiff:
-			if m.diffModel == nil {
-				m.diffModel = models.NewDiffModel()
+		case ModeTools:
+			if m.toolsModel == nil {
+				m.toolsModel = models.NewToolsModel()
 			}
-			return m, m.diffModel.Init()
+			return m, m.toolsModel.Init()
 		case ModeErrorLog:
 			if m.errorLogModel == nil {
 				m.errorLogModel = models.NewErrorLogEnhancedModel()
@@ -160,9 +160,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.dashModel != nil {
 			m.dashModel, cmd = m.dashModel.Update(msg)
 		}
-	case ModeDiff:
-		if m.diffModel != nil {
-			m.diffModel, cmd = m.diffModel.Update(msg)
+	case ModeTools:
+		if m.toolsModel != nil {
+			m.toolsModel, cmd = m.toolsModel.Update(msg)
 		}
 	case ModeErrorLog:
 		if m.errorLogModel != nil {
@@ -193,9 +193,9 @@ func (m Model) View() string {
 		if m.dashModel != nil {
 			return m.dashModel.View()
 		}
-	case ModeDiff:
-		if m.diffModel != nil {
-			return m.diffModel.View()
+	case ModeTools:
+		if m.toolsModel != nil {
+			return m.toolsModel.View()
 		}
 	case ModeErrorLog:
 		if m.errorLogModel != nil {
