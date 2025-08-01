@@ -155,6 +155,8 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, m.startConversion())
 		case "w":
 			cmds = append(cmds, m.toggleWatcher())
+		case "ctrl+w":
+			return m, messages.RequestModeChange("watcher")
 		case "up", "k":
 			if m.scrollOffset > 0 {
 				m.scrollOffset--
@@ -407,7 +409,7 @@ func (m DashboardModel) renderCommits() string {
 }
 
 func (m DashboardModel) renderFooter() string {
-	helpText := "[Tab] Switch tabs • [r] Refresh • [c] Convert • [w] Toggle Watch • [?] Help • [q] Quit"
+	helpText := "[Tab] Switch tabs • [r] Refresh • [c] Convert • [w] Toggle Watch • [Ctrl+W] Watcher • [?] Help • [q] Quit"
 	return styles.HelpStyle.
 		MarginTop(1).
 		Render(helpText)

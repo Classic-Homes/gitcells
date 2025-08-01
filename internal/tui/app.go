@@ -16,6 +16,7 @@ const (
 	ModeMenu Mode = iota
 	ModeSetup
 	ModeDashboard
+	ModeWatcher
 	ModeTools
 	ModeSettings
 	ModeErrorLog
@@ -29,6 +30,7 @@ type Model struct {
 	menuCursor    int
 	setupModel    tea.Model
 	dashModel     tea.Model
+	watcherModel  tea.Model
 	toolsModel    tea.Model
 	settingsModel tea.Model
 	errorLogModel tea.Model
@@ -47,6 +49,7 @@ var menuItems = []struct {
 }{
 	{"Setup Wizard", "Configure GitCells for your Excel tracking repository", ModeSetup},
 	{"Status Dashboard", "Monitor Excel file tracking and conversion status", ModeDashboard},
+	{"File Watcher", "Start/stop automatic file watching and view activity", ModeWatcher},
 	{"Tools", "Access conversion tools and diff viewer", ModeTools},
 	{"Settings", "Update, uninstall, and manage GitCells system settings", ModeSettings},
 	{"Error Logs", "View application errors and troubleshooting information", ModeErrorLog},
@@ -117,6 +120,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.dashModel = models.NewDashboardModel()
 			}
 			return m, m.dashModel.Init()
+		case ModeWatcher:
+			if m.watcherModel == nil {
+				m.watcherModel = models.NewWatcherModel()
+			}
+			return m, m.watcherModel.Init()
 		case ModeTools:
 			if m.toolsModel == nil {
 				m.toolsModel = models.NewToolsModel()
@@ -146,6 +154,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case messages.RequestMainMenuMsg:
 		return m, backToMenu()
+		
+	case messages.RequestModeChangeMsg:
+		switch msg.Mode {
+		case "watcher":
+			return m, changeMode(ModeWatcher)
+		default:
+			return m, backToMenu()
+		}
 	}
 
 	var cmd tea.Cmd
@@ -159,6 +175,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ModeDashboard:
 		if m.dashModel != nil {
 			m.dashModel, cmd = m.dashModel.Update(msg)
+		}
+	case ModeWatcher:
+		if m.watcherModel != nil {
+			m.watcherModel, cmd = m.watcherModel.Update(msg)
 		}
 	case ModeTools:
 		if m.toolsModel != nil {
@@ -192,6 +212,10 @@ func (m Model) View() string {
 	case ModeDashboard:
 		if m.dashModel != nil {
 			return m.dashModel.View()
+		}
+	case ModeWatcher:
+		if m.watcherModel != nil {
+			return m.watcherModel.View()
 		}
 	case ModeTools:
 		if m.toolsModel != nil {
