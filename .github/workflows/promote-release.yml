@@ -38,7 +38,7 @@ jobs:
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
         echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
         
-    - name: Check if pre-release exists
+    - name: Check if pre-release exists and get release ID
       id: check_prerelease
       run: |
         TAG="${{ steps.validate.outputs.tag }}"
@@ -59,18 +59,23 @@ jobs:
           exit 1
         fi
         
-        echo "✅ Pre-release ${TAG} found and ready for promotion"
+        # Get the release ID for the PATCH API call
+        RELEASE_ID=$(echo "$RELEASE_INFO" | jq -r '.id')
+        echo "release_id=${RELEASE_ID}" >> $GITHUB_OUTPUT
+        
+        echo "✅ Pre-release ${TAG} found and ready for promotion (ID: ${RELEASE_ID})"
         
     - name: Promote to production release
       run: |
         TAG="${{ steps.validate.outputs.tag }}"
         VERSION="${{ steps.validate.outputs.version }}"
+        RELEASE_ID="${{ steps.check_prerelease.outputs.release_id }}"
         
-        # Update the release to remove pre-release status
+        # Update the release to remove pre-release status using the correct API endpoint
         curl -X PATCH \
           -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
           -H "Accept: application/vnd.github.v3+json" \
-          "https://api.github.com/repos/${{ github.repository }}/releases/tags/${TAG}" \
+          "https://api.github.com/repos/${{ github.repository }}/releases/${RELEASE_ID}" \
           -d "{
             \"name\": \"GitCells v${VERSION}\",
             \"body\": \"## GitCells v${VERSION}\\n\\n### Installation\\n\\n#### Quick Install (Linux/macOS)\\n\`\`\`bash\\ncurl -sSL https://raw.githubusercontent.com/Classic-Homes/gitcells/main/scripts/install.sh | bash\\n\`\`\`\\n\\n#### Manual Installation\\n\\n**Direct Executables (Recommended)**\\n- **Windows**: Download \`gitcells-windows.exe\` → rename to \`gitcells.exe\` → add to PATH\\n- **macOS (Intel)**: Download \`gitcells-macos-intel\` → \`chmod +x\` → move to \`/usr/local/bin/gitcells\`\\n- **macOS (Apple Silicon)**: Download \`gitcells-macos-apple-silicon\` → \`chmod +x\` → move to \`/usr/local/bin/gitcells\`\\n- **Linux (64-bit)**: Download \`gitcells-linux\` → \`chmod +x\` → move to \`/usr/local/bin/gitcells\`\\n- **Linux (ARM64)**: Download \`gitcells-linux-arm64\` → \`chmod +x\` → move to \`/usr/local/bin/gitcells\`\\n\\n**Archives**\\n- **Windows**: \`gitcells-windows.zip\`\\n- **macOS/Linux**: \`gitcells-*.tar.gz\`\\n\\n### What's New\\n\\nSee [CHANGELOG.md](https://github.com/Classic-Homes/gitcells/blob/main/CHANGELOG.md) for detailed changes.\",
