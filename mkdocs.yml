@@ -4,6 +4,8 @@ site_url: https://classic-homes.github.io/gitcells/
 
 theme:
   name: material
+  logo: custom_theme/img/logo.png
+  favicon: custom_theme/img/favicon.png
   palette:
     - scheme: default
       primary: blue
