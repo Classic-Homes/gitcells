@@ -340,19 +340,19 @@ func GetLogFilePath() string {
 	if err != nil {
 		return "./gitcells.log"
 	}
-	
+
 	logDir := filepath.Join(homeDir, ".gitcells", "logs")
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		return "./gitcells.log"
 	}
-	
+
 	return filepath.Join(logDir, "gitcells.log")
 }
 
 // RotateLogFile rotates the log file if it exceeds the maximum size
 func RotateLogFile(maxSizeBytes int64) error {
 	logFile := GetLogFilePath()
-	
+
 	// Check if file exists and get its size
 	info, err := os.Stat(logFile)
 	if err != nil {
@@ -361,44 +361,44 @@ func RotateLogFile(maxSizeBytes int64) error {
 		}
 		return err
 	}
-	
+
 	// If file is smaller than max size, no rotation needed
 	if info.Size() < maxSizeBytes {
 		return nil
 	}
-	
+
 	// Create backup filename with timestamp
 	backupFile := fmt.Sprintf("%s.%s", logFile, time.Now().Format("2006-01-02-15-04-05"))
-	
+
 	// Rename current log file to backup
 	if err := os.Rename(logFile, backupFile); err != nil {
 		return fmt.Errorf("failed to rotate log file: %w", err)
 	}
-	
+
 	// Clean up old backup files (keep only 5 most recent)
 	if err := cleanupOldLogFiles(5); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to cleanup old log files: %v\n", err)
 	}
-	
+
 	return nil
 }
 
 // cleanupOldLogFiles removes old log backup files, keeping only the specified number
 func cleanupOldLogFiles(keepCount int) error {
 	logDir := filepath.Dir(GetLogFilePath())
-	
+
 	entries, err := os.ReadDir(logDir)
 	if err != nil {
 		return err
 	}
-	
+
 	// Filter and sort backup files by modification time
 	var backupFiles []os.FileInfo
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
-		
+
 		if strings.HasPrefix(entry.Name(), "gitcells.log.") {
 			info, err := entry.Info()
 			if err != nil {
@@ -407,12 +407,12 @@ func cleanupOldLogFiles(keepCount int) error {
 			backupFiles = append(backupFiles, info)
 		}
 	}
-	
+
 	// Sort by modification time (newest first)
 	sort.Slice(backupFiles, func(i, j int) bool {
 		return backupFiles[i].ModTime().After(backupFiles[j].ModTime())
 	})
-	
+
 	// Remove excess files
 	if len(backupFiles) > keepCount {
 		for i := keepCount; i < len(backupFiles); i++ {
@@ -422,7 +422,7 @@ func cleanupOldLogFiles(keepCount int) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -435,7 +435,7 @@ func init() {
 	if err := RotateLogFile(5 * 1024 * 1024); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to rotate log file: %v\n", err)
 	}
-	
+
 	logFile := GetLogFilePath()
 	defaultLogger = NewLogger(&LogConfig{
 		Level:     LogLevelInfo,
@@ -449,11 +449,11 @@ func init() {
 // LogErrorDefault logs an error using the default logger
 func LogErrorDefault(err error, message string, fields map[string]interface{}) {
 	entry := defaultLogger.WithField("operation", "tui")
-	
+
 	if fields != nil {
 		entry = entry.WithFields(logrus.Fields(fields))
 	}
-	
+
 	if ssErr, ok := err.(*GitCellsError); ok {
 		entry = entry.WithFields(logrus.Fields{
 			"error_type":  ssErr.Type,
@@ -461,29 +461,29 @@ func LogErrorDefault(err error, message string, fields map[string]interface{}) {
 			"file":        ssErr.File,
 		})
 	}
-	
+
 	entry.WithError(err).Error(message)
 }
 
 // LogInfo logs an info message using the default logger
 func LogInfo(message string, fields map[string]interface{}) {
 	entry := defaultLogger.WithField("operation", "tui")
-	
+
 	if fields != nil {
 		entry = entry.WithFields(logrus.Fields(fields))
 	}
-	
+
 	entry.Info(message)
 }
 
 // LogWarn logs a warning using the default logger
 func LogWarn(message string, fields map[string]interface{}) {
 	entry := defaultLogger.WithField("operation", "tui")
-	
+
 	if fields != nil {
 		entry = entry.WithFields(logrus.Fields(fields))
 	}
-	
+
 	entry.Warn(message)
 }
 
@@ -493,11 +493,11 @@ func LogUserAction(action string, fields map[string]interface{}) {
 		"operation": "user_action",
 		"action":    action,
 	})
-	
+
 	if fields != nil {
 		entry = entry.WithFields(logrus.Fields(fields))
 	}
-	
+
 	entry.Info("User action performed")
 }
 

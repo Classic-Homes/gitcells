@@ -11,7 +11,7 @@ var (
 	Muted     = lipgloss.Color("241")
 	Info      = lipgloss.Color("39")
 	Highlight = lipgloss.Color("212")
-	
+
 	// Color values for direct use
 	MutedColor     = lipgloss.Color("241")
 	HighlightColor = lipgloss.Color("212")

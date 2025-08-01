@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Classic-Homes/gitcells/internal/tui/messages"
+	"github.com/Classic-Homes/gitcells/internal/tui/styles"
+	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/Classic-Homes/gitcells/internal/tui/messages"
-	"github.com/Classic-Homes/gitcells/internal/tui/styles"
-	"github.com/Classic-Homes/gitcells/internal/utils"
 )
 
 type LogEntry struct {
@@ -28,8 +28,8 @@ type LogEntry struct {
 }
 
 type ErrorLogModel struct {
-	viewport    viewport.Model
-	entries     []LogEntry
+	viewport        viewport.Model
+	entries         []LogEntry
 	filteredEntries []LogEntry
 	selectedIndex   int
 	showDetails     bool
@@ -42,18 +42,18 @@ type ErrorLogModel struct {
 }
 
 type ErrorLogKeyMap struct {
-	Up         key.Binding
-	Down       key.Binding
-	PageUp     key.Binding
-	PageDown   key.Binding
-	Home       key.Binding
-	End        key.Binding
-	Details    key.Binding
-	Filter     key.Binding
-	Refresh    key.Binding
-	Clear      key.Binding
-	Back       key.Binding
-	Quit       key.Binding
+	Up       key.Binding
+	Down     key.Binding
+	PageUp   key.Binding
+	PageDown key.Binding
+	Home     key.Binding
+	End      key.Binding
+	Details  key.Binding
+	Filter   key.Binding
+	Refresh  key.Binding
+	Clear    key.Binding
+	Back     key.Binding
+	Quit     key.Binding
 }
 
 func DefaultErrorLogKeyMap() ErrorLogKeyMap {
@@ -222,10 +222,10 @@ func (m ErrorLogModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, m.keyMap.Clear):
 			return m, m.clearLogs()
-		
+
 		case key.Matches(msg, m.keyMap.Quit):
 			return m, tea.Quit
-		
+
 		case msg.String() == "esc":
 			return m, messages.RequestMainMenu()
 		}
@@ -254,7 +254,7 @@ func (m ErrorLogModel) View() string {
 
 func (m ErrorLogModel) renderHeader() string {
 	title := styles.TitleStyle.Render("Error Logs")
-	
+
 	filterInfo := fmt.Sprintf("Filter: %s", m.filterLevel)
 	if m.filterLevel != "all" {
 		filterInfo = styles.HighlightStyle.Render(filterInfo)
@@ -306,7 +306,7 @@ func (m ErrorLogModel) renderEmptyState() string {
 		Foreground(styles.MutedColor).
 		Align(lipgloss.Center).
 		Width(m.width).
-		Height(m.height/2)
+		Height(m.height / 2)
 
 	return emptyStyle.Render(message)
 }
@@ -318,11 +318,11 @@ func (m *ErrorLogModel) updateViewport() {
 	}
 
 	var content strings.Builder
-	
+
 	for i, entry := range m.filteredEntries {
 		isSelected := i == m.selectedIndex
 		line := m.renderLogEntry(entry, isSelected, i)
-		
+
 		if i > 0 {
 			content.WriteString("\n")
 		}
@@ -336,7 +336,7 @@ func (m *ErrorLogModel) updateViewport() {
 	}
 
 	m.viewport.SetContent(content.String())
-	
+
 	if m.selectedIndex < len(m.filteredEntries) {
 		lineHeight := 1
 		if m.showDetails {
@@ -475,7 +475,7 @@ func (m ErrorLogModel) loadLogsFromFile() ([]LogEntry, error) {
 
 	var entries []LogEntry
 	scanner := bufio.NewScanner(file)
-	
+
 	for scanner.Scan() {
 		line := scanner.Text()
 		entry, err := m.parseLogLine(line)

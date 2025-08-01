@@ -16,7 +16,7 @@ func newSyncCommand(logger *logrus.Logger) *cobra.Command {
 			// TODO: Implement sync functionality
 			// This will:
 			// 1. Scan for Excel files
-			// 2. Compare with existing JSON files  
+			// 2. Compare with existing JSON files
 			// 3. Convert changed files
 			// 4. Optionally commit JSON files if --commit flag is set and git repo exists
 

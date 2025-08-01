@@ -467,7 +467,6 @@ func (m *SetupEnhancedModel) saveConfig() {
 	}
 }
 
-
 func (m *SetupEnhancedModel) validateCurrentStep() bool {
 	// Clear previous errors
 	m.validationErrors = make(map[string]string)

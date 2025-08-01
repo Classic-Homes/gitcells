@@ -263,7 +263,7 @@ func (fp *FilePicker) loadItems() {
 		if err == nil {
 			size = info.Size()
 		}
-		
+
 		fp.items = append(fp.items, FileItem{
 			Name:  file.Name(),
 			Path:  filepath.Join(fp.currentPath, file.Name()),

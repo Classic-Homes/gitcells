@@ -21,13 +21,13 @@ const (
 )
 
 type Model struct {
-	mode         Mode
-	width        int
-	height       int
-	quitting     bool
-	menuCursor   int
-	setupModel   tea.Model
-	dashModel    tea.Model
+	mode          Mode
+	width         int
+	height        int
+	quitting      bool
+	menuCursor    int
+	setupModel    tea.Model
+	dashModel     tea.Model
 	errorLogModel tea.Model
 	settingsModel tea.Model
 }
@@ -240,7 +240,6 @@ func backToMenu() tea.Cmd {
 		return backToMenuMsg{}
 	}
 }
-
 
 func Run() error {
 	p := tea.NewProgram(NewModel(), tea.WithAltScreen())

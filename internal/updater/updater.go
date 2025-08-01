@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	GitHubAPI    = "https://api.github.com"
-	Repository   = "Classic-Homes/gitcells"
+	GitHubAPI     = "https://api.github.com"
+	Repository    = "Classic-Homes/gitcells"
 	UpdateTimeout = 30 * time.Second
 )
 
@@ -40,9 +40,9 @@ type GitHubRelease struct {
 }
 
 type Updater struct {
-	CurrentVersion   string
-	Repository       string
-	AllowPrerelease  bool
+	CurrentVersion  string
+	Repository      string
+	AllowPrerelease bool
 	client          *http.Client
 }
 
@@ -71,11 +71,11 @@ func NewWithPrerelease(currentVersion string, allowPrerelease bool) *Updater {
 func (u *Updater) CheckForUpdate() (*GitHubRelease, bool, error) {
 	var url string
 	var release GitHubRelease
-	
+
 	if u.AllowPrerelease {
 		// Get all releases and find the latest (including pre-releases)
 		url = fmt.Sprintf("%s/repos/%s/releases", GitHubAPI, u.Repository)
-		
+
 		resp, err := u.client.Get(url)
 		if err != nil {
 			return nil, false, fmt.Errorf("failed to fetch releases: %w", err)
@@ -101,16 +101,16 @@ func (u *Updater) CheckForUpdate() (*GitHubRelease, bool, error) {
 				latestRelease = &rel
 			}
 		}
-		
+
 		if latestRelease == nil {
 			return nil, false, fmt.Errorf("no releases found")
 		}
-		
+
 		release = *latestRelease
 	} else {
 		// Get only the latest stable release
 		url = fmt.Sprintf("%s/repos/%s/releases/latest", GitHubAPI, u.Repository)
-		
+
 		resp, err := u.client.Get(url)
 		if err != nil {
 			return nil, false, fmt.Errorf("failed to fetch latest release: %w", err)
@@ -133,7 +133,7 @@ func (u *Updater) CheckForUpdate() (*GitHubRelease, bool, error) {
 
 	// Compare versions
 	hasUpdate := u.isNewerVersion(release.TagName, u.CurrentVersion)
-	
+
 	return &release, hasUpdate, nil
 }
 
@@ -223,7 +223,7 @@ func (u *Updater) Update(release *GitHubRelease) error {
 func (u *Updater) getAssetName() string {
 	os := runtime.GOOS
 	arch := runtime.GOARCH
-	
+
 	// Convert Go arch names to common naming conventions
 	switch arch {
 	case "amd64":
@@ -231,7 +231,7 @@ func (u *Updater) getAssetName() string {
 	case "386":
 		arch = "i386"
 	}
-	
+
 	return fmt.Sprintf("%s_%s", os, arch)
 }
 
@@ -244,7 +244,7 @@ func (u *Updater) extractBinary(reader io.Reader, assetName string) (io.Reader, 
 	defer gzr.Close()
 
 	tr := tar.NewReader(gzr)
-	
+
 	for {
 		header, err := tr.Next()
 		if err == io.EOF {
@@ -274,7 +274,7 @@ func (u *Updater) isNewerVersion(latest, current string) bool {
 	if current == "dev" {
 		return true
 	}
-	
+
 	latestVersion, err := semver.NewVersion(latest)
 	if err != nil {
 		// Fallback to string comparison if semver parsing fails
@@ -282,13 +282,13 @@ func (u *Updater) isNewerVersion(latest, current string) bool {
 		current = strings.TrimPrefix(current, "v")
 		return latest != current && latest > current
 	}
-	
+
 	currentVersion, err := semver.NewVersion(current)
 	if err != nil {
 		// If current version is not valid semver, assume update is available
 		return true
 	}
-	
+
 	return latestVersion.GreaterThan(currentVersion)
 }
 
@@ -296,11 +296,11 @@ func (u *Updater) VerifyChecksum(data []byte, expectedChecksum string) error {
 	hasher := sha256.New()
 	hasher.Write(data)
 	actualChecksum := hex.EncodeToString(hasher.Sum(nil))
-	
+
 	if actualChecksum != expectedChecksum {
 		return fmt.Errorf("checksum mismatch: expected %s, got %s", expectedChecksum, actualChecksum)
 	}
-	
+
 	return nil
 }
 
@@ -332,11 +332,11 @@ func (u *Updater) downloadChecksum(checksumURL, assetName string) (string, error
 		if len(parts) >= 2 {
 			checksum := parts[0]
 			filename := parts[1]
-			
+
 			// Remove any leading path separators or wildcards
 			filename = strings.TrimPrefix(filename, "*")
 			filename = strings.TrimPrefix(filename, "./")
-			
+
 			// Check if this line is for our asset
 			if strings.Contains(filename, assetName) {
 				return checksum, nil
@@ -352,6 +352,6 @@ func (u *Updater) GetCurrentExecutablePath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to get executable path: %w", err)
 	}
-	
+
 	return filepath.EvalSymlinks(executable)
 }

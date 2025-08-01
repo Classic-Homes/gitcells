@@ -55,11 +55,11 @@ type FeaturesConfig struct {
 }
 
 type UpdatesConfig struct {
-	AutoCheckUpdates     bool          `yaml:"auto_check_updates"`
-	CheckInterval        time.Duration `yaml:"check_interval"`
-	IncludePrereleases   bool          `yaml:"include_prereleases"`
-	AutoDownloadUpdates  bool          `yaml:"auto_download_updates"`
-	NotifyOnUpdate       bool          `yaml:"notify_on_update"`
+	AutoCheckUpdates    bool          `yaml:"auto_check_updates"`
+	CheckInterval       time.Duration `yaml:"check_interval"`
+	IncludePrereleases  bool          `yaml:"include_prereleases"`
+	AutoDownloadUpdates bool          `yaml:"auto_download_updates"`
+	NotifyOnUpdate      bool          `yaml:"notify_on_update"`
 }
 
 func Load(configPath string) (*Config, error) {
@@ -153,7 +153,7 @@ func Load(configPath string) (*Config, error) {
 // Save saves the configuration to a file
 func (c *Config) Save(configPath string) error {
 	v := viper.New()
-	
+
 	// Set all values in viper
 	v.Set("version", c.Version)
 	v.Set("git.remote", c.Git.Remote)
@@ -182,11 +182,11 @@ func (c *Config) Save(configPath string) error {
 	v.Set("updates.include_prereleases", c.Updates.IncludePrereleases)
 	v.Set("updates.auto_download_updates", c.Updates.AutoDownloadUpdates)
 	v.Set("updates.notify_on_update", c.Updates.NotifyOnUpdate)
-	
+
 	if configPath == "" {
 		configPath = ".gitcells.yaml"
 	}
-	
+
 	v.SetConfigFile(configPath)
 	return v.WriteConfig()
 }

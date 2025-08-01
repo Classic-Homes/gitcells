@@ -100,9 +100,6 @@ func (c *Client) AutoCommit(files []string, message string) error {
 	return nil
 }
 
-
-
-
 // IsClean returns true if the working directory is clean
 func (c *Client) IsClean() (bool, error) {
 	if c == nil {
@@ -114,9 +111,6 @@ func (c *Client) IsClean() (bool, error) {
 	}
 	return status.IsClean(), nil
 }
-
-
-
 
 // InGitRepository returns true if the current directory is in a git repository
 func (c *Client) InGitRepository() bool {

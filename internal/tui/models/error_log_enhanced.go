@@ -9,14 +9,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Classic-Homes/gitcells/internal/tui/messages"
+	"github.com/Classic-Homes/gitcells/internal/tui/styles"
+	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/Classic-Homes/gitcells/internal/tui/messages"
-	"github.com/Classic-Homes/gitcells/internal/tui/styles"
-	"github.com/Classic-Homes/gitcells/internal/utils"
 )
 
 type SearchMode int
@@ -45,7 +45,7 @@ type ErrorLogEnhancedModel struct {
 
 func NewErrorLogEnhancedModel() ErrorLogEnhancedModel {
 	vp := viewport.New(80, 20)
-	
+
 	searchInput := textinput.New()
 	searchInput.Placeholder = "Search logs..."
 	searchInput.CharLimit = 100
@@ -192,10 +192,10 @@ func (m ErrorLogEnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case msg.String() == "e":
 			// Export logs
 			return m, m.exportLogs()
-		
+
 		case key.Matches(msg, m.keyMap.Quit):
 			return m, tea.Quit
-		
+
 		case msg.String() == "esc":
 			return m, messages.RequestMainMenu()
 		}
@@ -236,7 +236,7 @@ func (m ErrorLogEnhancedModel) View() string {
 func (m ErrorLogEnhancedModel) renderHeader() string {
 	// Title bar
 	title := styles.TitleStyle.Render("📋 Error Logs")
-	
+
 	// Stats
 	stats := []string{}
 	if m.filterLevel != "all" {
@@ -246,18 +246,18 @@ func (m ErrorLogEnhancedModel) renderHeader() string {
 		stats = append(stats, styles.InfoStyle.Render(fmt.Sprintf("Search: \"%s\"", m.searchPattern)))
 	}
 	stats = append(stats, styles.MutedStyle.Render(fmt.Sprintf("%d entries", len(m.filteredEntries))))
-	
+
 	statsText := strings.Join(stats, " • ")
-	
+
 	// Last update time
 	lastUpdate := styles.MutedStyle.Render(fmt.Sprintf("Updated: %s", m.lastRefresh.Format("15:04:05")))
-	
+
 	// Calculate spacing
 	titleWidth := lipgloss.Width(title)
 	statsWidth := lipgloss.Width(statsText)
 	updateWidth := lipgloss.Width(lastUpdate)
 	spacing := max(0, m.width-titleWidth-statsWidth-updateWidth-6)
-	
+
 	headerLine := lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		title,
@@ -275,7 +275,7 @@ func (m ErrorLogEnhancedModel) renderHeader() string {
 
 func (m ErrorLogEnhancedModel) renderFooter() string {
 	separator := styles.LogSeparatorStyle.Render(strings.Repeat("─", m.width))
-	
+
 	var help []string
 	if m.showDetails {
 		help = []string{
@@ -301,37 +301,37 @@ func (m ErrorLogEnhancedModel) renderFooter() string {
 	}
 
 	helpText := styles.MutedStyle.Render(strings.Join(help, " • "))
-	
+
 	// Position indicator
 	position := ""
 	if len(m.filteredEntries) > 0 {
 		position = styles.MutedStyle.Render(fmt.Sprintf("%d/%d", m.selectedIndex+1, len(m.filteredEntries)))
 	}
-	
+
 	posWidth := lipgloss.Width(position)
 	helpWidth := lipgloss.Width(helpText)
 	spacing := max(0, m.width-helpWidth-posWidth-2)
-	
+
 	footer := lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		helpText,
 		strings.Repeat(" ", spacing),
 		position,
 	)
-	
+
 	return "\n" + separator + "\n" + footer
 }
 
 func (m ErrorLogEnhancedModel) renderSearchView() string {
 	title := styles.TitleStyle.Render("🔍 Search Logs")
 	prompt := styles.SubtitleStyle.Render("Enter search term (ESC to cancel, Enter to search):")
-	
+
 	searchBox := styles.FocusedBoxStyle.
 		Width(m.width - 4).
 		Render(m.searchInput.View())
-	
+
 	help := styles.MutedStyle.Render("Search supports regex patterns • Case insensitive by default")
-	
+
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
 		title,
@@ -341,14 +341,14 @@ func (m ErrorLogEnhancedModel) renderSearchView() string {
 		"",
 		help,
 	)
-	
+
 	return styles.Center(m.width, m.height, content)
 }
 
 func (m ErrorLogEnhancedModel) renderEmptyState() string {
 	icon := "📭"
 	message := "No log entries found"
-	
+
 	if m.filterLevel != "all" {
 		message = fmt.Sprintf("No %s entries found", m.filterLevel)
 	}
@@ -376,18 +376,18 @@ func (m *ErrorLogEnhancedModel) updateViewport() {
 	}
 
 	var content strings.Builder
-	
+
 	for i, entry := range m.filteredEntries {
 		isSelected := i == m.selectedIndex
-		
+
 		if i > 0 {
 			content.WriteString("\n")
 		}
-		
+
 		// Render the log entry
 		entryContent := m.renderLogEntry(entry, isSelected)
 		content.WriteString(entryContent)
-		
+
 		// Show details if selected and details are enabled
 		if isSelected && m.showDetails {
 			details := m.renderLogDetails(entry)
@@ -399,7 +399,7 @@ func (m *ErrorLogEnhancedModel) updateViewport() {
 	}
 
 	m.viewport.SetContent(content.String())
-	
+
 	// Scroll to keep selected item in view
 	m.scrollToSelected()
 }
@@ -415,11 +415,11 @@ func (m *ErrorLogEnhancedModel) scrollToSelected() {
 				linesAbove += 5 // Approximate
 			}
 		}
-		
+
 		// Ensure selected item is visible
 		viewportTop := m.viewport.YOffset
 		viewportBottom := viewportTop + m.viewport.Height
-		
+
 		if linesAbove < viewportTop {
 			m.viewport.GotoTop()
 			for i := 0; i < linesAbove; i++ {
@@ -437,25 +437,25 @@ func (m *ErrorLogEnhancedModel) scrollToSelected() {
 func (m ErrorLogEnhancedModel) renderLogEntry(entry LogEntry, isSelected bool) string {
 	// Format timestamp
 	timestamp := styles.LogTimestampStyle.Render(entry.Timestamp.Format("15:04:05"))
-	
+
 	// Format level
 	level := m.renderLogLevel(entry.Level)
-	
+
 	// Format message (truncate if needed)
 	message := entry.Message
 	maxMsgWidth := m.width - 25 // Account for timestamp, level, and padding
 	if lipgloss.Width(message) > maxMsgWidth {
 		message = truncateString(message, maxMsgWidth-3) + "..."
 	}
-	
+
 	// Build the entry line
 	entryLine := fmt.Sprintf("%s %s %s", timestamp, level, message)
-	
+
 	// Apply selection style
 	if isSelected {
 		return styles.LogSelectedEntryStyle.Render(entryLine)
 	}
-	
+
 	return styles.LogEntryStyle.Render(entryLine)
 }
 
@@ -480,36 +480,36 @@ func (m ErrorLogEnhancedModel) renderLogDetails(entry LogEntry) string {
 	}
 
 	var details strings.Builder
-	
+
 	// File location
 	if entry.File != "" {
 		location := fmt.Sprintf("%s:%d", entry.File, entry.Line)
 		details.WriteString(fmt.Sprintf("📍 %s\n", styles.LogFileStyle.Render(location)))
 	}
-	
+
 	// Error details
 	if entry.Error != nil {
 		details.WriteString(fmt.Sprintf("❌ %s\n", styles.ErrorStyle.Render(entry.Error.Error())))
 	}
-	
+
 	// Additional fields
 	if len(entry.Fields) > 0 {
 		details.WriteString("📋 Additional Info:\n")
-		
+
 		// Sort fields for consistent display
 		keys := make([]string, 0, len(entry.Fields))
 		for k := range entry.Fields {
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
-		
+
 		for _, k := range keys {
 			key := styles.LogFieldKeyStyle.Render(k + ":")
 			value := styles.LogFieldValueStyle.Render(fmt.Sprintf("%v", entry.Fields[k]))
 			details.WriteString(fmt.Sprintf("   %s %s\n", key, value))
 		}
 	}
-	
+
 	// Full message if it was truncated
 	if len(entry.Message) > 80 {
 		details.WriteString("\n💬 Full Message:\n")
@@ -518,49 +518,49 @@ func (m ErrorLogEnhancedModel) renderLogDetails(entry LogEntry) string {
 			details.WriteString("   " + line + "\n")
 		}
 	}
-	
+
 	detailsStr := strings.TrimRight(details.String(), "\n")
 	return styles.LogDetailsStyle.Render(detailsStr)
 }
 
 func (m *ErrorLogEnhancedModel) applyFilters() {
 	m.filteredEntries = []LogEntry{}
-	
+
 	for _, entry := range m.entries {
 		// Apply level filter
 		if m.filterLevel != "all" && !strings.EqualFold(entry.Level, m.filterLevel) {
 			continue
 		}
-		
+
 		// Apply search filter
 		if m.searchPattern != "" {
 			matched := false
 			searchLower := strings.ToLower(m.searchPattern)
-			
+
 			// Try regex first
 			if re, err := regexp.Compile("(?i)" + m.searchPattern); err == nil {
-				if re.MatchString(entry.Message) || 
-				   re.MatchString(entry.File) ||
-				   (entry.Error != nil && re.MatchString(entry.Error.Error())) {
+				if re.MatchString(entry.Message) ||
+					re.MatchString(entry.File) ||
+					(entry.Error != nil && re.MatchString(entry.Error.Error())) {
 					matched = true
 				}
 			} else {
 				// Fall back to simple contains
 				if strings.Contains(strings.ToLower(entry.Message), searchLower) ||
-				   strings.Contains(strings.ToLower(entry.File), searchLower) ||
-				   (entry.Error != nil && strings.Contains(strings.ToLower(entry.Error.Error()), searchLower)) {
+					strings.Contains(strings.ToLower(entry.File), searchLower) ||
+					(entry.Error != nil && strings.Contains(strings.ToLower(entry.Error.Error()), searchLower)) {
 					matched = true
 				}
 			}
-			
+
 			if !matched {
 				continue
 			}
 		}
-		
+
 		m.filteredEntries = append(m.filteredEntries, entry)
 	}
-	
+
 	// Reset selection if needed
 	if m.selectedIndex >= len(m.filteredEntries) {
 		m.selectedIndex = max(0, len(m.filteredEntries)-1)
@@ -615,22 +615,22 @@ func (m ErrorLogEnhancedModel) exportLogs() tea.Cmd {
 			fmt.Fprintf(writer, "Timestamp: %s\n", entry.Timestamp.Format(time.RFC3339))
 			fmt.Fprintf(writer, "Level: %s\n", entry.Level)
 			fmt.Fprintf(writer, "Message: %s\n", entry.Message)
-			
+
 			if entry.File != "" {
 				fmt.Fprintf(writer, "Location: %s:%d\n", entry.File, entry.Line)
 			}
-			
+
 			if entry.Error != nil {
 				fmt.Fprintf(writer, "Error: %s\n", entry.Error.Error())
 			}
-			
+
 			if len(entry.Fields) > 0 {
 				fmt.Fprintf(writer, "Fields:\n")
 				for k, v := range entry.Fields {
 					fmt.Fprintf(writer, "  %s: %v\n", k, v)
 				}
 			}
-			
+
 			fmt.Fprintf(writer, "%s\n\n", strings.Repeat("-", 40))
 		}
 
@@ -681,7 +681,7 @@ func (m ErrorLogEnhancedModel) loadLogsFromFile() ([]LogEntry, error) {
 
 	var entries []LogEntry
 	scanner := bufio.NewScanner(file)
-	
+
 	for scanner.Scan() {
 		line := scanner.Text()
 		entry, err := m.parseLogLine(line)
@@ -721,7 +721,7 @@ func (m ErrorLogEnhancedModel) parseLogLine(line string) (LogEntry, error) {
 	}
 
 	level := strings.Trim(parts[1], "[]")
-	
+
 	// Parse component and message
 	messageParts := strings.SplitN(parts[3], " ", 2)
 	component := messageParts[0]
@@ -756,11 +756,11 @@ func truncateString(s string, maxWidth int) string {
 	if lipgloss.Width(s) <= maxWidth {
 		return s
 	}
-	
+
 	// Binary search for the right length
 	left, right := 0, len(s)
 	result := s
-	
+
 	for left < right {
 		mid := (left + right + 1) / 2
 		truncated := s[:mid]
@@ -771,7 +771,7 @@ func truncateString(s string, maxWidth int) string {
 			right = mid - 1
 		}
 	}
-	
+
 	return result
 }
 

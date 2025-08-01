@@ -57,7 +57,6 @@ type configSavedMsg struct {
 	err error
 }
 
-
 var mainSettingsItems = []struct {
 	title string
 	desc  string
@@ -213,7 +212,6 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-
 func (m SettingsModel) ResetToMainView() SettingsModel {
 	m.currentView = viewMain
 	m.cursor = 0
@@ -360,7 +358,6 @@ func (m SettingsModel) View() string {
 	return menuStyle.Render(s)
 }
 
-
 func (m SettingsModel) handleSelectionAndReturn() (tea.Model, tea.Cmd) {
 	var selectedItem struct {
 		title string
@@ -470,7 +467,7 @@ func (m SettingsModel) getToggleValue(key string) bool {
 		return m.config.Features.EnableBetaUpdates
 	case "telemetry":
 		return m.config.Features.EnableTelemetry
-	// Update settings  
+	// Update settings
 	case "auto_check":
 		return m.config.Updates.AutoCheckUpdates
 	case "prereleases":
@@ -524,7 +521,7 @@ func (m SettingsModel) performUninstall() tea.Cmd {
 		// Look for uninstall script in common locations
 		scriptPaths := []string{
 			"../scripts/uninstall.sh",
-			"./scripts/uninstall.sh", 
+			"./scripts/uninstall.sh",
 			"/usr/local/share/gitcells/uninstall.sh",
 		}
 
