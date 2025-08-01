@@ -282,11 +282,12 @@ func (pb *ProgressBar) Update(stage string, current, total int) {
 	// Build progress bar string
 	bar := "["
 	for i := 0; i < pb.width; i++ {
-		if i < filled {
+		switch {
+		case i < filled:
 			bar += "="
-		} else if i == filled && current < total {
+		case i == filled && current < total:
 			bar += ">"
-		} else {
+		default:
 			bar += " "
 		}
 	}

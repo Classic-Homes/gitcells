@@ -306,16 +306,21 @@ func outputDiffText(diff *models.ExcelDiff, summaryOnly, useColor bool) error {
 				}
 
 				// Show value changes
-				if change.Type == models.ChangeTypeModify {
+				switch change.Type {
+				case models.ChangeTypeModify:
 					if change.OldValue != nil || change.NewValue != nil {
 						fmt.Printf(" (%s%v%s → %s%v%s)",
 							red, change.OldValue, reset,
 							green, change.NewValue, reset)
 					}
-				} else if change.Type == models.ChangeTypeAdd && change.NewValue != nil {
-					fmt.Printf(" (%s%v%s)", green, change.NewValue, reset)
-				} else if change.Type == models.ChangeTypeDelete && change.OldValue != nil {
-					fmt.Printf(" (%s%v%s)", red, change.OldValue, reset)
+				case models.ChangeTypeAdd:
+					if change.NewValue != nil {
+						fmt.Printf(" (%s%v%s)", green, change.NewValue, reset)
+					}
+				case models.ChangeTypeDelete:
+					if change.OldValue != nil {
+						fmt.Printf(" (%s%v%s)", red, change.OldValue, reset)
+					}
 				}
 
 				fmt.Println()

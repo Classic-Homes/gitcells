@@ -180,7 +180,7 @@ func InspectDirectory(path string) (*DirectoryInfo, error) {
 
 	// Check if writable
 	testFile := filepath.Join(path, ".gitcells_test")
-	if err := os.WriteFile(testFile, []byte("test"), 0644); err == nil {
+	if err := os.WriteFile(testFile, []byte("test"), 0600); err == nil {
 		info.IsWritable = true
 		os.Remove(testFile)
 	}
@@ -199,7 +199,7 @@ func InspectDirectory(path string) (*DirectoryInfo, error) {
 
 	// Count Excel files
 	excelExts := []string{".xlsx", ".xls", ".xlsm", ".xlsb"}
-	_ = filepath.Walk(path, func(p string, fileInfo os.FileInfo, err error) error {
+	walkErr := filepath.Walk(path, func(p string, fileInfo os.FileInfo, err error) error {
 		if err != nil {
 			return nil // Continue walking
 		}
@@ -222,6 +222,8 @@ func InspectDirectory(path string) (*DirectoryInfo, error) {
 
 		return nil
 	})
+	// Ignore walk errors as they're not critical for directory info
+	_ = walkErr
 
 	return info, nil
 }

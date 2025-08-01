@@ -93,7 +93,8 @@ func ComputeDiff(oldDoc, newDoc *ExcelDocument) *ExcelDiff {
 			Changes:   []CellChange{},
 		}
 
-		if !hasOld && hasNew {
+		switch {
+		case !hasOld && hasNew:
 			// Sheet added
 			sheetDiff.Action = ChangeTypeAdd
 			diff.Summary.AddedSheets++
@@ -108,7 +109,7 @@ func ComputeDiff(oldDoc, newDoc *ExcelDocument) *ExcelDiff {
 					Description: "New cell in added sheet",
 				})
 			}
-		} else if hasOld && !hasNew {
+		case hasOld && !hasNew:
 			// Sheet deleted
 			sheetDiff.Action = ChangeTypeDelete
 			diff.Summary.DeletedSheets++
@@ -123,7 +124,7 @@ func ComputeDiff(oldDoc, newDoc *ExcelDocument) *ExcelDiff {
 					Description: "Cell removed with deleted sheet",
 				})
 			}
-		} else if hasOld && hasNew {
+		case hasOld && hasNew:
 			// Sheet exists in both, compare cells
 			cellChanges := compareCells(oldSheet.Cells, newSheet.Cells)
 			if len(cellChanges) > 0 {
@@ -164,7 +165,8 @@ func compareCells(oldCells, newCells map[string]Cell) []CellChange {
 		oldCell, hasOld := oldCells[cellRef]
 		newCell, hasNew := newCells[cellRef]
 
-		if !hasOld && hasNew {
+		switch {
+		case !hasOld && hasNew:
 			// Cell added
 			changes = append(changes, CellChange{
 				Cell:        cellRef,
@@ -173,7 +175,7 @@ func compareCells(oldCells, newCells map[string]Cell) []CellChange {
 				NewFormula:  newCell.Formula,
 				Description: describeCellChange(nil, &newCell),
 			})
-		} else if hasOld && !hasNew {
+		case hasOld && !hasNew:
 			// Cell deleted
 			changes = append(changes, CellChange{
 				Cell:        cellRef,
@@ -182,7 +184,7 @@ func compareCells(oldCells, newCells map[string]Cell) []CellChange {
 				OldFormula:  oldCell.Formula,
 				Description: describeCellChange(&oldCell, nil),
 			})
-		} else if hasOld && hasNew {
+		case hasOld && hasNew:
 			// Cell exists in both, check for changes
 			if cellsAreDifferent(&oldCell, &newCell) {
 				changes = append(changes, CellChange{
@@ -265,11 +267,12 @@ func describeCellChange(old, newCell *Cell) string {
 
 		// Check formula changes
 		if old.Formula != newCell.Formula {
-			if old.Formula == "" {
+			switch {
+			case old.Formula == "":
 				changes = append(changes, fmt.Sprintf("added formula: %s", newCell.Formula))
-			} else if newCell.Formula == "" {
+			case newCell.Formula == "":
 				changes = append(changes, fmt.Sprintf("removed formula: %s", old.Formula))
-			} else {
+			default:
 				changes = append(changes, fmt.Sprintf("formula: %s → %s", old.Formula, newCell.Formula))
 			}
 		}
@@ -287,11 +290,12 @@ func describeCellChange(old, newCell *Cell) string {
 
 		// Check hyperlink changes
 		if old.Hyperlink != newCell.Hyperlink {
-			if old.Hyperlink == "" {
+			switch {
+			case old.Hyperlink == "":
 				changes = append(changes, "added hyperlink")
-			} else if newCell.Hyperlink == "" {
+			case newCell.Hyperlink == "":
 				changes = append(changes, "removed hyperlink")
-			} else {
+			default:
 				changes = append(changes, "modified hyperlink")
 			}
 		}

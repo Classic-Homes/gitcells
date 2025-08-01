@@ -90,5 +90,5 @@ Thumbs.db
 # GitCells
 .gitcells.cache/
 `
-	return os.WriteFile(gitignorePath, []byte(gitignoreContent), 0644)
+	return os.WriteFile(gitignorePath, []byte(gitignoreContent), 0600)
 }

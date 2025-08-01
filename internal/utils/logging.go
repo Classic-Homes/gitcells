@@ -212,7 +212,7 @@ func (f *GitCellsFormatter) getLevelColor(level logrus.Level) string {
 
 // writeFields writes structured fields to the log output
 func (f *GitCellsFormatter) writeFields(b *strings.Builder, fields logrus.Fields) {
-	var keys []string
+	keys := make([]string, 0, len(fields))
 	for key := range fields {
 		keys = append(keys, key)
 	}

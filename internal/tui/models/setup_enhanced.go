@@ -175,7 +175,7 @@ func (m SetupEnhancedModel) View() string {
 func (m SetupEnhancedModel) renderStepIndicator() string {
 	steps := []string{"Directory", "Patterns", "Git Settings", "Review"}
 
-	var indicators []string
+	indicators := make([]string, 0, len(steps))
 	for i, step := range steps {
 		style := lipgloss.NewStyle().Foreground(styles.Muted)
 		if i == m.step {

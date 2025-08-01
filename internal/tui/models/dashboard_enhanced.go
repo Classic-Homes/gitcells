@@ -247,7 +247,7 @@ func (m DashboardEnhancedModel) renderHeader() string {
 func (m DashboardEnhancedModel) renderTabs() string {
 	tabs := []string{"Overview", "Operations", "Commits"}
 
-	var renderedTabs []string
+	renderedTabs := make([]string, 0, len(tabs))
 	for i, tab := range tabs {
 		style := lipgloss.NewStyle().
 			Padding(0, 2).

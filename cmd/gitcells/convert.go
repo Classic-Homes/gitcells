@@ -31,14 +31,15 @@ func newConvertCommand(logger *logrus.Logger) *cobra.Command {
 
 			if outputFile == "" {
 				// Auto-generate output filename
-				if isExcelToJSON {
+				switch {
+				case isExcelToJSON:
 					outputFile = inputFile + extJSON
-				} else if ext == extJSON {
+				case ext == extJSON:
 					outputFile = strings.TrimSuffix(inputFile, extJSON)
 					if !strings.HasSuffix(outputFile, extXLSX) {
 						outputFile += extXLSX
 					}
-				} else {
+				default:
 					return fmt.Errorf("unsupported file type: %s", ext)
 				}
 			}

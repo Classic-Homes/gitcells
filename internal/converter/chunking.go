@@ -74,7 +74,7 @@ func (s *SheetBasedChunking) WriteChunks(doc *models.ExcelDocument, basePath str
 		return nil, fmt.Errorf("failed to create chunk directory: %w", err)
 	}
 
-	var chunkFiles []string
+	chunkFiles := make([]string, 0, len(doc.Sheets)+1)
 
 	// Write main metadata file
 	mainFile := filepath.Join(chunkDir, "workbook.json")
@@ -257,7 +257,7 @@ func (s *SheetBasedChunking) GetChunkPaths(basePath string) ([]string, error) {
 	}
 
 	// Build full paths
-	var paths []string
+	paths := make([]string, 0, len(metadata.ChunkFiles))
 	for _, chunkFile := range metadata.ChunkFiles {
 		paths = append(paths, filepath.Join(chunkDir, chunkFile))
 	}
@@ -288,7 +288,7 @@ func (s *SheetBasedChunking) writeJSONFile(path string, data interface{}, compac
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
 
-	return os.WriteFile(path, jsonData, 0644)
+	return os.WriteFile(path, jsonData, 0600)
 }
 
 func (s *SheetBasedChunking) sanitizeFilename(name string) string {
@@ -309,7 +309,7 @@ func (s *SheetBasedChunking) sanitizeFilename(name string) string {
 }
 
 func (s *SheetBasedChunking) getRelativeChunkFiles(baseDir string, fullPaths []string) []string {
-	var relativePaths []string
+	relativePaths := make([]string, 0, len(fullPaths))
 	for _, fullPath := range fullPaths {
 		relPath, _ := filepath.Rel(baseDir, fullPath)
 		relativePaths = append(relativePaths, relPath)

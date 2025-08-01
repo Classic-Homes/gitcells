@@ -88,14 +88,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				})
 				return m, changeMode(selectedMode)
 			}
-		} else {
+		} else if msg.String() == "ctrl+l" {
 			// For non-menu modes, let the individual models handle keys first
 			// Only handle global shortcuts that don't conflict with model navigation
-			switch msg.String() {
-			case "ctrl+l":
-				if m.mode != ModeErrorLog {
-					return m, changeMode(ModeErrorLog)
-				}
+			if m.mode != ModeErrorLog {
+				return m, changeMode(ModeErrorLog)
 			}
 		}
 
@@ -104,6 +101,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.mode = msg.mode
 		utils.LogModeChange(fmt.Sprintf("%d", oldMode), fmt.Sprintf("%d", msg.mode))
 		switch m.mode {
+		case ModeMenu:
+			return m, nil
 		case ModeSetup:
 			if m.setupModel == nil {
 				setupModel := models.NewSetupEnhancedModel()
@@ -143,6 +142,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	var cmd tea.Cmd
 	switch m.mode {
+	case ModeMenu:
+		// Menu mode is handled above
 	case ModeSetup:
 		if m.setupModel != nil {
 			m.setupModel, cmd = m.setupModel.Update(msg)

@@ -79,6 +79,8 @@ func (d DiffViewer) View() string {
 	}
 
 	switch d.viewMode {
+	case DiffViewSummary:
+		return d.renderSummaryView()
 	case DiffViewBySheet:
 		return d.renderSheetView()
 	case DiffViewByCell:
@@ -174,7 +176,7 @@ func (d DiffViewer) renderSheetSummaryList() string {
 		Width(60).
 		MaxHeight(10)
 
-	var lines []string
+	lines := make([]string, 0, len(d.diff.SheetDiffs))
 	for _, sheet := range d.diff.SheetDiffs {
 		icon := d.getChangeIcon(sheet.Action)
 		color := d.getChangeColor(sheet.Action)
@@ -397,8 +399,7 @@ func (d DiffViewer) renderSideBySideView() string {
 
 // Helper methods
 func (d DiffViewer) getChangeIcon(changeType interface{}) string {
-	switch ct := changeType.(type) {
-	case models.ChangeType:
+	if ct, ok := changeType.(models.ChangeType); ok {
 		switch ct {
 		case models.ChangeTypeAdd:
 			return "+"
@@ -412,8 +413,7 @@ func (d DiffViewer) getChangeIcon(changeType interface{}) string {
 }
 
 func (d DiffViewer) getChangeColor(changeType interface{}) lipgloss.Color {
-	switch ct := changeType.(type) {
-	case models.ChangeType:
+	if ct, ok := changeType.(models.ChangeType); ok {
 		switch ct {
 		case models.ChangeTypeAdd:
 			return styles.Success

@@ -27,7 +27,8 @@ func (d *Debouncer) Debounce(key string, fn func()) {
 
 	// Cancel existing timer if it exists
 	if timer, exists := d.timers.Load(key); exists {
-		timer.(*time.Timer).Stop()
+		// Stop returns whether the timer was stopped before it fired
+		_ = timer.(*time.Timer).Stop()
 	}
 
 	// Create new timer

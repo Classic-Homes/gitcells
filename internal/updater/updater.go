@@ -256,11 +256,18 @@ func (u *Updater) extractBinary(reader io.Reader, assetName string) (io.Reader, 
 
 		// Look for the gitcells binary
 		if strings.Contains(header.Name, "gitcells") && !strings.Contains(header.Name, "/") {
+			// Limit file size to prevent decompression bombs (100MB max)
+			const maxSize = 100 * 1024 * 1024
+			limitReader := io.LimitReader(tr, maxSize)
+
 			// Create a buffer to hold the binary
 			var buf strings.Builder
-			_, err := io.Copy(&buf, tr)
+			n, err := io.Copy(&buf, limitReader)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read binary from archive: %w", err)
+			}
+			if n == maxSize {
+				return nil, fmt.Errorf("binary file too large (exceeds %d bytes)", maxSize)
 			}
 			return strings.NewReader(buf.String()), nil
 		}

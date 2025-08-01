@@ -112,7 +112,7 @@ func (t Table) View() string {
 		Foreground(styles.Primary)
 
 	// Build header row
-	var headerCells []string
+	headerCells := make([]string, 0, len(t.headers))
 	for i, header := range t.headers {
 		cell := cellStyle.Width(t.widths[i]).Render(header)
 		headerCells = append(headerCells, cell)
@@ -141,7 +141,7 @@ func (t Table) View() string {
 	}
 
 	// Build data rows
-	var dataRows []string
+	dataRows := make([]string, 0, len(visibleRows))
 	for i, row := range visibleRows {
 		actualIndex := i + t.scrollOffset
 		var cells []string
@@ -233,9 +233,8 @@ func NewTableWithCommands(headers []string) TableWithCommands {
 }
 
 func (t TableWithCommands) Update(msg interface{}) TableWithCommands {
-	switch msg := msg.(type) {
-	case string:
-		switch msg {
+	if msgStr, ok := msg.(string); ok {
+		switch msgStr {
 		case "up", "k":
 			t.MoveUp()
 		case "down", "j":

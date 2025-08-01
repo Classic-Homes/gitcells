@@ -185,11 +185,12 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case updateCheckMsg:
 		m.updating = false
-		if msg.err != nil {
+		switch {
+		case msg.err != nil:
 			m.status = fmt.Sprintf("Error checking for updates: %v", msg.err)
-		} else if msg.hasUpdate {
+		case msg.hasUpdate:
 			m.status = fmt.Sprintf("Update available: %s → %s", constants.Version, msg.release.TagName)
-		} else {
+		default:
 			m.status = "GitCells is up to date"
 		}
 

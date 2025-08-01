@@ -43,9 +43,8 @@ func (c *Checkbox) Update(msg tea.Msg) (Checkbox, tea.Cmd) {
 		return *c, nil
 	}
 
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
 		case " ", "enter":
 			c.Toggle()
 		}
