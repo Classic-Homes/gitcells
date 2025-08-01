@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/Classic-Homes/gitcells/pkg/models"
 )
 
@@ -71,7 +72,7 @@ func (s *SheetBasedChunking) WriteChunks(doc *models.ExcelDocument, basePath str
 	// Create the .gitcells/data directory structure mirroring the source structure
 	chunkDir := filepath.Join(gitRoot, ".gitcells", "data", relPath, excelFile+"_chunks")
 	if err := os.MkdirAll(chunkDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create chunk directory: %w", err)
+		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "WriteChunks", chunkDir, "failed to create chunk directory")
 	}
 
 	chunkFiles := make([]string, 0, len(doc.Sheets)+1)
@@ -99,7 +100,7 @@ func (s *SheetBasedChunking) WriteChunks(doc *models.ExcelDocument, basePath str
 
 	// Write main file
 	if err := s.writeJSONFile(mainFile, mainDoc, options.CompactJSON); err != nil {
-		return nil, fmt.Errorf("failed to write main file: %w", err)
+		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "WriteChunks", mainFile, "failed to write main file")
 	}
 	chunkFiles = append(chunkFiles, mainFile)
 
@@ -115,7 +116,7 @@ func (s *SheetBasedChunking) WriteChunks(doc *models.ExcelDocument, basePath str
 		}
 
 		if err := s.writeJSONFile(sheetFile, sheetDoc, options.CompactJSON); err != nil {
-			return nil, fmt.Errorf("failed to write sheet %s: %w", sheet.Name, err)
+			return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "WriteChunks", sheetFile, fmt.Sprintf("failed to write sheet %s", sheet.Name))
 		}
 		chunkFiles = append(chunkFiles, sheetFile)
 
@@ -134,7 +135,7 @@ func (s *SheetBasedChunking) WriteChunks(doc *models.ExcelDocument, basePath str
 	}
 
 	if err := s.writeJSONFile(metadataFile, metadata, false); err != nil {
-		return nil, fmt.Errorf("failed to write chunk metadata: %w", err)
+		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "WriteChunks", metadataFile, "failed to write chunk metadata")
 	}
 
 	s.logger.Infof("Successfully wrote %d chunk files to %s", len(chunkFiles), chunkDir)
@@ -168,24 +169,24 @@ func (s *SheetBasedChunking) ReadChunks(basePath string) (*models.ExcelDocument,
 	metadataFile := filepath.Join(chunkDir, ".gitcells_chunks.json")
 	metadataData, err := os.ReadFile(metadataFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read chunk metadata: %w", err)
+		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "ReadChunks", metadataFile, "failed to read chunk metadata")
 	}
 
 	var metadata ChunkMetadata
 	if err := json.Unmarshal(metadataData, &metadata); err != nil {
-		return nil, fmt.Errorf("failed to parse chunk metadata: %w", err)
+		return nil, utils.WrapError(err, utils.ErrorTypeConverter, "ReadChunks", "failed to parse chunk metadata")
 	}
 
 	// Read main workbook file
 	mainFile := filepath.Join(chunkDir, metadata.MainFile)
 	mainData, err := os.ReadFile(mainFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read main file: %w", err)
+		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "ReadChunks", mainFile, "failed to read main file")
 	}
 
 	var doc models.ExcelDocument
 	if err := json.Unmarshal(mainData, &doc); err != nil {
-		return nil, fmt.Errorf("failed to parse main file: %w", err)
+		return nil, utils.WrapFileError(err, utils.ErrorTypeConverter, "ReadChunks", mainFile, "failed to parse main file")
 	}
 
 	// Clear sheets array - we'll populate from individual files
@@ -241,19 +242,19 @@ func (s *SheetBasedChunking) GetChunkPaths(basePath string) ([]string, error) {
 
 	// Check if chunk directory exists
 	if _, err := os.Stat(chunkDir); os.IsNotExist(err) {
-		return nil, fmt.Errorf("chunk directory does not exist: %s", chunkDir)
+		return nil, utils.NewError(utils.ErrorTypeFileSystem, "GetChunkPaths", fmt.Sprintf("chunk directory does not exist: %s", chunkDir))
 	}
 
 	// Read chunk metadata
 	metadataFile := filepath.Join(chunkDir, ".gitcells_chunks.json")
 	metadataData, err := os.ReadFile(metadataFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read chunk metadata: %w", err)
+		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "GetChunkPaths", metadataFile, "failed to read chunk metadata")
 	}
 
 	var metadata ChunkMetadata
 	if err := json.Unmarshal(metadataData, &metadata); err != nil {
-		return nil, fmt.Errorf("failed to parse chunk metadata: %w", err)
+		return nil, utils.WrapError(err, utils.ErrorTypeConverter, "GetChunkPaths", "failed to parse chunk metadata")
 	}
 
 	// Build full paths
@@ -285,7 +286,7 @@ func (s *SheetBasedChunking) writeJSONFile(path string, data interface{}, compac
 	}
 
 	if err != nil {
-		return fmt.Errorf("failed to marshal JSON: %w", err)
+		return utils.WrapFileError(err, utils.ErrorTypeConverter, "writeJSONFile", path, "failed to marshal JSON")
 	}
 
 	return os.WriteFile(path, jsonData, 0600)
@@ -356,15 +357,15 @@ func NewHybridChunking(logger Logger, maxCellsPerFile int) ChunkingStrategy {
 func (h *HybridChunking) WriteChunks(doc *models.ExcelDocument, basePath string, options ConvertOptions) ([]string, error) {
 	// Future implementation will split large sheets into ranges
 	// For now, delegate to sheet-based chunking
-	return nil, fmt.Errorf("hybrid chunking not yet implemented")
+	return nil, utils.NewError(utils.ErrorTypeConverter, "WriteChunks", "hybrid chunking not yet implemented")
 }
 
 func (h *HybridChunking) ReadChunks(basePath string) (*models.ExcelDocument, error) {
 	// Future implementation
-	return nil, fmt.Errorf("hybrid chunking not yet implemented")
+	return nil, utils.NewError(utils.ErrorTypeConverter, "ReadChunks", "hybrid chunking not yet implemented")
 }
 
 func (h *HybridChunking) GetChunkPaths(basePath string) ([]string, error) {
 	// Future implementation
-	return nil, fmt.Errorf("hybrid chunking not yet implemented")
+	return nil, utils.NewError(utils.ErrorTypeConverter, "GetChunkPaths", "hybrid chunking not yet implemented")
 }

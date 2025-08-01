@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Classic-Homes/gitcells/internal/updater"
+	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -30,7 +31,7 @@ Use --prerelease to include pre-release versions as update targets.`,
 			logger.Info("Checking for updates...")
 			release, hasUpdate, err := u.CheckForUpdate()
 			if err != nil {
-				return fmt.Errorf("failed to check for updates: %w", err)
+				return utils.WrapError(err, utils.ErrorTypeNetwork, "update", "failed to check for updates")
 			}
 
 			if !hasUpdate {
@@ -75,7 +76,7 @@ Use --prerelease to include pre-release versions as update targets.`,
 			fmt.Printf("Updating GitCells from %s to %s...\n", version, release.TagName)
 
 			if err := u.Update(release); err != nil {
-				return fmt.Errorf("failed to update: %w", err)
+				return utils.WrapError(err, utils.ErrorTypeNetwork, "update", "failed to update")
 			}
 
 			fmt.Printf("✅ Successfully updated to version %s\n", release.TagName)

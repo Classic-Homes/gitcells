@@ -11,7 +11,7 @@ import (
 
 func (c *converter) JSONToExcel(doc *models.ExcelDocument, outputPath string, options ConvertOptions) error {
 	if doc == nil {
-		return utils.WrapError(fmt.Errorf("document cannot be nil"), utils.ErrorTypeConverter, "JSONToExcel", "nil document provided")
+		return utils.NewError(utils.ErrorTypeConverter, "JSONToExcel", "document cannot be nil")
 	}
 
 	// Create new Excel file

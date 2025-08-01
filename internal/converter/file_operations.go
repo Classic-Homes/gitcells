@@ -1,8 +1,7 @@
 package converter
 
 import (
-	"fmt"
-
+	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -11,13 +10,13 @@ func (c *converter) ExcelToJSONFile(inputPath, outputPath string, options Conver
 	// First, convert Excel to in-memory document
 	doc, err := c.ExcelToJSON(inputPath, options)
 	if err != nil {
-		return fmt.Errorf("failed to convert Excel to JSON: %w", err)
+		return utils.WrapFileError(err, utils.ErrorTypeConverter, "ExcelToJSONFile", inputPath, "failed to convert Excel to JSON")
 	}
 
 	// Always use chunking strategy for better git performance
 	chunks, err := c.chunkingStrategy.WriteChunks(doc, outputPath, options)
 	if err != nil {
-		return fmt.Errorf("failed to write chunks: %w", err)
+		return utils.WrapFileError(err, utils.ErrorTypeConverter, "ExcelToJSONFile", outputPath, "failed to write chunks")
 	}
 
 	c.logger.Infof("Successfully wrote %d chunk files for %s", len(chunks), inputPath)
@@ -29,13 +28,13 @@ func (c *converter) JSONFileToExcel(inputPath, outputPath string, options Conver
 	// Read chunks
 	doc, err := c.chunkingStrategy.ReadChunks(inputPath)
 	if err != nil {
-		return fmt.Errorf("failed to read chunks: %w", err)
+		return utils.WrapFileError(err, utils.ErrorTypeConverter, "JSONFileToExcel", inputPath, "failed to read chunks")
 	}
 	c.logger.Infof("Successfully read chunked JSON files from %s", inputPath)
 
 	// Convert to Excel
 	if err := c.JSONToExcel(doc, outputPath, options); err != nil {
-		return fmt.Errorf("failed to convert JSON to Excel: %w", err)
+		return utils.WrapFileError(err, utils.ErrorTypeConverter, "JSONFileToExcel", outputPath, "failed to convert JSON to Excel")
 	}
 
 	return nil
@@ -47,7 +46,7 @@ func (c *converter) GetExcelSheetNames(filePath string) ([]string, error) {
 	// we'll implement it here to avoid circular calls
 	f, err := excelize.OpenFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open Excel file: %w", err)
+		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "GetExcelSheetNames", filePath, "failed to open Excel file")
 	}
 	defer func() {
 		if closeErr := f.Close(); closeErr != nil {

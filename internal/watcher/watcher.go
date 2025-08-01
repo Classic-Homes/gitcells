@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
 )
@@ -61,7 +62,7 @@ type Config struct {
 func NewFileWatcher(config *Config, handler EventHandler, logger *logrus.Logger) (*FileWatcher, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return nil, err
+		return nil, utils.WrapError(err, utils.ErrorTypeWatcher, "NewFileWatcher", "failed to create fsnotify watcher")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -89,14 +90,17 @@ func (fw *FileWatcher) Stop() error {
 	fw.cancel()
 	err := fw.watcher.Close()
 	fw.logger.Info("File watcher stopped")
-	return err
+	if err != nil {
+		return utils.WrapError(err, utils.ErrorTypeWatcher, "Stop", "failed to close watcher")
+	}
+	return nil
 }
 
 func (fw *FileWatcher) AddDirectory(path string) error {
 	// Walk directory tree and add all subdirectories
 	err := filepath.Walk(path, func(walkPath string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			return utils.WrapFileError(err, utils.ErrorTypeFileSystem, "AddDirectory", walkPath, "failed to access path during walk")
 		}
 
 		if info.IsDir() {
@@ -115,11 +119,18 @@ func (fw *FileWatcher) AddDirectory(path string) error {
 		return nil
 	})
 
-	return err
+	if err != nil {
+		return utils.WrapFileError(err, utils.ErrorTypeWatcher, "AddDirectory", path, "failed to walk directory tree")
+	}
+	return nil
 }
 
 func (fw *FileWatcher) RemoveDirectory(path string) error {
-	return fw.watcher.Remove(path)
+	err := fw.watcher.Remove(path)
+	if err != nil {
+		return utils.WrapFileError(err, utils.ErrorTypeWatcher, "RemoveDirectory", path, "failed to remove directory from watcher")
+	}
+	return nil
 }
 
 func (fw *FileWatcher) processEvents() {

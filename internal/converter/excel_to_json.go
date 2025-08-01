@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/Classic-Homes/gitcells/pkg/models"
 	"github.com/xuri/excelize/v2"
 )
@@ -16,13 +17,13 @@ func (c *converter) ExcelToJSON(filePath string, options ConvertOptions) (*model
 	// Calculate file checksum
 	checksum, err := c.calculateChecksum(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to calculate checksum: %w", err)
+		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "ExcelToJSON", filePath, "failed to calculate checksum")
 	}
 
 	// Open Excel file
 	f, err := excelize.OpenFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open Excel file: %w", err)
+		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "ExcelToJSON", filePath, "failed to open Excel file")
 	}
 	defer func() {
 		if closeErr := f.Close(); closeErr != nil {
@@ -33,7 +34,7 @@ func (c *converter) ExcelToJSON(filePath string, options ConvertOptions) (*model
 	// Get file info
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get file info: %w", err)
+		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "ExcelToJSON", filePath, "failed to get file info")
 	}
 
 	doc := &models.ExcelDocument{

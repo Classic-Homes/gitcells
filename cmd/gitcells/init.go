@@ -1,12 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/Classic-Homes/gitcells/internal/tui"
+	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/sirupsen/logrus"
@@ -65,7 +65,7 @@ func newInitCommand(logger *logrus.Logger) *cobra.Command {
 
 			// Ensure directory exists
 			if err := os.MkdirAll(dir, dirPermissions); err != nil {
-				return fmt.Errorf("failed to create directory: %w", err)
+				return utils.WrapFileError(err, utils.ErrorTypeFileSystem, "init", dir, "failed to create directory")
 			}
 
 			// Create config file
@@ -74,12 +74,12 @@ func newInitCommand(logger *logrus.Logger) *cobra.Command {
 				// Config already exists
 				overwrite, _ := cmd.Flags().GetBool("force")
 				if !overwrite {
-					return fmt.Errorf("config file already exists. Use --force to overwrite")
+					return utils.NewError(utils.ErrorTypeConfig, "init", "config file already exists. Use --force to overwrite")
 				}
 			}
 
 			if err := os.WriteFile(configPath, []byte(defaultConfig), filePermissions); err != nil {
-				return fmt.Errorf("failed to write config file: %w", err)
+				return utils.WrapFileError(err, utils.ErrorTypeFileSystem, "init", configPath, "failed to write config file")
 			}
 
 			logger.Infof("Created GitCells configuration at %s", configPath)
@@ -110,7 +110,7 @@ Thumbs.db
 			if initGit {
 				absDir, err := filepath.Abs(dir)
 				if err != nil {
-					return fmt.Errorf("failed to get absolute path: %w", err)
+					return utils.WrapFileError(err, utils.ErrorTypeFileSystem, "init", dir, "failed to get absolute path")
 				}
 
 				// Check if directory is already a git repository
@@ -123,13 +123,13 @@ Thumbs.db
 					logger.Info("Initializing git repository...")
 					repo, err := git.PlainInit(absDir, false)
 					if err != nil {
-						return fmt.Errorf("failed to initialize git repository: %w", err)
+						return utils.WrapError(err, utils.ErrorTypeGit, "init", "failed to initialize git repository")
 					}
 
 					// Create initial commit if there are files
 					worktree, err := repo.Worktree()
 					if err != nil {
-						return fmt.Errorf("failed to get worktree: %w", err)
+						return utils.WrapError(err, utils.ErrorTypeGit, "init", "failed to get worktree")
 					}
 
 					// Add .gitcells.yaml to git
@@ -164,7 +164,7 @@ Thumbs.db
 
 					logger.Info("Git repository initialized successfully")
 				default:
-					return fmt.Errorf("failed to check git repository: %w", err)
+					return utils.WrapError(err, utils.ErrorTypeGit, "init", "failed to check git repository")
 				}
 			}
 

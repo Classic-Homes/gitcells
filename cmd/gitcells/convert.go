@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Classic-Homes/gitcells/internal/converter"
+	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -40,7 +41,7 @@ func newConvertCommand(logger *logrus.Logger) *cobra.Command {
 						outputFile += extXLSX
 					}
 				default:
-					return fmt.Errorf("unsupported file type: %s", ext)
+					return utils.NewError(utils.ErrorTypeValidation, "convert", fmt.Sprintf("unsupported file type: %s", ext))
 				}
 			}
 
@@ -72,12 +73,12 @@ func newConvertCommand(logger *logrus.Logger) *cobra.Command {
 			if isExcelToJSON {
 				logger.Infof("Converting Excel to JSON: %s -> %s", inputFile, outputFile)
 				if err := conv.ExcelToJSONFile(inputFile, outputFile, opts); err != nil {
-					return fmt.Errorf("conversion failed: %w", err)
+					return utils.WrapFileError(err, utils.ErrorTypeConverter, "convert", inputFile, "conversion failed")
 				}
 			} else {
 				logger.Infof("Converting JSON to Excel: %s -> %s", inputFile, outputFile)
 				if err := conv.JSONFileToExcel(inputFile, outputFile, opts); err != nil {
-					return fmt.Errorf("conversion failed: %w", err)
+					return utils.WrapFileError(err, utils.ErrorTypeConverter, "convert", inputFile, "conversion failed")
 				}
 			}
 

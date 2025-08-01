@@ -11,6 +11,7 @@ import (
 	"github.com/Classic-Homes/gitcells/internal/config"
 	"github.com/Classic-Homes/gitcells/internal/converter"
 	"github.com/Classic-Homes/gitcells/internal/git"
+	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/Classic-Homes/gitcells/internal/watcher"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -27,7 +28,7 @@ func newWatchCommand(logger *logrus.Logger) *cobra.Command {
 			configPath, _ := cmd.Flags().GetString("config")
 			cfg, err := config.Load(configPath)
 			if err != nil {
-				return fmt.Errorf("failed to load config: %w", err)
+				return utils.WrapFileError(err, utils.ErrorTypeConfig, "watch", configPath, "failed to load config")
 			}
 
 			// Override config with command flags
@@ -48,7 +49,7 @@ func newWatchCommand(logger *logrus.Logger) *cobra.Command {
 
 			gitClient, err := git.NewClient(".", gitConfig, logger)
 			if err != nil {
-				return fmt.Errorf("failed to initialize git client: %w", err)
+				return utils.WrapError(err, utils.ErrorTypeGit, "watch", "failed to initialize git client")
 			}
 
 			// Create event handler
@@ -71,18 +72,18 @@ func newWatchCommand(logger *logrus.Logger) *cobra.Command {
 				}
 				doc, convertErr := conv.ExcelToJSON(event.Path, convertOptions)
 				if convertErr != nil {
-					return fmt.Errorf("failed to convert Excel to JSON: %w", convertErr)
+					return utils.WrapFileError(convertErr, utils.ErrorTypeConverter, "watch", event.Path, "failed to convert Excel to JSON")
 				}
 
 				// Save JSON file
 				jsonPath := event.Path + ".json"
 				jsonData, jsonErr := json.MarshalIndent(doc, "", "  ")
 				if jsonErr != nil {
-					return fmt.Errorf("failed to marshal JSON: %w", jsonErr)
+					return utils.WrapError(jsonErr, utils.ErrorTypeConverter, "watch", "failed to marshal JSON")
 				}
 
 				if writeErr := os.WriteFile(jsonPath, jsonData, filePermissions); writeErr != nil {
-					return fmt.Errorf("failed to write JSON file: %w", writeErr)
+					return utils.WrapFileError(writeErr, utils.ErrorTypeFileSystem, "watch", jsonPath, "failed to write JSON file")
 				}
 
 				// Commit changes if git repository exists
@@ -102,7 +103,7 @@ func newWatchCommand(logger *logrus.Logger) *cobra.Command {
 
 			fw, err := watcher.NewFileWatcher(watcherConfig, handler, logger)
 			if err != nil {
-				return fmt.Errorf("failed to create file watcher: %w", err)
+				return utils.WrapError(err, utils.ErrorTypeWatcher, "watch", "failed to create file watcher")
 			}
 
 			// Add directories to watch
@@ -116,7 +117,7 @@ func newWatchCommand(logger *logrus.Logger) *cobra.Command {
 
 			// Start watching
 			if err := fw.Start(); err != nil {
-				return fmt.Errorf("failed to start file watcher: %w", err)
+				return utils.WrapError(err, utils.ErrorTypeWatcher, "watch", "failed to start file watcher")
 			}
 
 			logger.Info("Watching for changes... Press Ctrl+C to stop")

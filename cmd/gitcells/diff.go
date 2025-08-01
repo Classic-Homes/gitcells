@@ -86,11 +86,11 @@ func runDiff(cmd *cobra.Command, args []string, logger *logrus.Logger) error {
 		}
 
 		if file2 == "" || file1 == file2 {
-			return fmt.Errorf("could not auto-detect comparison file for %s", file1)
+			return utils.NewError(utils.ErrorTypeValidation, "diff", fmt.Sprintf("could not auto-detect comparison file for %s", file1))
 		}
 
 		if _, err := os.Stat(file2); os.IsNotExist(err) {
-			return fmt.Errorf("comparison file does not exist: %s", file2)
+			return utils.NewError(utils.ErrorTypeFileSystem, "diff", fmt.Sprintf("comparison file does not exist: %s", file2))
 		}
 	}
 
@@ -146,7 +146,7 @@ func loadDocument(filePath string, jsonMode, ignoreFormatting bool, logger *logr
 
 		var doc models.ExcelDocument
 		if err := json.Unmarshal(data, &doc); err != nil {
-			return nil, fmt.Errorf("invalid JSON format: %w", err)
+			return nil, utils.WrapFileError(err, utils.ErrorTypeConverter, "loadDocument", filePath, "invalid JSON format")
 		}
 
 		return &doc, nil

@@ -226,7 +226,7 @@ func findGitRoot(startPath string) (string, error) {
 
 		parent := filepath.Dir(path)
 		if parent == path {
-			return "", fmt.Errorf("not a git repository")
+			return "", utils.NewError(utils.ErrorTypeGit, "findGitRoot", "not a git repository")
 		}
 		path = parent
 	}
