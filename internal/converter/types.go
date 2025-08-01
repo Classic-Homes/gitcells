@@ -312,7 +312,7 @@ func DefaultProgressCallback() func(string, int, int) {
 // extractCharts extracts chart information from Excel sheet
 func (c *converter) extractCharts(f interface{}, sheetName string) ([]models.Chart, error) {
 	charts := []models.Chart{}
-	
+
 	// Since excelize doesn't support reading existing charts, we need to access
 	// the underlying Excel file structure manually via ZIP file inspection
 	excelFile, ok := f.(*excelize.File)
@@ -324,7 +324,7 @@ func (c *converter) extractCharts(f interface{}, sheetName string) ([]models.Cha
 	// Get the file path from the excelize File object's internal state
 	// Unfortunately, excelize doesn't expose the original file path directly,
 	// so we'll need to work with what's available in the excelize File object
-	
+
 	// For now, we can extract chart information from the internal XML data
 	// that excelize has already parsed, though this is limited
 	charts, err := c.extractChartsFromExcelFile(excelFile, sheetName)
@@ -341,12 +341,12 @@ func (c *converter) extractCharts(f interface{}, sheetName string) ([]models.Cha
 // extractChartsFromExcelFile extracts chart information from excelize File object
 func (c *converter) extractChartsFromExcelFile(f *excelize.File, sheetName string) ([]models.Chart, error) {
 	charts := []models.Chart{}
-	
+
 	// First attempt: try to extract charts using heuristic detection
 	// This checks for patterns that might indicate chart source data
-	
+
 	c.logger.Debugf("Attempting chart extraction for sheet: %s", sheetName)
-	
+
 	// Try to get sheet information that might indicate charts
 	sheetMap := f.GetSheetMap()
 	sheetIndex := -1
@@ -356,18 +356,18 @@ func (c *converter) extractChartsFromExcelFile(f *excelize.File, sheetName strin
 			break
 		}
 	}
-	
+
 	if sheetIndex == -1 {
 		c.logger.Debugf("Sheet %s not found in workbook", sheetName)
 		return charts, nil
 	}
-	
+
 	// Check if there are any pictures or drawings (charts might be stored as drawings)
 	pics, _ := f.GetPictures(sheetName, "A1") // This will return empty for non-picture cells
-	
+
 	// Detect potential chart data patterns
 	chartData := c.analyzeChartDataPatterns(f, sheetName)
-	
+
 	if len(pics) > 0 || len(chartData) > 0 {
 		for i, data := range chartData {
 			chart := models.Chart{
@@ -384,7 +384,7 @@ func (c *converter) extractChartsFromExcelFile(f *excelize.File, sheetName strin
 			}
 			charts = append(charts, chart)
 		}
-		
+
 		if len(chartData) == 0 && len(pics) > 0 {
 			// Fallback: create a generic chart if we detect pictures but no data patterns
 			chart := models.Chart{
@@ -401,44 +401,11 @@ func (c *converter) extractChartsFromExcelFile(f *excelize.File, sheetName strin
 			}
 			charts = append(charts, chart)
 		}
-		
+
 		c.logger.Debugf("Detected %d potential charts in sheet %s", len(charts), sheetName)
 	}
-	
-	return charts, nil
-}
 
-// hasComplexDataPatterns checks if the sheet has data patterns that might indicate charts
-func (c *converter) hasComplexDataPatterns(f *excelize.File, sheetName string) bool {
-	// Simple heuristic: if we have numerical data in multiple columns/rows,
-	// there might be charts based on that data
-	
-	rows, err := f.GetRows(sheetName)
-	if err != nil || len(rows) < 2 {
-		return false
-	}
-	
-	// Check for numerical data patterns that might indicate chart data
-	numericCols := 0
-	for colIndex := 0; colIndex < len(rows[0]) && colIndex < 10; colIndex++ {
-		hasNumeric := false
-		for rowIndex := 1; rowIndex < len(rows) && rowIndex < 10; rowIndex++ {
-			if colIndex < len(rows[rowIndex]) {
-				cellName, _ := excelize.CoordinatesToCellName(colIndex+1, rowIndex+1)
-				cellValue, _ := f.GetCellValue(sheetName, cellName)
-				if c.isNumeric(cellValue) {
-					hasNumeric = true
-					break
-				}
-			}
-		}
-		if hasNumeric {
-			numericCols++
-		}
-	}
-	
-	// If we have multiple columns with numeric data, it might be chart source data
-	return numericCols >= 2
+	return charts, nil
 }
 
 // isNumeric checks if a string represents a numeric value
@@ -452,22 +419,22 @@ func (c *converter) isNumeric(s string) bool {
 
 // ChartDataPattern represents a detected data pattern that might be used for charts
 type ChartDataPattern struct {
-	HeaderRange  string   // Range containing headers (e.g., "A1:D1")
-	DataRange    string   // Range containing data (e.g., "A2:D10")
-	Headers      []string // Header values
-	NumericCols  int      // Number of numeric columns
-	DataRows     int      // Number of data rows
+	HeaderRange string   // Range containing headers (e.g., "A1:D1")
+	DataRange   string   // Range containing data (e.g., "A2:D10")
+	Headers     []string // Header values
+	NumericCols int      // Number of numeric columns
+	DataRows    int      // Number of data rows
 }
 
 // analyzeChartDataPatterns analyzes the sheet for data patterns that might indicate charts
 func (c *converter) analyzeChartDataPatterns(f *excelize.File, sheetName string) []ChartDataPattern {
 	patterns := []ChartDataPattern{}
-	
+
 	rows, err := f.GetRows(sheetName)
 	if err != nil || len(rows) < 2 {
 		return patterns
 	}
-	
+
 	// Look for tabular data patterns (headers + data)
 	maxCols := 0
 	for _, row := range rows {
@@ -475,18 +442,18 @@ func (c *converter) analyzeChartDataPatterns(f *excelize.File, sheetName string)
 			maxCols = len(row)
 		}
 	}
-	
+
 	if maxCols < 2 {
 		return patterns
 	}
-	
+
 	// Check if first row looks like headers
 	headers := rows[0]
 	if len(headers) >= 2 {
 		// Count numeric columns in subsequent rows
 		numericCols := 0
 		dataRows := 0
-		
+
 		for colIndex := 0; colIndex < len(headers) && colIndex < 10; colIndex++ {
 			hasNumeric := false
 			for rowIndex := 1; rowIndex < len(rows) && rowIndex < 20; rowIndex++ {
@@ -505,12 +472,12 @@ func (c *converter) analyzeChartDataPatterns(f *excelize.File, sheetName string)
 				numericCols++
 			}
 		}
-		
+
 		// If we have at least 2 numeric columns and some data rows, it's a potential chart
 		if numericCols >= 2 && dataRows >= 2 {
 			headerEndCol, _ := excelize.CoordinatesToCellName(len(headers), 1)
 			dataEndCol, _ := excelize.CoordinatesToCellName(len(headers), dataRows)
-			
+
 			pattern := ChartDataPattern{
 				HeaderRange: fmt.Sprintf("A1:%s", headerEndCol),
 				DataRange:   fmt.Sprintf("A2:%s", dataEndCol),
@@ -521,40 +488,42 @@ func (c *converter) analyzeChartDataPatterns(f *excelize.File, sheetName string)
 			patterns = append(patterns, pattern)
 		}
 	}
-	
+
 	return patterns
 }
 
 // inferChartType tries to infer the chart type based on data patterns
 func (c *converter) inferChartType(pattern ChartDataPattern) string {
 	// Simple heuristics for chart type inference
-	if pattern.NumericCols == 1 {
+	switch {
+	case pattern.NumericCols == 1:
 		return "pie" // Single data series might be pie chart
-	} else if pattern.NumericCols >= 2 && pattern.DataRows > 10 {
+	case pattern.NumericCols >= 2 && pattern.DataRows > 10:
 		return "line" // Time series data might be line chart
-	} else if pattern.NumericCols >= 2 {
+	case pattern.NumericCols >= 2:
 		return "column" // Multiple series might be column chart
+	default:
+		return "column" // Default to column chart
 	}
-	return "column" // Default to column chart
 }
 
 // createChartSeries creates chart series from detected data patterns
 func (c *converter) createChartSeries(pattern ChartDataPattern) []models.ChartSeries {
 	series := []models.ChartSeries{}
-	
+
 	// Create series based on headers and data ranges
 	for i, header := range pattern.Headers {
 		if i == 0 {
 			continue // First column is usually categories/labels
 		}
-		
+
 		// Create range references for the series
 		startCol, _ := excelize.CoordinatesToCellName(i+1, 2) // Data starts at row 2
 		endCol, _ := excelize.CoordinatesToCellName(i+1, pattern.DataRows+1)
-		
+
 		categoriesStart, _ := excelize.CoordinatesToCellName(1, 2)
 		categoriesEnd, _ := excelize.CoordinatesToCellName(1, pattern.DataRows+1)
-		
+
 		chartSeries := models.ChartSeries{
 			Name:       header,
 			Categories: fmt.Sprintf("%s:%s", categoriesStart, categoriesEnd),
@@ -562,19 +531,123 @@ func (c *converter) createChartSeries(pattern ChartDataPattern) []models.ChartSe
 		}
 		series = append(series, chartSeries)
 	}
-	
+
 	return series
 }
 
 // extractPivotTables extracts pivot table information from Excel sheet
-func (c *converter) extractPivotTables(_ interface{}, _ string) ([]models.PivotTable, error) {
-	// TODO: Implement pivot table extraction using excelize
-	// Note: excelize has limited pivot table support, this would need to be enhanced
+func (c *converter) extractPivotTables(f interface{}, sheetName string) ([]models.PivotTable, error) {
+	excelFile, ok := f.(*excelize.File)
+	if !ok {
+		c.logger.Debug("Pivot table extraction requires excelize.File object")
+		return []models.PivotTable{}, nil
+	}
+
 	pivotTables := []models.PivotTable{}
 
-	// Placeholder implementation - would need actual excelize pivot table API
-	// This is a framework for when pivot table extraction is fully supported
-	c.logger.Debug("Pivot table extraction not yet fully implemented - placeholder only")
+	// Use excelize's GetPivotTables method to extract pivot table information
+	excelPivotTables, err := excelFile.GetPivotTables(sheetName)
+	if err != nil {
+		c.logger.Debugf("Failed to get pivot tables from sheet %s: %v", sheetName, err)
+		return pivotTables, nil
+	}
 
+	c.logger.Debugf("Found %d pivot tables in sheet %s", len(excelPivotTables), sheetName)
+
+	// Convert excelize pivot table format to our internal format
+	for i, excelPivot := range excelPivotTables {
+		pivotTable := models.PivotTable{
+			ID:          fmt.Sprintf("pivot_%s_%d", sheetName, i+1),
+			Name:        excelPivot.Name,
+			SourceRange: excelPivot.DataRange,
+			TargetRange: excelPivot.PivotTableRange,
+		}
+
+		// Convert row fields
+		for _, field := range excelPivot.Rows {
+			pivotField := models.PivotField{
+				Name:     field.Data,
+				Position: len(pivotTable.RowFields),
+				Subtotal: field.DefaultSubtotal,
+			}
+			pivotTable.RowFields = append(pivotTable.RowFields, pivotField)
+		}
+
+		// Convert column fields
+		for _, field := range excelPivot.Columns {
+			pivotField := models.PivotField{
+				Name:     field.Data,
+				Position: len(pivotTable.ColumnFields),
+				Subtotal: field.DefaultSubtotal,
+			}
+			pivotTable.ColumnFields = append(pivotTable.ColumnFields, pivotField)
+		}
+
+		// Convert data fields (value fields)
+		for _, field := range excelPivot.Data {
+			dataField := models.PivotDataField{
+				Name:         field.Data,
+				Function:     c.convertPivotFunction(field.Subtotal),
+				DisplayName:  field.Name,
+				NumberFormat: fmt.Sprintf("%d", field.NumFmt),
+			}
+			pivotTable.DataFields = append(pivotTable.DataFields, dataField)
+		}
+
+		// Convert filter fields (page fields)
+		for _, field := range excelPivot.Filter {
+			pivotField := models.PivotField{
+				Name:     field.Data,
+				Position: len(pivotTable.FilterFields),
+				Subtotal: field.DefaultSubtotal,
+			}
+			pivotTable.FilterFields = append(pivotTable.FilterFields, pivotField)
+		}
+
+		// Set pivot table settings
+		pivotTable.Settings = &models.PivotTableSettings{
+			ShowGrandTotals:   excelPivot.RowGrandTotals || excelPivot.ColGrandTotals,
+			ShowRowHeaders:    excelPivot.ShowRowHeaders,
+			ShowColumnHeaders: excelPivot.ShowColHeaders,
+			CompactForm:       !excelPivot.ClassicLayout,
+			OutlineForm:       excelPivot.ClassicLayout,
+			TabularForm:       false, // Default to false as excelize doesn't directly expose this
+		}
+
+		pivotTables = append(pivotTables, pivotTable)
+	}
+
+	c.logger.Debugf("Successfully extracted %d pivot tables from sheet %s", len(pivotTables), sheetName)
 	return pivotTables, nil
+}
+
+// convertPivotFunction converts excelize pivot function to our standard format
+func (c *converter) convertPivotFunction(subtotal string) string {
+	switch subtotal {
+	case "Sum":
+		return "SUM"
+	case "Count":
+		return "COUNT"
+	case "Average":
+		return "AVERAGE"
+	case "Max":
+		return "MAX"
+	case "Min":
+		return "MIN"
+	case "Product":
+		return "PRODUCT"
+	case "CountNums":
+		return "COUNTA"
+	case "StdDev":
+		return "STDEV"
+	case "StdDevp":
+		return "STDEVP"
+	case "Var":
+		return "VAR"
+	case "Varp":
+		return "VARP"
+	default:
+		c.logger.Debugf("Unknown pivot function: %s, defaulting to SUM", subtotal)
+		return "SUM"
+	}
 }

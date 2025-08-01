@@ -132,6 +132,22 @@ func TestExcelToJSON(t *testing.T) {
 				assert.Len(t, doc.Sheets, 1)
 			},
 		},
+		{
+			name: "with pivot table extraction",
+			file: "../../test/testdata/sample_files/simple.xlsx", // Use simple file, pivot extraction should work even if no pivot tables exist
+			options: ConvertOptions{
+				PreservePivotTables: true,
+				IgnoreEmptyCells:    true,
+			},
+			validate: func(t *testing.T, doc *models.ExcelDocument) {
+				assert.Len(t, doc.Sheets, 1)
+				sheet := doc.Sheets[0]
+				// Even if no pivot tables exist, the field should be initialized
+				assert.NotNil(t, sheet.PivotTables)
+				// For simple.xlsx, we don't expect any pivot tables
+				assert.Empty(t, sheet.PivotTables)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -248,4 +264,65 @@ func TestProcessSheet_ErrorHandling(t *testing.T) {
 	sheet, err := conv.processSheet(f, "NonExistentSheet", 0, ConvertOptions{})
 	assert.Error(t, err)
 	assert.Nil(t, sheet)
+}
+
+func TestExtractPivotTables(t *testing.T) {
+	logger := logrus.New()
+	conv := &converter{logger: logger}
+
+	f, err := excelize.OpenFile("../../test/testdata/sample_files/simple.xlsx")
+	require.NoError(t, err)
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			t.Logf("Warning: failed to close Excel file: %v", closeErr)
+		}
+	}()
+
+	// Test pivot table extraction on existing sheet
+	pivotTables, err := conv.extractPivotTables(f, "Sheet1")
+	assert.NoError(t, err)
+	assert.NotNil(t, pivotTables)
+	// Simple.xlsx likely doesn't have pivot tables, so should be empty
+	assert.Empty(t, pivotTables)
+
+	// Test with non-existent sheet
+	pivotTables, err = conv.extractPivotTables(f, "NonExistentSheet")
+	assert.NoError(t, err) // Should not error, just return empty
+	assert.Empty(t, pivotTables)
+
+	// Test with invalid file type
+	pivotTables, err = conv.extractPivotTables("not a file", "Sheet1")
+	assert.NoError(t, err) // Should not error, just return empty
+	assert.Empty(t, pivotTables)
+}
+
+func TestConvertPivotFunction(t *testing.T) {
+	logger := logrus.New()
+	conv := &converter{logger: logger}
+
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"Sum", "SUM"},
+		{"Count", "COUNT"},
+		{"Average", "AVERAGE"},
+		{"Max", "MAX"},
+		{"Min", "MIN"},
+		{"Product", "PRODUCT"},
+		{"CountNums", "COUNTA"},
+		{"StdDev", "STDEV"},
+		{"StdDevp", "STDEVP"},
+		{"Var", "VAR"},
+		{"Varp", "VARP"},
+		{"Unknown", "SUM"}, // Should default to SUM
+		{"", "SUM"},        // Should default to SUM
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := conv.convertPivotFunction(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
