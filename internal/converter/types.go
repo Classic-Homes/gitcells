@@ -122,38 +122,7 @@ func parseNumber(value string) (float64, error) {
 	return num, nil
 }
 
-// extractFullCellStyle provides comprehensive cell style extraction
-func (c *converter) extractFullCellStyle(f *excelize.File, sheetName, cellRef string) *models.CellStyle {
-	styleID, err := f.GetCellStyle(sheetName, cellRef)
-	if err != nil || styleID == 0 {
-		return nil
-	}
-
-	style := &models.CellStyle{}
-
-	// Extract number format
-	// TODO: excelize doesn't currently provide direct access to number formats
-	// This would need to be implemented when excelize supports it
-
-	// Extract font information
-	// TODO: Implement font extraction when excelize supports it
-	style.Font = &models.Font{
-		Name: "Calibri", // Default - would extract actual font
-		Size: 11,        // Default - would extract actual size
-	}
-
-	// Extract fill information
-	// TODO: Implement fill extraction when excelize supports it
-
-	// Extract border information
-	// TODO: Implement border extraction when excelize supports it
-
-	// Extract alignment information
-	// TODO: Implement alignment extraction when excelize supports it
-
-	c.logger.Debugf("Extracted style for cell %s - placeholder implementation", cellRef)
-	return style
-}
+// extractFullCellStyle is implemented in style_extraction.go
 
 // formatCommitMessage formats a commit message with variable substitution
 func formatCommitMessage(template string, replacements map[string]string) string {

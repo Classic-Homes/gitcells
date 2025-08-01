@@ -28,13 +28,13 @@ None - all critical functionality is implemented.
 - **Impact:** Charts are now preserved and extracted during Excel to JSON conversion
 - **Implementation:** Uses heuristic analysis to detect chart-worthy data patterns and creates chart metadata
 
-#### 4. Pivot Table Extraction from Excel Files [Done]
+#### 4. Pivot Table Extraction from Excel Files [DONE]
 - **Location:** `internal/converter/types.go:327-333`
 - **Status:** Framework exists but returns empty slice
 - **Impact:** Pivot tables are lost during Excel to JSON conversion
 - **Dependencies:** Requires excelize library support
 
-#### 5. Sheet-Specific Conversion Feature
+#### 5. Sheet-Specific Conversion Feature [DONE]
 - **Location:** `docs/user-guide/converting.md:192-194`
 - **Status:** Documented as future feature
 - **Impact:** Users must convert entire workbooks even if only need specific sheets
@@ -42,36 +42,38 @@ None - all critical functionality is implemented.
 
 ### Low Priority
 
-#### Excel Style Extraction (Blocked by excelize library)
-These features are waiting for upstream library support:
+#### Excel Style Extraction [DONE]
+Excel style extraction has been fully implemented using excelize v2.9.1's GetCellStyle() and GetStyle() methods:
+
+1. **Font Information Extraction** [DONE]
+   - **Location:** `internal/converter/style_extraction.go`
+   - **Status:** Extracts font family, size, bold, italic, underline, color
+
+2. **Fill/Background Color Extraction** [DONE]
+   - **Location:** `internal/converter/style_extraction.go`
+   - **Status:** Extracts fill type, pattern, foreground and background colors
+
+3. **Border Extraction** [DONE]
+   - **Location:** `internal/converter/style_extraction.go`
+   - **Status:** Extracts all border sides with styles and colors
+
+4. **Alignment Extraction** [DONE]
+   - **Location:** `internal/converter/style_extraction.go`
+   - **Status:** Extracts horizontal/vertical alignment, text wrapping, rotation
+
+5. **Number Format Extraction** [DONE]
+   - **Location:** `internal/converter/style_extraction.go`
+   - **Status:** Extracts both standard and custom number formats
+
+#### Remaining Excel Feature Limitations
 
 1. **R1C1 Formula Extraction**
    - **Location:** `internal/converter/types.go:97-98`
-   - **Status:** TODO comment, excelize doesn't support R1C1
+   - **Status:** TODO comment, excelize doesn't support R1C1 reference style
 
 2. **Array Formula Range Detection**
    - **Location:** `internal/converter/types.go:104-107`
-   - **Status:** Using cell reference instead of actual range
-
-3. **Number Format Extraction**
-   - **Location:** `internal/converter/types.go:135-136`
-   - **Status:** excelize doesn't provide direct access
-
-4. **Font Information Extraction**
-   - **Location:** `internal/converter/types.go:139`
-   - **Status:** Hardcoded to Calibri, size 11
-
-5. **Fill/Background Color Extraction**
-   - **Location:** `internal/converter/types.go:146`
-   - **Status:** Not implemented
-
-6. **Border Extraction**
-   - **Location:** `internal/converter/types.go:149`
-   - **Status:** Not implemented
-
-7. **Alignment Extraction**
-   - **Location:** `internal/converter/types.go:152`
-   - **Status:** Not implemented
+   - **Status:** Using cell reference instead of actual range, excelize limitation
 
 #### Future Enhancements
 
