@@ -269,25 +269,81 @@ Types: "url", "email", "file", "cell"
 
 ### Chart Object
 
+Chart extraction uses intelligent pattern detection to identify data suitable for charting. GitCells analyzes tabular data patterns and creates chart metadata when multiple numeric columns are detected.
+
 ```json
 {
   "charts": [{
-    "name": "Sales Chart",
+    "id": "chart_Sheet1_1",
     "type": "column",
+    "title": "Chart 1 in Sheet1",
     "position": {
-      "from": { "col": 5, "row": 1 },
-      "to": { "col": 10, "row": 15 }
+      "x": 0,
+      "y": 0,
+      "width": 400,
+      "height": 300
     },
     "series": [{
-      "name": "Q1 Sales",
-      "categories": "Sheet1!$A$2:$A$10",
-      "values": "Sheet1!$B$2:$B$10"
+      "name": "Sales",
+      "categories": "A2:A5",
+      "values": "B2:B5"
+    }, {
+      "name": "Profit",
+      "categories": "A2:A5", 
+      "values": "C2:C5"
     }],
-    "title": "Quarterly Sales",
-    "legend": { "position": "bottom" }
+    "legend": null,
+    "axes": null,
+    "style": null
   }]
 }
 ```
+
+#### Chart Detection
+
+Charts are automatically detected when GitCells finds:
+
+- **Tabular data** with headers in the first row
+- **Multiple numeric columns** (2 or more) 
+- **Data rows** with consistent numeric values
+- **Patterns** that suggest chart-worthy relationships
+
+#### Chart Types
+
+GitCells infers chart types based on data patterns:
+
+- **`"pie"`** - Single numeric column (suitable for pie charts)
+- **`"line"`** - Multiple columns with many rows (time-series data)
+- **`"column"`** - Multiple numeric columns (comparison data)
+- **`"unknown"`** - When patterns are detected but type is unclear
+
+#### Chart Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique chart identifier (e.g., "chart_Sheet1_1") |
+| `type` | string | Inferred chart type: "pie", "line", "column", "unknown" |
+| `title` | string | Generated chart title |
+| `position` | object | Chart positioning with x, y, width, height |
+| `series` | array | Data series extracted from detected patterns |
+| `legend` | object | Legend configuration (currently null) |
+| `axes` | object | Axis configuration (currently null) |
+| `style` | object | Chart styling (currently null) |
+
+#### Series Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Series name (from header row) |
+| `categories` | string | Range reference for category labels |
+| `values` | string | Range reference for data values |
+
+#### Limitations
+
+- **Pattern-based detection**: Charts are inferred from data patterns, not extracted from actual embedded chart objects
+- **No visual properties**: Styling, colors, and formatting are not preserved
+- **Basic positioning**: Chart positions are generated, not extracted from original placement
+- **Heuristic approach**: May miss complex charts or create false positives for tabular data
 
 ### Pivot Table Object
 

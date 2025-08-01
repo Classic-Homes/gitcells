@@ -105,7 +105,7 @@ converter:
   # Maximum cells per sheet (prevents memory issues)
   max_cells_per_sheet: 1000000
   
-  # Preserve charts (default: true)
+  # Detect and extract chart patterns from data (default: true)
   preserve_charts: true
   
   # Preserve pivot tables (default: true)

@@ -89,7 +89,7 @@ Excel/JSON conversion settings.
 | `preserve_formulas` | boolean | `true` | Preserve Excel formulas |
 | `preserve_styles` | boolean | `true` | Preserve cell styles |
 | `preserve_comments` | boolean | `true` | Preserve cell comments |
-| `preserve_charts` | boolean | `true` | Preserve charts |
+| `preserve_charts` | boolean | `true` | Detect and extract chart patterns from tabular data |
 | `preserve_pivot_tables` | boolean | `true` | Preserve pivot tables |
 | `preserve_images` | boolean | `true` | Preserve embedded images |
 | `preserve_macros` | boolean | `false` | Preserve VBA macros |

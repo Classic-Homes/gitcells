@@ -21,7 +21,7 @@ GitCells solves a common problem: Excel files are binary formats that don't work
 <div class="grid cards" markdown>
 
 - **Excel Support**  
-  Works with .xlsx, .xls, .xlsm files while preserving formulas, styles, and charts
+  Works with .xlsx, .xls, .xlsm files while preserving formulas, styles, and detecting chart patterns
 
 - **Automatic Tracking**  
   Watch directories and automatically convert files when they change
@@ -36,7 +36,7 @@ GitCells solves a common problem: Excel files are binary formats that don't work
   Built-in update mechanism keeps GitCells current
 
 - **Full Preservation**  
-  Maintains formulas, styles, comments, charts, and pivot tables
+  Maintains formulas, styles, comments, and detects chart-worthy data patterns
 
 </div>
 

@@ -396,6 +396,47 @@ type Sheet struct {
 }
 ```
 
+#### Chart
+
+Chart objects represent detected chart patterns from tabular data.
+
+```go
+type Chart struct {
+    ID       string        `json:"id"`
+    Type     string        `json:"type"` // "pie", "line", "column", "unknown"
+    Title    string        `json:"title,omitempty"`
+    Position ChartPosition `json:"position"`
+    Series   []ChartSeries `json:"series"`
+    Legend   *ChartLegend  `json:"legend,omitempty"`
+    Axes     *ChartAxes    `json:"axes,omitempty"`
+    Style    *ChartStyle   `json:"style,omitempty"`
+}
+
+type ChartPosition struct {
+    X      float64 `json:"x"`
+    Y      float64 `json:"y"`
+    Width  float64 `json:"width"`
+    Height float64 `json:"height"`
+}
+
+type ChartSeries struct {
+    Name       string `json:"name,omitempty"`
+    Categories string `json:"categories,omitempty"` // Range reference like "A1:A10"
+    Values     string `json:"values,omitempty"`     // Range reference like "B1:B10"
+    Color      string `json:"color,omitempty"`
+}
+```
+
+**Chart Detection**: Charts are detected through intelligent pattern analysis of tabular data. When GitCells finds headers with multiple numeric columns, it creates chart metadata representing the likely chart structure.
+
+**Chart Types**: 
+- `"pie"` - Single numeric column
+- `"line"` - Multiple columns with many rows (time-series)
+- `"column"` - Multiple numeric columns (comparison data)
+- `"unknown"` - Patterns detected but type unclear
+
+**Limitations**: Chart objects represent detected data patterns, not actual embedded chart objects from Excel files.
+
 #### Cell
 
 ```go

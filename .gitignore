@@ -20,7 +20,6 @@ go.work
 
 # Build output
 dist/
-/gitcells
 
 # Excel temporary files
 ~$*.xlsx

@@ -372,6 +372,89 @@ func CreateComplexExcel(path string) error {
 }
 ```
 
+### Testing Chart Detection
+
+Chart detection works through pattern analysis of tabular data, not chart objects.
+
+```go
+func TestChartDetection(t *testing.T) {
+    // Create test data that should trigger chart detection
+    f := excelize.NewFile()
+    
+    // Headers
+    f.SetCellValue("Sheet1", "A1", "Month")
+    f.SetCellValue("Sheet1", "B1", "Sales")
+    f.SetCellValue("Sheet1", "C1", "Profit")
+    
+    // Data rows with numeric values
+    data := [][]interface{}{
+        {"Jan", 1000, 200},
+        {"Feb", 1200, 300},
+        {"Mar", 1500, 400},
+    }
+    
+    for i, row := range data {
+        for j, value := range row {
+            cell, _ := excelize.CoordinatesToCellName(j+1, i+2)
+            f.SetCellValue("Sheet1", cell, value)
+        }
+    }
+    
+    // Test conversion with chart detection enabled
+    conv := converter.NewConverter(logger)
+    options := converter.ConvertOptions{
+        PreserveCharts: true,
+    }
+    
+    doc, err := conv.ExcelToJSON("test.xlsx", options)
+    require.NoError(t, err)
+    
+    // Verify chart was detected
+    require.Len(t, doc.Sheets, 1)
+    sheet := doc.Sheets[0]
+    require.Len(t, sheet.Charts, 1)
+    
+    // Verify chart properties
+    chart := sheet.Charts[0]
+    assert.Equal(t, "column", chart.Type)
+    assert.Contains(t, chart.ID, "chart_Sheet1_")
+    assert.Len(t, chart.Series, 2) // Sales and Profit columns
+    
+    // Verify series data
+    assert.Equal(t, "Sales", chart.Series[0].Name)
+    assert.Equal(t, "Profit", chart.Series[1].Name)
+    assert.Contains(t, chart.Series[0].Values, "B2:")
+    assert.Contains(t, chart.Series[1].Values, "C2:")
+}
+```
+
+#### Chart Detection Criteria
+
+Charts are detected when:
+- First row contains headers (text values)
+- At least 2 numeric columns are present
+- At least 2 data rows exist
+- Numeric values are consistent in columns
+
+#### Testing False Positives
+
+```go
+func TestNoChartDetection(t *testing.T) {
+    f := excelize.NewFile()
+    
+    // Only one numeric column - should not detect chart
+    f.SetCellValue("Sheet1", "A1", "Name")
+    f.SetCellValue("Sheet1", "B1", "Age")
+    f.SetCellValue("Sheet1", "A2", "John")
+    f.SetCellValue("Sheet1", "B2", 25)
+    
+    // Convert and verify no charts detected
+    doc, err := convertWithCharts(f)
+    require.NoError(t, err)
+    assert.Empty(t, doc.Sheets[0].Charts)
+}
+```
+
 ### Using Golden Files
 
 Store expected outputs for comparison.

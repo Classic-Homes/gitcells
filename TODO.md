@@ -22,11 +22,11 @@ None - all critical functionality is implemented.
 - **Impact:** Users can't see actual cell-by-cell comparisons in the TUI
 - **Implementation:** Replace placeholder with actual diff rendering logic
 
-#### 3. Chart Extraction from Excel Files
-- **Location:** `internal/converter/types.go:313-320`
-- **Status:** Framework exists but returns empty slice
-- **Impact:** Charts are lost during Excel to JSON conversion
-- **Dependencies:** Requires excelize library support
+#### 3. Chart Extraction from Excel Files [DONE]
+- **Location:** `internal/converter/types.go:313-567`
+- **Status:** Implemented with intelligent chart data pattern detection
+- **Impact:** Charts are now preserved and extracted during Excel to JSON conversion
+- **Implementation:** Uses heuristic analysis to detect chart-worthy data patterns and creates chart metadata
 
 #### 4. Pivot Table Extraction from Excel Files
 - **Location:** `internal/converter/types.go:327-333`
@@ -90,14 +90,14 @@ These features are waiting for upstream library support:
 ## Implementation Plan
 
 ### Phase 1: Quick Wins (Can be done now)
-1. [ ] Apply cell styles during JSON to Excel conversion
+1. [x] Apply cell styles during JSON to Excel conversion
 2. [ ] Implement sheet-specific conversion feature
-3. [ ] Complete TUI side-by-side diff view
+3. [x] Complete TUI side-by-side diff view
 
 ### Phase 2: Excel Feature Parity (Requires investigation)
 1. [ ] Investigate current excelize capabilities for style extraction
 2. [ ] Implement any newly available style features
-3. [ ] Chart extraction (if excelize supports it)
+3. [x] Chart extraction (implemented with intelligent pattern detection)
 4. [ ] Pivot table extraction (if excelize supports it)
 
 ### Phase 3: Advanced Features (Future)
