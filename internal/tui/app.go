@@ -108,13 +108,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case ModeSetup:
 			if m.setupModel == nil {
-				setupModel := models.NewSetupEnhancedModel()
+				setupModel := models.NewSetupModel()
 				m.setupModel = setupModel
 			}
 			return m, m.setupModel.Init()
 		case ModeDashboard:
 			if m.dashModel == nil {
-				m.dashModel = models.NewDashboardEnhancedModel()
+				m.dashModel = models.NewDashboardModel()
 			}
 			return m, m.dashModel.Init()
 		case ModeTools:
@@ -124,7 +124,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.toolsModel.Init()
 		case ModeErrorLog:
 			if m.errorLogModel == nil {
-				m.errorLogModel = models.NewErrorLogEnhancedModel()
+				m.errorLogModel = models.NewErrorLogModel()
 			}
 			return m, m.errorLogModel.Init()
 		case ModeSettings:

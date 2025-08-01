@@ -16,7 +16,7 @@ func TestStyleExtraction(t *testing.T) {
 	defer f.Close()
 
 	sheetName := "Sheet1"
-	
+
 	// Create a style with font formatting
 	style1, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -29,7 +29,7 @@ func TestStyleExtraction(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	
+
 	// Create a style with fill
 	style2, err := f.NewStyle(&excelize.Style{
 		Fill: excelize.Fill{
@@ -39,7 +39,7 @@ func TestStyleExtraction(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	
+
 	// Create a style with borders
 	style3, err := f.NewStyle(&excelize.Style{
 		Border: []excelize.Border{
@@ -50,7 +50,7 @@ func TestStyleExtraction(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	
+
 	// Create a style with alignment
 	style4, err := f.NewStyle(&excelize.Style{
 		Alignment: &excelize.Alignment{
@@ -61,7 +61,7 @@ func TestStyleExtraction(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	
+
 	// Create a style with number format
 	style5, err := f.NewStyle(&excelize.Style{
 		NumFmt: 4, // #,##0.00
@@ -71,16 +71,16 @@ func TestStyleExtraction(t *testing.T) {
 	// Apply styles to cells
 	f.SetCellValue(sheetName, "A1", "Bold Italic Red Arial")
 	f.SetCellStyle(sheetName, "A1", "A1", style1)
-	
+
 	f.SetCellValue(sheetName, "B1", "Yellow Background")
 	f.SetCellStyle(sheetName, "B1", "B1", style2)
-	
+
 	f.SetCellValue(sheetName, "C1", "Borders")
 	f.SetCellStyle(sheetName, "C1", "C1", style3)
-	
+
 	f.SetCellValue(sheetName, "D1", "Centered & Rotated")
 	f.SetCellStyle(sheetName, "D1", "D1", style4)
-	
+
 	f.SetCellValue(sheetName, "E1", 1234.56)
 	f.SetCellStyle(sheetName, "E1", "E1", style5)
 
@@ -93,7 +93,7 @@ func TestStyleExtraction(t *testing.T) {
 	// Now test extraction
 	logger := logrus.New()
 	conv := NewConverter(logger)
-	
+
 	// Open the file for reading
 	readFile, err := excelize.OpenFile(testFile)
 	require.NoError(t, err)

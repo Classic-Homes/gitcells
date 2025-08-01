@@ -55,7 +55,7 @@ func newConvertCommand(logger *logrus.Logger) *cobra.Command {
 				CompactJSON:      getBoolFlag(cmd, "compact"),
 				ChunkingStrategy: "sheet-based",
 			}
-			
+
 			// Add sheet selection options for Excel to JSON conversion
 			if isExcelToJSON {
 				if sheetsToConvert, _ := cmd.Flags().GetStringSlice("sheets"); len(sheetsToConvert) > 0 {
@@ -91,7 +91,7 @@ func newConvertCommand(logger *logrus.Logger) *cobra.Command {
 	cmd.Flags().Bool("preserve-styles", true, "preserve cell styles")
 	cmd.Flags().Bool("preserve-comments", true, "preserve cell comments")
 	cmd.Flags().Bool("compact", false, "output compact JSON")
-	
+
 	// Sheet selection flags (only applicable for Excel to JSON conversion)
 	cmd.Flags().StringSlice("sheets", []string{}, "comma-separated list of sheet names to convert (default: all sheets)")
 	cmd.Flags().StringSlice("exclude-sheets", []string{}, "comma-separated list of sheet names to exclude from conversion")

@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Classic-Homes/gitcells/internal/tui/adapter"
 	"github.com/Classic-Homes/gitcells/internal/tui/components"
 	"github.com/Classic-Homes/gitcells/internal/tui/messages"
 	"github.com/Classic-Homes/gitcells/internal/tui/styles"
-	"github.com/Classic-Homes/gitcells/internal/tui/adapter"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -34,24 +34,24 @@ const (
 )
 
 type ManualConversionModel struct {
-	state             ConversionState
-	width             int
-	height            int
-	cursor            int
-	files             []string
-	selectedFile      string
-	conversionMode    ConversionMode
-	modeCursor        int
-	availableSheets   []adapter.SheetInfo
-	selectedSheets    map[string]bool
-	sheetCursor       int
-	options           ConversionOptions
-	optionCursor      int
-	result            *adapter.ConversionResult
-	errorMsg          string
-	showHelp          bool
-	converterAdapter  *adapter.ConverterAdapter
-	progress          *components.SpinnerProgress
+	state            ConversionState
+	width            int
+	height           int
+	cursor           int
+	files            []string
+	selectedFile     string
+	conversionMode   ConversionMode
+	modeCursor       int
+	availableSheets  []adapter.SheetInfo
+	selectedSheets   map[string]bool
+	sheetCursor      int
+	options          ConversionOptions
+	optionCursor     int
+	result           *adapter.ConversionResult
+	errorMsg         string
+	showHelp         bool
+	converterAdapter *adapter.ConverterAdapter
+	progress         *components.SpinnerProgress
 }
 
 type ConversionOptions struct {
@@ -68,13 +68,13 @@ func NewManualConversionModel() ManualConversionModel {
 	return ManualConversionModel{
 		state: ConversionStateFileSelection,
 		options: ConversionOptions{
-			PreserveFormulas: true,
-			PreserveStyles:   true,
-			PreserveComments: true,
-			PreserveCharts:   false,
+			PreserveFormulas:    true,
+			PreserveStyles:      true,
+			PreserveComments:    true,
+			PreserveCharts:      false,
 			PreservePivotTables: false,
-			CompactJSON:      false,
-			IgnoreEmptyCells: true,
+			CompactJSON:         false,
+			IgnoreEmptyCells:    true,
 		},
 		selectedSheets:   make(map[string]bool),
 		showHelp:         true,
@@ -146,7 +146,7 @@ func (m ManualConversionModel) performConversion() tea.Cmd {
 	return func() tea.Msg {
 		var result *adapter.ConversionResult
 		var err error
-		
+
 		if m.conversionMode == ConversionModeAll {
 			// Use standard conversion without sheet selection
 			result, err = m.converterAdapter.ConvertFile(m.selectedFile)
@@ -171,7 +171,7 @@ func (m ManualConversionModel) performConversion() tea.Cmd {
 
 			result, err = m.converterAdapter.ConvertFileWithSheetOptions(m.selectedFile, sheetOptions)
 		}
-		
+
 		if err != nil {
 			return errMsg{fmt.Errorf("conversion failed: %w", err)}
 		}
@@ -631,9 +631,9 @@ func (m ManualConversionModel) renderOptions() string {
 	instructions := styles.MutedStyle.Render("Configure conversion settings:")
 
 	options := []struct {
-		name    string
-		value   bool
-		desc    string
+		name  string
+		value bool
+		desc  string
 	}{
 		{"Preserve Formulas", m.options.PreserveFormulas, "Keep Excel formulas"},
 		{"Preserve Styles", m.options.PreserveStyles, "Keep cell formatting"},

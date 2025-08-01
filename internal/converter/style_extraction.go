@@ -42,7 +42,7 @@ func (c *converter) extractFullCellStyle(f *excelize.File, sheetName, cellRef st
 			Type:    excelStyle.Fill.Type,
 			Pattern: convertExcelizePatternToString(excelStyle.Fill.Pattern),
 		}
-		
+
 		// Handle color array from excelize
 		if len(excelStyle.Fill.Color) > 0 {
 			cellStyle.Fill.Color = excelStyle.Fill.Color[0]
@@ -55,13 +55,13 @@ func (c *converter) extractFullCellStyle(f *excelize.File, sheetName, cellRef st
 	// Extract Border information
 	if len(excelStyle.Border) > 0 {
 		cellStyle.Border = &models.Border{}
-		
+
 		for _, border := range excelStyle.Border {
 			borderLine := &models.BorderLine{
 				Style: convertExcelizeBorderStyleToString(border.Style),
 				Color: border.Color,
 			}
-			
+
 			switch border.Type {
 			case "left":
 				cellStyle.Border.Left = borderLine
@@ -121,7 +121,7 @@ func convertExcelizePatternToString(pattern int) string {
 		19: "darkHorizontal",
 		20: "darkVertical",
 	}
-	
+
 	if val, ok := patterns[pattern]; ok {
 		return val
 	}
@@ -146,7 +146,7 @@ func convertExcelizeBorderStyleToString(style int) string {
 		12: "mediumDashDotDot",
 		13: "slantDashDot",
 	}
-	
+
 	if val, ok := styles[style]; ok {
 		return val
 	}
@@ -194,7 +194,7 @@ func convertExcelizeNumFmtToString(numFmt int) string {
 		48: "##0.0E+0",
 		49: "@",
 	}
-	
+
 	if val, ok := formats[numFmt]; ok {
 		return val
 	}

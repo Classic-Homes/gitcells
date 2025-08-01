@@ -16,13 +16,13 @@ const (
 )
 
 type ToolsModel struct {
-	state             ToolsState
-	width             int
-	height            int
-	cursor            int
-	showHelp          bool
-	diffModel         DiffModel
-	conversionModel   ManualConversionModel
+	state           ToolsState
+	width           int
+	height          int
+	cursor          int
+	showHelp        bool
+	diffModel       DiffModel
+	conversionModel ManualConversionModel
 }
 
 var toolsMenuItems = []struct {
@@ -49,7 +49,7 @@ func (m ToolsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		
+
 		// Pass size to sub-models
 		if m.state == ToolsStateDiff {
 			m.diffModel.Update(msg)
@@ -160,9 +160,9 @@ func (m ToolsModel) View() string {
 
 func (m ToolsModel) renderSelection() string {
 	titleStyle := styles.TitleStyle.MarginBottom(1)
-	
+
 	title := titleStyle.Render("Tools")
-	
+
 	menuStyle := lipgloss.NewStyle().
 		Padding(2, 4)
 

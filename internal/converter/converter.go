@@ -14,28 +14,28 @@ type Converter interface {
 	// File-based operations with automatic chunking
 	ExcelToJSONFile(inputPath, outputPath string, options ConvertOptions) error
 	JSONFileToExcel(inputPath, outputPath string, options ConvertOptions) error
-	
+
 	// Utility operations
 	GetExcelSheetNames(filePath string) ([]string, error)
 }
 
 type ConvertOptions struct {
-	PreserveFormulas    bool
-	PreserveStyles      bool
-	PreserveComments    bool
-	PreserveCharts      bool // New: Extract chart information
-	PreservePivotTables bool // New: Extract pivot table structure
-	PreserveDataValidation bool // Extract data validation rules
+	PreserveFormulas           bool
+	PreserveStyles             bool
+	PreserveComments           bool
+	PreserveCharts             bool // New: Extract chart information
+	PreservePivotTables        bool // New: Extract pivot table structure
+	PreserveDataValidation     bool // Extract data validation rules
 	PreserveConditionalFormats bool // Extract conditional formatting
-	PreserveRichText    bool // Extract rich text formatting
-	PreserveTables      bool // Extract Excel tables
-	CompactJSON         bool
-	IgnoreEmptyCells    bool
-	MaxCellsPerSheet    int                                    // Prevent memory issues with huge files
-	ProgressCallback    func(stage string, current, total int) // Progress reporting
-	ShowProgressBar     bool                                   // Enable built-in progress display
-	ChunkingStrategy    string                                 // "sheet-based" or "hybrid" (future), defaults to "sheet-based"
-	
+	PreserveRichText           bool // Extract rich text formatting
+	PreserveTables             bool // Extract Excel tables
+	CompactJSON                bool
+	IgnoreEmptyCells           bool
+	MaxCellsPerSheet           int                                    // Prevent memory issues with huge files
+	ProgressCallback           func(stage string, current, total int) // Progress reporting
+	ShowProgressBar            bool                                   // Enable built-in progress display
+	ChunkingStrategy           string                                 // "sheet-based" or "hybrid" (future), defaults to "sheet-based"
+
 	// Sheet selection options
 	SheetsToConvert []string // Specific sheet names to convert (empty = convert all)
 	ExcludeSheets   []string // Sheet names to exclude from conversion

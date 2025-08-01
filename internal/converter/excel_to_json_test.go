@@ -361,7 +361,7 @@ func TestSheetSelectionConversion(t *testing.T) {
 		// Should have all sheets except Summary
 		assert.Len(t, doc.Sheets, 1)
 		assert.Equal(t, "Sheet1", doc.Sheets[0].Name)
-		
+
 		// Ensure Summary sheet is not included
 		for _, sheet := range doc.Sheets {
 			assert.NotEqual(t, "Summary", sheet.Name)
@@ -395,12 +395,12 @@ func TestSheetSelectionConversion(t *testing.T) {
 
 		// Should have both sheets
 		assert.Len(t, doc.Sheets, 2)
-		
+
 		sheetNames := make(map[string]bool)
 		for _, sheet := range doc.Sheets {
 			sheetNames[sheet.Name] = true
 		}
-		
+
 		assert.True(t, sheetNames["Sheet1"])
 		assert.True(t, sheetNames["Summary"])
 	})
@@ -443,7 +443,7 @@ func TestGetExcelSheetNames(t *testing.T) {
 		sheetNames, err := conv.GetExcelSheetNames("../../test/testdata/sample_files/simple.xlsx")
 		require.NoError(t, err)
 		require.NotNil(t, sheetNames)
-		
+
 		assert.Len(t, sheetNames, 1)
 		assert.Equal(t, "Sheet1", sheetNames[0])
 	})
@@ -452,7 +452,7 @@ func TestGetExcelSheetNames(t *testing.T) {
 		sheetNames, err := conv.GetExcelSheetNames("../../test/testdata/sample_files/complex.xlsx")
 		require.NoError(t, err)
 		require.NotNil(t, sheetNames)
-		
+
 		assert.Len(t, sheetNames, 2)
 		assert.Contains(t, sheetNames, "Sheet1")
 		assert.Contains(t, sheetNames, "Summary")

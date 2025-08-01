@@ -297,13 +297,13 @@ func (c *converter) calculateChecksum(filePath string) (string, error) {
 // filterSheets returns the list of sheets that should be processed based on options
 func (c *converter) filterSheets(allSheets []string, options ConvertOptions) []string {
 	var filtered []string
-	
+
 	for index, sheetName := range allSheets {
 		if c.shouldProcessSheet(sheetName, index, options) {
 			filtered = append(filtered, sheetName)
 		}
 	}
-	
+
 	return filtered
 }
 
@@ -315,7 +315,7 @@ func (c *converter) shouldProcessSheet(sheetName string, index int, options Conv
 			return false
 		}
 	}
-	
+
 	// If SheetsToConvert is specified, only process sheets in this list
 	if len(options.SheetsToConvert) > 0 {
 		for _, includeSheet := range options.SheetsToConvert {
@@ -325,7 +325,7 @@ func (c *converter) shouldProcessSheet(sheetName string, index int, options Conv
 		}
 		return false
 	}
-	
+
 	// If SheetIndices is specified, only process sheets at these indices
 	if len(options.SheetIndices) > 0 {
 		for _, includeIndex := range options.SheetIndices {
@@ -335,8 +335,7 @@ func (c *converter) shouldProcessSheet(sheetName string, index int, options Conv
 		}
 		return false
 	}
-	
+
 	// If no specific filters are set, process all sheets (except those excluded)
 	return true
 }
-

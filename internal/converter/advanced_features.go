@@ -2,7 +2,7 @@ package converter
 
 import (
 	"strings"
-	
+
 	"github.com/Classic-Homes/gitcells/pkg/models"
 	"github.com/xuri/excelize/v2"
 )
@@ -19,7 +19,7 @@ func (c *converter) extractDataValidations(f *excelize.File, sheetName string, s
 		// Sqref contains the cell range as a string like "A1:A10" or "A1"
 		// For simplicity, we'll apply the validation to all cells that match
 		// In a full implementation, we'd parse the range and apply to each cell
-		
+
 		// Create the data validation model
 		dv := &models.DataValidation{
 			Type:             validation.Type,
@@ -30,7 +30,7 @@ func (c *converter) extractDataValidations(f *excelize.File, sheetName string, s
 			ShowInputMessage: validation.ShowInputMessage,
 			ShowErrorMessage: validation.ShowErrorMessage,
 		}
-		
+
 		// Handle optional string pointers
 		if validation.ErrorTitle != nil {
 			dv.ErrorTitle = *validation.ErrorTitle
@@ -44,7 +44,7 @@ func (c *converter) extractDataValidations(f *excelize.File, sheetName string, s
 		if validation.Prompt != nil {
 			dv.Prompt = *validation.Prompt
 		}
-		
+
 		// Apply to cells in the range
 		// This is a simplified implementation - a full implementation would
 		// parse the Sqref range and apply to all cells in that range
@@ -57,14 +57,14 @@ func (c *converter) extractDataValidations(f *excelize.File, sheetName string, s
 			}
 		}
 	}
-	
+
 	return nil
 }
 
 // extractConditionalFormats extracts conditional formatting rules from a sheet
 func (c *converter) extractConditionalFormats(f *excelize.File, sheetName string) ([]models.ConditionalFormat, error) {
 	var formats []models.ConditionalFormat
-	
+
 	// Get conditional formats from excelize
 	conditionalFormats, err := f.GetConditionalFormats(sheetName)
 	if err != nil {
@@ -98,7 +98,7 @@ func (c *converter) extractSheetProtection(f *excelize.File, sheetName string) *
 	// Note: Excelize doesn't provide a method to read protection settings directly
 	// We would need to access the underlying XML structure for full extraction
 	// For now, we can detect if a sheet is protected but not the specific settings
-	
+
 	// This is a placeholder - actual implementation would require XML parsing
 	// or enhancement to the excelize library
 	return nil
@@ -108,7 +108,7 @@ func (c *converter) extractSheetProtection(f *excelize.File, sheetName string) *
 func (c *converter) convertConditionalStyle(style interface{}) *models.CellStyle {
 	// This would convert the excelize style format to our CellStyle model
 	// Implementation depends on the actual structure provided by excelize
-	
+
 	// For now, return a basic style
 	return &models.CellStyle{
 		// Style properties would be extracted here
@@ -127,7 +127,7 @@ func (c *converter) extractRichText(f *excelize.File, sheetName, cellRef string)
 		rtRun := models.RichTextRun{
 			Text: run.Text,
 		}
-		
+
 		if run.Font != nil {
 			rtRun.Font = &models.Font{
 				Name:      run.Font.Family,
@@ -138,10 +138,10 @@ func (c *converter) extractRichText(f *excelize.File, sheetName, cellRef string)
 				Color:     run.Font.Color,
 			}
 		}
-		
+
 		richTextRuns = append(richTextRuns, rtRun)
 	}
-	
+
 	return richTextRuns, nil
 }
 
@@ -158,23 +158,23 @@ func (c *converter) extractTables(f *excelize.File, sheetName string) ([]models.
 		if table.ShowHeaderRow != nil {
 			showHeaders = *table.ShowHeaderRow
 		}
-		
+
 		excelTable := models.Table{
 			Name:            table.Name,
 			Range:           table.Range,
 			ShowHeaders:     showHeaders,
 			ShowTotals:      false, // excelize doesn't provide this
-			StyleName:       "", // excelize doesn't provide this
+			StyleName:       "",    // excelize doesn't provide this
 			ShowFirstColumn: table.ShowFirstColumn,
 			ShowLastColumn:  table.ShowLastColumn,
 		}
-		
+
 		// Note: Column information would need to be extracted from the table structure
 		// This might require additional parsing of the table range
-		
+
 		excelTables = append(excelTables, excelTable)
 	}
-	
+
 	return excelTables, nil
 }
 
@@ -184,4 +184,3 @@ func (c *converter) extractAutoFilter(f *excelize.File, sheetName string) *model
 	// This would require XML parsing or library enhancement
 	return nil
 }
-

@@ -21,19 +21,9 @@ func TestUnifiedNavigation(t *testing.T) {
 			description: "Dashboard should return to main menu on escape",
 		},
 		{
-			name:        "DashboardEnhancedModel",
-			model:       NewDashboardEnhancedModel(),
-			description: "Enhanced Dashboard should return to main menu on escape",
-		},
-		{
 			name:        "SetupModel",
 			model:       NewSetupModel(),
-			description: "Setup Wizard should return to main menu on escape",
-		},
-		{
-			name:        "SetupEnhancedModel",
-			model:       NewSetupEnhancedModel(),
-			description: "Enhanced Setup should return to main menu on escape",
+			description: "Setup should return to main menu on escape",
 		},
 		{
 			name:        "ErrorLogModel",
@@ -73,9 +63,7 @@ func TestQuitBehavior(t *testing.T) {
 		model tea.Model
 	}{
 		{"DashboardModel", NewDashboardModel()},
-		{"DashboardEnhancedModel", NewDashboardEnhancedModel()},
 		{"SetupModel", NewSetupModel()},
-		{"SetupEnhancedModel", NewSetupEnhancedModel()},
 		{"ErrorLogModel", NewErrorLogModel()},
 		{"SettingsModel", NewSettingsModel()},
 	}
