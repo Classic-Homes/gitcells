@@ -10,13 +10,13 @@ None - all critical functionality is implemented.
 
 ### Medium Priority
 
-#### 1. Apply Cell Styles in JSON to Excel Conversion
+#### 1. Apply Cell Styles in JSON to Excel Conversion [DONE]
 - **Location:** `internal/converter/json_to_excel.go:62-64`
 - **Status:** Cell styles are extracted but not applied during reconstruction
 - **Impact:** Excel files lose formatting when converted from JSON back to Excel
 - **Implementation:** Need to apply the style data that's already being extracted
 
-#### 2. TUI Side-by-Side Diff View
+#### 2. TUI Side-by-Side Diff View [DONE]
 - **Location:** `internal/tui/components/diff.go:356`
 - **Status:** Shows placeholder text "Select a cell to compare"
 - **Impact:** Users can't see actual cell-by-cell comparisons in the TUI

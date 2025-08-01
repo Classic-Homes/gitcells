@@ -8,8 +8,10 @@ import (
 	"strings"
 
 	"github.com/Classic-Homes/gitcells/internal/converter"
+	"github.com/Classic-Homes/gitcells/internal/tui/components"
 	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/Classic-Homes/gitcells/pkg/models"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -41,6 +43,7 @@ Examples:
 	cmd.Flags().Bool("json", false, "Compare JSON files directly")
 	cmd.Flags().Bool("summary", false, "Show only summary of changes")
 	cmd.Flags().Bool("no-color", false, "Disable colored output")
+	cmd.Flags().Bool("tui", false, "Launch interactive TUI diff viewer")
 	cmd.Flags().String("format", "text", "Output format: text, json")
 	cmd.Flags().StringSlice("sheets", []string{}, "Only compare specific sheets")
 	cmd.Flags().Bool("ignore-formatting", false, "Ignore cell formatting differences")
@@ -54,6 +57,7 @@ func runDiff(cmd *cobra.Command, args []string, logger *logrus.Logger) error {
 	jsonMode, _ := cmd.Flags().GetBool("json")
 	summaryOnly, _ := cmd.Flags().GetBool("summary")
 	noColor, _ := cmd.Flags().GetBool("no-color")
+	tuiMode, _ := cmd.Flags().GetBool("tui")
 	format, _ := cmd.Flags().GetString("format")
 	sheets, _ := cmd.Flags().GetStringSlice("sheets")
 	ignoreFormatting, _ := cmd.Flags().GetBool("ignore-formatting")
@@ -118,6 +122,10 @@ func runDiff(cmd *cobra.Command, args []string, logger *logrus.Logger) error {
 	}
 
 	// Output results
+	if tuiMode {
+		return runDiffTUI(diff)
+	}
+
 	switch format {
 	case "json":
 		return outputDiffJSON(diff)
@@ -330,4 +338,71 @@ func outputDiffText(diff *models.ExcelDiff, summaryOnly, useColor bool) error {
 	}
 
 	return nil
+}
+
+// diffTUIModel wraps the DiffViewer for the TUI application
+type diffTUIModel struct {
+	viewer *components.DiffViewer
+	width  int
+	height int
+}
+
+func (m diffTUIModel) Init() tea.Cmd {
+	return nil
+}
+
+func (m *diffTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		m.viewer.SetDimensions(msg.Width, msg.Height)
+		return m, nil
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "q", "esc":
+			return m, tea.Quit
+		case "tab":
+			m.viewer.NextMode()
+			return m, nil
+		case "d":
+			m.viewer.ToggleDetails()
+			return m, nil
+		case "up", "k":
+			m.viewer.ScrollUp()
+			return m, nil
+		case "down", "j":
+			m.viewer.ScrollDown()
+			return m, nil
+		case "left", "h":
+			m.viewer.SelectPrev()
+			return m, nil
+		case "right", "l":
+			m.viewer.SelectNext()
+			return m, nil
+		}
+	}
+	return m, nil
+}
+
+func (m *diffTUIModel) View() string {
+	if m.viewer == nil {
+		return "Loading diff viewer..."
+	}
+	return m.viewer.View()
+}
+
+// runDiffTUI launches the TUI diff viewer
+func runDiffTUI(diff *models.ExcelDiff) error {
+	viewer := components.NewDiffViewer(diff)
+
+	model := &diffTUIModel{
+		viewer: &viewer,
+		width:  80,
+		height: 24,
+	}
+
+	p := tea.NewProgram(model, tea.WithAltScreen())
+	_, err := p.Run()
+	return err
 }

@@ -47,6 +47,34 @@ func (d *DiffViewer) NextMode() {
 	d.viewMode = (d.viewMode + 1) % 4
 	d.scrollOffset = 0
 	d.selectedIdx = 0
+	d.normalizeSelectedIndex()
+
+	// Additional safety check - ensure we never have invalid indices
+	if d.selectedIdx < 0 {
+		d.selectedIdx = 0
+	}
+}
+
+func (d *DiffViewer) normalizeSelectedIndex() {
+	// Ensure diff is valid first
+	if d.diff == nil {
+		d.selectedIdx = 0
+		return
+	}
+
+	maxIdx := d.getMaxSelectableIndex()
+	switch {
+	case maxIdx < 0:
+		// No selectable items in this view mode
+		d.selectedIdx = 0
+	case d.selectedIdx > maxIdx:
+		// Selected index is beyond available items
+		d.selectedIdx = maxIdx
+	case d.selectedIdx < 0:
+		// Selected index is negative
+		d.selectedIdx = 0
+	}
+	// If selectedIdx is within bounds, leave it unchanged
 }
 
 func (d *DiffViewer) ToggleDetails() {
@@ -64,12 +92,47 @@ func (d *DiffViewer) ScrollDown() {
 }
 
 func (d *DiffViewer) SelectNext() {
-	d.selectedIdx++
+	maxIdx := d.getMaxSelectableIndex()
+	if maxIdx >= 0 && d.selectedIdx < maxIdx {
+		d.selectedIdx++
+	}
+	// Ensure we never exceed bounds
+	d.normalizeSelectedIndex()
 }
 
 func (d *DiffViewer) SelectPrev() {
 	if d.selectedIdx > 0 {
 		d.selectedIdx--
+	}
+	// Ensure we never go below bounds
+	d.normalizeSelectedIndex()
+}
+
+func (d *DiffViewer) getMaxSelectableIndex() int {
+	if d.diff == nil {
+		return -1
+	}
+
+	switch d.viewMode {
+	case DiffViewSummary:
+		return -1 // No selection in summary view
+	case DiffViewBySheet:
+		if len(d.diff.SheetDiffs) == 0 {
+			return -1
+		}
+		return len(d.diff.SheetDiffs) - 1
+	case DiffViewByCell, DiffViewSideBySide:
+		// Count all cell changes across all sheets
+		totalChanges := 0
+		for _, sheet := range d.diff.SheetDiffs {
+			totalChanges += len(sheet.Changes)
+		}
+		if totalChanges == 0 {
+			return -1
+		}
+		return totalChanges - 1
+	default:
+		return -1
 	}
 }
 
@@ -93,6 +156,11 @@ func (d DiffViewer) View() string {
 }
 
 func (d DiffViewer) renderSummaryView() string {
+	// Additional safety checks
+	if d.diff == nil {
+		return styles.Center(d.width, d.height, "No diff data available")
+	}
+
 	titleStyle := styles.TitleStyle.
 		MarginBottom(1)
 
@@ -198,15 +266,32 @@ func (d DiffViewer) renderSheetSummaryList() string {
 }
 
 func (d DiffViewer) renderSheetView() string {
+	// Additional safety checks
+	if d.diff == nil || len(d.diff.SheetDiffs) == 0 {
+		return "No sheet changes"
+	}
+
+	// Get current sheet - selectedIdx should already be valid
+	selectedIdx := d.selectedIdx
+
+	// Ensure we have sheets to work with
 	if len(d.diff.SheetDiffs) == 0 {
 		return "No sheet changes"
 	}
 
-	// Get current sheet
-	if d.selectedIdx >= len(d.diff.SheetDiffs) {
-		d.selectedIdx = len(d.diff.SheetDiffs) - 1
+	if selectedIdx >= len(d.diff.SheetDiffs) {
+		selectedIdx = len(d.diff.SheetDiffs) - 1
 	}
-	sheet := d.diff.SheetDiffs[d.selectedIdx]
+	if selectedIdx < 0 {
+		selectedIdx = 0
+	}
+
+	// Double-check bounds before array access
+	if selectedIdx >= len(d.diff.SheetDiffs) || selectedIdx < 0 {
+		return "Invalid sheet selection"
+	}
+
+	sheet := d.diff.SheetDiffs[selectedIdx]
 
 	// Header
 	headerStyle := styles.TitleStyle.
@@ -241,7 +326,7 @@ func (d DiffViewer) renderSheetView() string {
 
 	// Navigation info
 	nav := styles.MutedStyle.Render(
-		fmt.Sprintf("Sheet %d of %d", d.selectedIdx+1, len(d.diff.SheetDiffs)),
+		fmt.Sprintf("Sheet %d of %d", selectedIdx+1, len(d.diff.SheetDiffs)),
 	)
 
 	// Help
@@ -264,6 +349,11 @@ func (d DiffViewer) renderSheetView() string {
 }
 
 func (d DiffViewer) renderCellView() string {
+	// Additional safety checks
+	if d.diff == nil {
+		return "No diff data available"
+	}
+
 	// Flatten all cell changes
 	var allChanges []struct {
 		sheet  string
@@ -287,11 +377,20 @@ func (d DiffViewer) renderCellView() string {
 	}
 
 	// Ensure selected index is valid
-	if d.selectedIdx >= len(allChanges) {
-		d.selectedIdx = len(allChanges) - 1
+	selectedIdx := d.selectedIdx
+	if selectedIdx >= len(allChanges) {
+		selectedIdx = len(allChanges) - 1
+	}
+	if selectedIdx < 0 {
+		selectedIdx = 0
 	}
 
-	current := allChanges[d.selectedIdx]
+	// Double-check bounds before array access
+	if selectedIdx >= len(allChanges) || selectedIdx < 0 {
+		return "Invalid cell selection"
+	}
+
+	current := allChanges[selectedIdx]
 
 	// Create a detailed view of the selected cell
 	detailBox := styles.BoxStyle.
@@ -334,7 +433,7 @@ func (d DiffViewer) renderCellView() string {
 
 	// Navigation
 	nav := styles.MutedStyle.Render(
-		fmt.Sprintf("Change %d of %d", d.selectedIdx+1, len(allChanges)),
+		fmt.Sprintf("Change %d of %d", selectedIdx+1, len(allChanges)),
 	)
 
 	// Help
@@ -354,27 +453,150 @@ func (d DiffViewer) renderCellView() string {
 }
 
 func (d DiffViewer) renderSideBySideView() string {
-	// This would show a side-by-side comparison of specific cells or sheets
-	// For now, show a placeholder
+	// Additional safety checks
+	if d.diff == nil {
+		return d.renderEmptySideBySideView()
+	}
+
+	// Flatten all cell changes for navigation
+	var allChanges []struct {
+		sheet  string
+		change models.CellChange
+	}
+
+	for _, sheet := range d.diff.SheetDiffs {
+		for _, change := range sheet.Changes {
+			allChanges = append(allChanges, struct {
+				sheet  string
+				change models.CellChange
+			}{
+				sheet:  sheet.SheetName,
+				change: change,
+			})
+		}
+	}
+
+	if len(allChanges) == 0 {
+		return d.renderEmptySideBySideView()
+	}
+
+	// Ensure selected index is valid
+	selectedIdx := d.selectedIdx
+	if selectedIdx >= len(allChanges) {
+		selectedIdx = len(allChanges) - 1
+	}
+	if selectedIdx < 0 {
+		selectedIdx = 0
+	}
+
+	// Double-check bounds before array access
+	if selectedIdx >= len(allChanges) || selectedIdx < 0 {
+		return d.renderEmptySideBySideView()
+	}
+
+	current := allChanges[selectedIdx]
+
+	// Calculate pane dimensions with minimum width safeguards
+	paneWidth := (d.width - 12) / 2 // Account for spacing and borders
+	if paneWidth < 20 {             // Minimum usable width
+		paneWidth = 20
+	}
+	paneHeight := d.height - 10 // Account for title and help
+	if paneHeight < 5 {         // Minimum usable height
+		paneHeight = 5
+	}
+
+	// Create left pane (old version)
+	leftContent := d.renderSideBySidePane("Old Version", current.change.OldValue, current.change.OldFormula, paneWidth, paneHeight, current.change.Type == models.ChangeTypeAdd)
+
+	// Create right pane (new version)
+	rightContent := d.renderSideBySidePane("New Version", current.change.NewValue, current.change.NewFormula, paneWidth, paneHeight, current.change.Type == models.ChangeTypeDelete)
+
+	// Header with cell info
+	headerStyle := styles.TitleStyle.MarginBottom(1)
+	cellIcon := d.getChangeIcon(current.change.Type)
+	cellTypeStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(d.getChangeColor(current.change.Type))
+
+	header := headerStyle.Render(fmt.Sprintf("%s Cell %s (%s) - %s",
+		cellIcon,
+		current.change.Cell,
+		current.sheet,
+		cellTypeStyle.Render(string(current.change.Type)),
+	))
+
+	// Join panes horizontally
+	content := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		leftContent,
+		"  ",
+		rightContent,
+	)
+
+	// Navigation info
+	nav := styles.MutedStyle.Render(
+		fmt.Sprintf("Change %d of %d", selectedIdx+1, len(allChanges)),
+	)
+
+	// Help text
+	help := styles.HelpStyle.Render("[←/→] Navigate changes • [Tab] Change view • [d] Toggle details")
+
+	// Combine everything
+	fullContent := lipgloss.JoinVertical(
+		lipgloss.Left,
+		header,
+		"",
+		content,
+		"",
+		nav,
+		help,
+	)
+
+	return lipgloss.NewStyle().
+		Padding(1, 2).
+		Render(fullContent)
+}
+
+func (d DiffViewer) renderEmptySideBySideView() string {
+	// Calculate safe dimensions
+	boxWidth := d.width - 10
+	if boxWidth < 20 {
+		boxWidth = 20
+	}
+	boxHeight := d.height - 5
+	if boxHeight < 10 {
+		boxHeight = 10
+	}
+
 	boxStyle := styles.BoxStyle.
-		Width(d.width - 10).
-		Height(d.height - 5)
+		Width(boxWidth).
+		Height(boxHeight)
+
+	paneWidth := d.width/2 - 6
+	if paneWidth < 15 {
+		paneWidth = 15
+	}
+	paneHeight := d.height - 8
+	if paneHeight < 5 {
+		paneHeight = 5
+	}
 
 	leftPane := lipgloss.NewStyle().
-		Width(d.width/2 - 6).
-		Height(d.height - 8).
+		Width(paneWidth).
+		Height(paneHeight).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.Muted).
 		Padding(1).
-		Render("Old Version\n\nSelect a cell to compare")
+		Render("Old Version\n\nNo changes to display")
 
 	rightPane := lipgloss.NewStyle().
-		Width(d.width/2 - 6).
-		Height(d.height - 8).
+		Width(paneWidth).
+		Height(paneHeight).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(styles.Muted).
 		Padding(1).
-		Render("New Version\n\nSelect a cell to compare")
+		Render("New Version\n\nNo changes to display")
 
 	content := lipgloss.JoinHorizontal(
 		lipgloss.Top,
@@ -383,7 +605,7 @@ func (d DiffViewer) renderSideBySideView() string {
 		rightPane,
 	)
 
-	help := styles.HelpStyle.Render("[Tab] Change view • [↑/↓] Select cell • [Enter] Compare")
+	help := styles.HelpStyle.Render("[Tab] Change view")
 
 	return boxStyle.Render(
 		lipgloss.JoinVertical(
@@ -395,6 +617,104 @@ func (d DiffViewer) renderSideBySideView() string {
 			help,
 		),
 	)
+}
+
+func (d DiffViewer) renderSideBySidePane(title string, value interface{}, formula string, width, height int, isEmpty bool) string {
+	// Determine border color based on content
+	borderColor := styles.Muted
+	if isEmpty {
+		borderColor = lipgloss.Color("240") // Dimmer for empty panes
+	}
+
+	paneStyle := lipgloss.NewStyle().
+		Width(width).
+		Height(height).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(borderColor).
+		Padding(1)
+
+	// Title
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Underline(true).
+		MarginBottom(1)
+
+	content := []string{titleStyle.Render(title)}
+
+	if isEmpty {
+		content = append(content, "", styles.MutedStyle.Render("<empty>"))
+	} else {
+		// Show formula if present
+		if formula != "" {
+			formulaStyle := lipgloss.NewStyle().
+				Foreground(styles.Primary).
+				Bold(true)
+			content = append(content, "", "Formula:")
+			content = append(content, formulaStyle.Render(fmt.Sprintf("=%s", formula)))
+		}
+
+		// Show value
+		if value != nil {
+			valueStr := fmt.Sprintf("%v", value)
+			content = append(content, "", "Value:")
+
+			// Wrap long values
+			wrapWidth := width - 6
+			if wrapWidth < 10 { // Ensure minimum wrap width
+				wrapWidth = 10
+			}
+			if len(valueStr) > wrapWidth {
+				wrapped := d.wrapText(valueStr, wrapWidth)
+				content = append(content, wrapped)
+			} else {
+				content = append(content, valueStr)
+			}
+		} else if formula == "" {
+			content = append(content, "", styles.MutedStyle.Render("<empty>"))
+		}
+
+		// Show type information if detailed view is enabled
+		if d.showDetails && value != nil {
+			content = append(content, "", styles.MutedStyle.Render(fmt.Sprintf("Type: %T", value)))
+		}
+	}
+
+	return paneStyle.Render(strings.Join(content, "\n"))
+}
+
+func (d DiffViewer) wrapText(text string, width int) string {
+	// Safety check for negative or too small widths
+	if width <= 0 {
+		return text // Return original text if width is invalid
+	}
+	if len(text) <= width {
+		return text
+	}
+
+	var lines []string
+	for len(text) > 0 {
+		if len(text) <= width {
+			lines = append(lines, text)
+			break
+		}
+
+		// Find last space before width
+		cutPoint := width
+		for i := width; i > 0; i-- {
+			if text[i-1] == ' ' {
+				cutPoint = i
+				break
+			}
+		}
+
+		lines = append(lines, text[:cutPoint])
+		text = text[cutPoint:]
+		if len(text) > 0 && text[0] == ' ' {
+			text = text[1:] // Remove leading space
+		}
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 // Helper methods
@@ -472,6 +792,10 @@ func (d DiffViewer) formatDetailedCellContent(label string, value interface{}, f
 }
 
 func wordWrap(text string, width int) string {
+	// Safety check for negative or too small widths
+	if width <= 0 {
+		return text // Return original text if width is invalid
+	}
 	if len(text) <= width {
 		return text
 	}

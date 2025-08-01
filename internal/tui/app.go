@@ -16,8 +16,9 @@ const (
 	ModeMenu Mode = iota
 	ModeSetup
 	ModeDashboard
-	ModeErrorLog
+	ModeDiff
 	ModeSettings
+	ModeErrorLog
 )
 
 type Model struct {
@@ -28,8 +29,9 @@ type Model struct {
 	menuCursor    int
 	setupModel    tea.Model
 	dashModel     tea.Model
-	errorLogModel tea.Model
+	diffModel     tea.Model
 	settingsModel tea.Model
+	errorLogModel tea.Model
 }
 
 type modeChangeMsg struct {
@@ -45,6 +47,7 @@ var menuItems = []struct {
 }{
 	{"Setup Wizard", "Configure GitCells for your Excel tracking repository", ModeSetup},
 	{"Status Dashboard", "Monitor Excel file tracking and conversion status", ModeDashboard},
+	{"Diff Viewer", "Compare Excel files and view differences side-by-side", ModeDiff},
 	{"Settings", "Update, uninstall, and manage GitCells system settings", ModeSettings},
 	{"Error Logs", "View application errors and troubleshooting information", ModeErrorLog},
 }
@@ -114,6 +117,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.dashModel = models.NewDashboardEnhancedModel()
 			}
 			return m, m.dashModel.Init()
+		case ModeDiff:
+			if m.diffModel == nil {
+				m.diffModel = models.NewDiffModel()
+			}
+			return m, m.diffModel.Init()
 		case ModeErrorLog:
 			if m.errorLogModel == nil {
 				m.errorLogModel = models.NewErrorLogEnhancedModel()
@@ -152,6 +160,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.dashModel != nil {
 			m.dashModel, cmd = m.dashModel.Update(msg)
 		}
+	case ModeDiff:
+		if m.diffModel != nil {
+			m.diffModel, cmd = m.diffModel.Update(msg)
+		}
 	case ModeErrorLog:
 		if m.errorLogModel != nil {
 			m.errorLogModel, cmd = m.errorLogModel.Update(msg)
@@ -180,6 +192,10 @@ func (m Model) View() string {
 	case ModeDashboard:
 		if m.dashModel != nil {
 			return m.dashModel.View()
+		}
+	case ModeDiff:
+		if m.diffModel != nil {
+			return m.diffModel.View()
 		}
 	case ModeErrorLog:
 		if m.errorLogModel != nil {
