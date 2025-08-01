@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/Classic-Homes/gitcells/internal/tui/messages"
 	"github.com/Classic-Homes/gitcells/internal/tui/styles"
 	"github.com/Classic-Homes/gitcells/internal/utils"
 )
@@ -221,6 +222,12 @@ func (m ErrorLogModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, m.keyMap.Clear):
 			return m, m.clearLogs()
+		
+		case key.Matches(msg, m.keyMap.Quit):
+			return m, tea.Quit
+		
+		case msg.String() == "esc":
+			return m, messages.RequestMainMenu()
 		}
 	}
 

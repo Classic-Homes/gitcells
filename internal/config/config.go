@@ -17,6 +17,8 @@ type Config struct {
 	Git       GitConfig       `yaml:"git"`
 	Watcher   WatcherConfig   `yaml:"watcher"`
 	Converter ConverterConfig `yaml:"converter"`
+	Features  FeaturesConfig  `yaml:"features"`
+	Updates   UpdatesConfig   `yaml:"updates"`
 }
 
 type GitConfig struct {
@@ -46,6 +48,20 @@ type ConverterConfig struct {
 	ChunkingStrategy string `yaml:"chunking_strategy"`
 }
 
+type FeaturesConfig struct {
+	EnableExperimentalFeatures bool `yaml:"enable_experimental_features"`
+	EnableBetaUpdates          bool `yaml:"enable_beta_updates"`
+	EnableTelemetry            bool `yaml:"enable_telemetry"`
+}
+
+type UpdatesConfig struct {
+	AutoCheckUpdates     bool          `yaml:"auto_check_updates"`
+	CheckInterval        time.Duration `yaml:"check_interval"`
+	IncludePrereleases   bool          `yaml:"include_prereleases"`
+	AutoDownloadUpdates  bool          `yaml:"auto_download_updates"`
+	NotifyOnUpdate       bool          `yaml:"notify_on_update"`
+}
+
 func Load(configPath string) (*Config, error) {
 	v := viper.New()
 
@@ -67,6 +83,14 @@ func Load(configPath string) (*Config, error) {
 	v.SetDefault("converter.ignore_empty_cells", true)
 	v.SetDefault("converter.max_cells_per_sheet", DefaultMaxCellsPerSheet)
 	v.SetDefault("converter.chunking_strategy", "sheet-based")
+	v.SetDefault("features.enable_experimental_features", false)
+	v.SetDefault("features.enable_beta_updates", false)
+	v.SetDefault("features.enable_telemetry", true)
+	v.SetDefault("updates.auto_check_updates", true)
+	v.SetDefault("updates.check_interval", "24h")
+	v.SetDefault("updates.include_prereleases", false)
+	v.SetDefault("updates.auto_download_updates", false)
+	v.SetDefault("updates.notify_on_update", true)
 
 	// Load config file
 	if configPath != "" {
@@ -109,9 +133,62 @@ func Load(configPath string) (*Config, error) {
 			MaxCellsPerSheet: v.GetInt("converter.max_cells_per_sheet"),
 			ChunkingStrategy: v.GetString("converter.chunking_strategy"),
 		},
+		Features: FeaturesConfig{
+			EnableExperimentalFeatures: v.GetBool("features.enable_experimental_features"),
+			EnableBetaUpdates:          v.GetBool("features.enable_beta_updates"),
+			EnableTelemetry:            v.GetBool("features.enable_telemetry"),
+		},
+		Updates: UpdatesConfig{
+			AutoCheckUpdates:    v.GetBool("updates.auto_check_updates"),
+			CheckInterval:       v.GetDuration("updates.check_interval"),
+			IncludePrereleases:  v.GetBool("updates.include_prereleases"),
+			AutoDownloadUpdates: v.GetBool("updates.auto_download_updates"),
+			NotifyOnUpdate:      v.GetBool("updates.notify_on_update"),
+		},
 	}
 
 	return cfg, nil
+}
+
+// Save saves the configuration to a file
+func (c *Config) Save(configPath string) error {
+	v := viper.New()
+	
+	// Set all values in viper
+	v.Set("version", c.Version)
+	v.Set("git.remote", c.Git.Remote)
+	v.Set("git.branch", c.Git.Branch)
+	v.Set("git.auto_push", c.Git.AutoPush)
+	v.Set("git.auto_pull", c.Git.AutoPull)
+	v.Set("git.user_name", c.Git.UserName)
+	v.Set("git.user_email", c.Git.UserEmail)
+	v.Set("git.commit_template", c.Git.CommitTemplate)
+	v.Set("watcher.directories", c.Watcher.Directories)
+	v.Set("watcher.ignore_patterns", c.Watcher.IgnorePatterns)
+	v.Set("watcher.debounce_delay", c.Watcher.DebounceDelay)
+	v.Set("watcher.file_extensions", c.Watcher.FileExtensions)
+	v.Set("converter.preserve_formulas", c.Converter.PreserveFormulas)
+	v.Set("converter.preserve_styles", c.Converter.PreserveStyles)
+	v.Set("converter.preserve_comments", c.Converter.PreserveComments)
+	v.Set("converter.compact_json", c.Converter.CompactJSON)
+	v.Set("converter.ignore_empty_cells", c.Converter.IgnoreEmptyCells)
+	v.Set("converter.max_cells_per_sheet", c.Converter.MaxCellsPerSheet)
+	v.Set("converter.chunking_strategy", c.Converter.ChunkingStrategy)
+	v.Set("features.enable_experimental_features", c.Features.EnableExperimentalFeatures)
+	v.Set("features.enable_beta_updates", c.Features.EnableBetaUpdates)
+	v.Set("features.enable_telemetry", c.Features.EnableTelemetry)
+	v.Set("updates.auto_check_updates", c.Updates.AutoCheckUpdates)
+	v.Set("updates.check_interval", c.Updates.CheckInterval)
+	v.Set("updates.include_prereleases", c.Updates.IncludePrereleases)
+	v.Set("updates.auto_download_updates", c.Updates.AutoDownloadUpdates)
+	v.Set("updates.notify_on_update", c.Updates.NotifyOnUpdate)
+	
+	if configPath == "" {
+		configPath = ".gitcells.yaml"
+	}
+	
+	v.SetConfigFile(configPath)
+	return v.WriteConfig()
 }
 
 // ConvertOptions defines options for conversion (will be moved to converter package)

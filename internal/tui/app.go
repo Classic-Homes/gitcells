@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 
+	"github.com/Classic-Homes/gitcells/internal/tui/messages"
 	"github.com/Classic-Homes/gitcells/internal/tui/models"
 	"github.com/Classic-Homes/gitcells/internal/utils"
 	tea "github.com/charmbracelet/bubbletea"
@@ -16,6 +17,7 @@ const (
 	ModeSetup
 	ModeDashboard
 	ModeErrorLog
+	ModeSettings
 )
 
 type Model struct {
@@ -27,6 +29,7 @@ type Model struct {
 	setupModel   tea.Model
 	dashModel    tea.Model
 	errorLogModel tea.Model
+	settingsModel tea.Model
 }
 
 type modeChangeMsg struct {
@@ -42,6 +45,7 @@ var menuItems = []struct {
 }{
 	{"Setup Wizard", "Configure GitCells for your Excel tracking repository", ModeSetup},
 	{"Status Dashboard", "Monitor Excel file tracking and conversion status", ModeDashboard},
+	{"Settings", "Update, uninstall, and manage GitCells system settings", ModeSettings},
 	{"Error Logs", "View application errors and troubleshooting information", ModeErrorLog},
 }
 
@@ -78,16 +82,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case "enter":
 				selectedMode := menuItems[m.menuCursor].mode
-				utils.LogUserAction("menu_select", map[string]interface{}{
+				utils.LogUserAction("menu_select", map[string]any{
 					"selected_item": m.menuCursor,
 					"mode":          selectedMode,
 				})
 				return m, changeMode(selectedMode)
 			}
 		} else {
+			// For non-menu modes, let the individual models handle keys first
+			// Only handle global shortcuts that don't conflict with model navigation
 			switch msg.String() {
-			case "esc":
-				return m, backToMenu()
 			case "ctrl+l":
 				if m.mode != ModeErrorLog {
 					return m, changeMode(ModeErrorLog)
@@ -113,14 +117,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.dashModel.Init()
 		case ModeErrorLog:
 			if m.errorLogModel == nil {
-				m.errorLogModel = models.NewErrorLogModel()
+				m.errorLogModel = models.NewErrorLogEnhancedModel()
 			}
 			return m, m.errorLogModel.Init()
+		case ModeSettings:
+			if m.settingsModel == nil {
+				m.settingsModel = models.NewSettingsModel()
+			} else {
+				// Reset to main view when re-entering settings
+				if settingsModel, ok := m.settingsModel.(models.SettingsModel); ok {
+					settingsModel = settingsModel.ResetToMainView()
+					m.settingsModel = settingsModel
+				}
+			}
+			return m, m.settingsModel.Init()
 		}
 
 	case backToMenuMsg:
 		m.mode = ModeMenu
 		return m, nil
+
+	case messages.RequestMainMenuMsg:
+		return m, backToMenu()
 	}
 
 	var cmd tea.Cmd
@@ -136,6 +154,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ModeErrorLog:
 		if m.errorLogModel != nil {
 			m.errorLogModel, cmd = m.errorLogModel.Update(msg)
+		}
+	case ModeSettings:
+		if m.settingsModel != nil {
+			m.settingsModel, cmd = m.settingsModel.Update(msg)
 		}
 	}
 
@@ -162,6 +184,10 @@ func (m Model) View() string {
 		if m.errorLogModel != nil {
 			return m.errorLogModel.View()
 		}
+	case ModeSettings:
+		if m.settingsModel != nil {
+			return m.settingsModel.View()
+		}
 	}
 
 	return "Loading..."
@@ -186,7 +212,7 @@ func (m Model) renderMenu() string {
 	descStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241"))
 
-	s := titleStyle.Render("GitCells TUI") + "\n"
+	s := titleStyle.Render("GitCells") + "\n"
 	s += subtitleStyle.Render("Excel Version Control Management") + "\n\n"
 
 	for i, item := range menuItems {
@@ -214,6 +240,7 @@ func backToMenu() tea.Cmd {
 		return backToMenuMsg{}
 	}
 }
+
 
 func Run() error {
 	p := tea.NewProgram(NewModel(), tea.WithAltScreen())

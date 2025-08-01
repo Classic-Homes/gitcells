@@ -32,6 +32,18 @@ converter:
   compact_json: false
   ignore_empty_cells: true
   max_cells_per_sheet: 1000000
+
+features:
+  enable_experimental_features: false
+  enable_beta_updates: false
+  enable_telemetry: true
+
+updates:
+  auto_check_updates: true
+  check_interval: 24h
+  include_prereleases: false
+  auto_download_updates: false
+  notify_on_update: true
 `
 
 // GetDefault returns a Config struct with default values
@@ -59,6 +71,18 @@ func GetDefault() *Config {
 			CompactJSON:      false,
 			IgnoreEmptyCells: true,
 			MaxCellsPerSheet: 1000000,
+		},
+		Features: FeaturesConfig{
+			EnableExperimentalFeatures: false,
+			EnableBetaUpdates:          false,
+			EnableTelemetry:            true,
+		},
+		Updates: UpdatesConfig{
+			AutoCheckUpdates:    true,
+			CheckInterval:       24 * time.Hour,
+			IncludePrereleases:  false,
+			AutoDownloadUpdates: false,
+			NotifyOnUpdate:      true,
 		},
 	}
 }

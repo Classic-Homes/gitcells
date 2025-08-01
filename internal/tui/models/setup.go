@@ -3,6 +3,7 @@ package models
 import (
 	"fmt"
 
+	"github.com/Classic-Homes/gitcells/internal/tui/messages"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -69,8 +70,10 @@ func (m SetupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c":
+		case "ctrl+c", "q":
 			return m, tea.Quit
+		case "esc":
+			return m, messages.RequestMainMenu()
 		case "tab", "down":
 			m.cursor++
 			if m.cursor >= len(setupSteps[m.step].inputs) {

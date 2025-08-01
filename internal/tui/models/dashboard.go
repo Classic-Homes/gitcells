@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Classic-Homes/gitcells/internal/tui/messages"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -63,6 +64,8 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
+		case "esc":
+			return m, messages.RequestMainMenu()
 		}
 	}
 
@@ -94,7 +97,7 @@ func (m DashboardModel) View() string {
 				formatDuration(time.Since(m.lastCommit))) +
 			"File Operations:\n" +
 			m.renderOperations() + "\n\n" +
-			infoStyle.Render("[w]atch [c]onvert [s]ync [q]uit [?]help"),
+			infoStyle.Render("[Esc] Back to menu  [q] Quit  [?] Help"),
 	)
 
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, s)

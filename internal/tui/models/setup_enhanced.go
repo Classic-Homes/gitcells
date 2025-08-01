@@ -7,6 +7,7 @@ import (
 
 	"github.com/Classic-Homes/gitcells/internal/tui/adapter"
 	"github.com/Classic-Homes/gitcells/internal/tui/components"
+	"github.com/Classic-Homes/gitcells/internal/tui/messages"
 	"github.com/Classic-Homes/gitcells/internal/tui/styles"
 	"github.com/Classic-Homes/gitcells/internal/tui/types"
 	"github.com/Classic-Homes/gitcells/internal/tui/validation"
@@ -76,8 +77,10 @@ func (m SetupEnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c":
+		case "ctrl+c", "q":
 			return m, tea.Quit
+		case "esc":
+			return m, messages.RequestMainMenu()
 
 		case "tab", "down":
 			m.focusNext()

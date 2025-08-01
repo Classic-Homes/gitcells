@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Classic-Homes/gitcells/internal/constants"
 	"github.com/Classic-Homes/gitcells/internal/tui"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -17,6 +18,10 @@ var (
 
 func main() {
 	logger = setupLogger()
+
+	// Set version information in constants package
+	constants.SetVersion(version)
+	constants.SetBuildTime(buildTime)
 
 	rootCmd := &cobra.Command{
 		Use:     "gitcells",

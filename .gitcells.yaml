@@ -1,0 +1,38 @@
+converter:
+    chunking_strategy: sheet-based
+    compact_json: false
+    ignore_empty_cells: true
+    max_cells_per_sheet: 1000000
+    preserve_comments: true
+    preserve_formulas: true
+    preserve_styles: true
+features:
+    enable_advanced_diff_view: false
+    enable_beta_updates: true
+    enable_experimental_features: false
+    enable_telemetry: true
+git:
+    auto_pull: true
+    auto_push: false
+    branch: main
+    commit_template: 'GitCells: {action} {filename} at {timestamp}'
+    remote: ""
+    user_email: gitcells@localhost
+    user_name: GitCells
+updates:
+    auto_check_updates: true
+    auto_download_updates: false
+    check_interval: 24h0m0s
+    include_prereleases: false
+    notify_on_update: true
+version: "1.0"
+watcher:
+    debounce_delay: 1s
+    directories: []
+    file_extensions:
+        - .xlsx
+        - .xls
+        - .xlsm
+    ignore_patterns:
+        - ~$*
+        - '*.tmp'

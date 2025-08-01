@@ -27,3 +27,16 @@ converter:
   compact_json: false
   ignore_empty_cells: true
   max_cells_per_sheet: 1000000
+
+features:
+  enable_experimental_features: false
+  enable_advanced_diff_view: false
+  enable_beta_updates: false
+  enable_telemetry: true
+
+updates:
+  auto_check_updates: true
+  check_interval: 24h
+  include_prereleases: false
+  auto_download_updates: false
+  notify_on_update: true

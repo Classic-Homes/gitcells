@@ -8,6 +8,7 @@ import (
 	"github.com/Classic-Homes/gitcells/internal/config"
 	"github.com/Classic-Homes/gitcells/internal/tui/adapter"
 	"github.com/Classic-Homes/gitcells/internal/tui/components"
+	"github.com/Classic-Homes/gitcells/internal/tui/messages"
 	"github.com/Classic-Homes/gitcells/internal/tui/styles"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -142,6 +143,8 @@ func (m DashboardEnhancedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
+		case "esc":
+			return m, messages.RequestMainMenu()
 		case "tab":
 			m.selectedTab = (m.selectedTab + 1) % 3
 		case "?":
