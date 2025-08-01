@@ -13,7 +13,7 @@
 <p align="center">
   <a href="https://github.com/Classic-Homes/gitcells/releases"><img src="https://img.shields.io/github/v/release/Classic-Homes/gitcells" alt="Release"></a>
   <a href="https://github.com/Classic-Homes/gitcells/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Classic-Homes/gitcells" alt="License"></a>
-  <a href="https://github.com/Classic-Homes/gitcells/actions"><img src="https://img.shields.io/github/actions/workflow/status/Classic-Homes/gitcells/test.yml" alt="Build Status"></a>
+  <a href="https://github.com/Classic-Homes/gitcells/actions"><img src="https://img.shields.io/github/actions/workflow/status/Classic-Homes/gitcells/ci.yml" alt="Build Status"></a>
 </p>
 
 GitCells seamlessly bridges Excel and Git, enabling true version control for spreadsheets. It automatically converts Excel files to human-readable JSON for diffing and merging, then restores them to native Excel format for editing. No more binary conflicts, lost formulas, or overwritten work.
