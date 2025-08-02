@@ -439,16 +439,15 @@ func (m SettingsModel) View() string {
 
 	s += statusStyle.Render("Status: "+m.status) + "\n"
 
-	if m.updating {
+	switch {
+	case m.updating:
 		s += descStyle.Render("Please wait...")
-	} else if !m.showConfirm {
-		if m.editMode {
-			s += descStyle.Render("Type to edit, Enter to save, Esc to cancel")
-		} else if m.currentView == viewMain {
-			s += descStyle.Render("Use ↑/↓ or j/k to navigate, Enter to select, q to quit")
-		} else {
-			s += descStyle.Render("Use ↑/↓ or j/k to navigate, Enter to edit/toggle, Esc to go back")
-		}
+	case !m.showConfirm && m.editMode:
+		s += descStyle.Render("Type to edit, Enter to save, Esc to cancel")
+	case !m.showConfirm && m.currentView == viewMain:
+		s += descStyle.Render("Use ↑/↓ or j/k to navigate, Enter to select, q to quit")
+	case !m.showConfirm:
+		s += descStyle.Render("Use ↑/↓ or j/k to navigate, Enter to edit/toggle, Esc to go back")
 	}
 
 	return menuStyle.Render(s)
@@ -522,9 +521,9 @@ func (m SettingsModel) handleSelectionAndReturn() (tea.Model, tea.Cmd) {
 		return m, nil
 
 	// Handle boolean toggles
-	case "experimental", "beta_updates", "telemetry", "auto_check", "prereleases", 
-		 "auto_download", "notify", "auto_push", "auto_pull", "preserve_formulas",
-		 "preserve_styles", "preserve_comments", "compact_json", "ignore_empty_cells":
+	case "experimental", "beta_updates", "telemetry", "auto_check", "prereleases",
+		"auto_download", "notify", "auto_push", "auto_pull", "preserve_formulas",
+		"preserve_styles", "preserve_comments", "compact_json", "ignore_empty_cells":
 		return m.toggleBooleanSetting(selectedItem.key)
 
 	// Handle text/number edits for all other fields

@@ -170,6 +170,11 @@ func (s *SheetBasedChunking) ReadChunks(basePath string) (*models.ExcelDocument,
 	metadataFile := filepath.Join(chunkDir, constants.ChunkMetadataFile)
 	metadataData, err := os.ReadFile(metadataFile)
 	if err != nil {
+		if os.IsNotExist(err) {
+			// Provide a more helpful error message for missing chunks
+			return nil, utils.NewError(utils.ErrorTypeFileSystem, "ReadChunks",
+				fmt.Sprintf("JSON file chunks not found. The file '%s' appears to be a standalone JSON file, but GitCells requires chunked JSON files created by the Excel to JSON conversion. Please ensure you're using a JSON file that was created by GitCells.", basePath))
+		}
 		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "ReadChunks", metadataFile, "failed to read chunk metadata")
 	}
 

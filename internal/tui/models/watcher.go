@@ -17,17 +17,17 @@ import (
 )
 
 type WatcherModel struct {
-	width   int
-	height  int
-	config  *config.Config
-	logger  *logrus.Logger
+	width  int
+	height int
+	config *config.Config
+	logger *logrus.Logger
 
 	// Watcher state
-	watcher     *watcher.FileWatcher
-	isRunning   bool
-	startTime   time.Time
-	events      []WatcherEvent
-	maxEvents   int
+	watcher   *watcher.FileWatcher
+	isRunning bool
+	startTime time.Time
+	events    []WatcherEvent
+	maxEvents int
 
 	// UI state
 	showHelp      bool
@@ -65,7 +65,7 @@ type watcherStatusMsg struct {
 
 func NewWatcherModel() tea.Model {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	m := &WatcherModel{
 		maxEvents: 50,
 		events:    []WatcherEvent{},
@@ -119,7 +119,7 @@ func (m WatcherModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			if m.watcher != nil {
-				m.watcher.Stop()
+				_ = m.watcher.Stop()
 			}
 			m.cancel()
 			return m, tea.Quit
@@ -206,7 +206,7 @@ func (m WatcherModel) View() string {
 
 func (m WatcherModel) renderHeader() string {
 	titleStyle := styles.TitleStyle.MarginBottom(1)
-	
+
 	statusIcon := "⏸️"
 	statusText := "Stopped"
 	statusColor := styles.Muted
@@ -259,7 +259,7 @@ func (m WatcherModel) renderStatus() string {
 	// Configuration box
 	debounce := "2s"
 	extensions := ".xlsx, .xls"
-	
+
 	if m.config != nil {
 		if m.config.Watcher.DebounceDelay > 0 {
 			debounce = m.config.Watcher.DebounceDelay.String()
@@ -309,10 +309,10 @@ func (m WatcherModel) renderEvents() string {
 		if len(m.events) > 20 {
 			start = len(m.events) - 20
 		}
-		
+
 		for i := len(m.events) - 1; i >= start; i-- {
 			event := m.events[i]
-			
+
 			// Event icon
 			icon := "📄"
 			switch event.Type {
@@ -326,11 +326,12 @@ func (m WatcherModel) renderEvents() string {
 
 			// Status color
 			statusStyle := lipgloss.NewStyle()
-			if event.Error != nil {
+			switch {
+			case event.Error != nil:
 				statusStyle = statusStyle.Foreground(styles.Error)
-			} else if event.Status == "completed" {
+			case event.Status == "completed":
 				statusStyle = statusStyle.Foreground(styles.Success)
-			} else {
+			default:
 				statusStyle = statusStyle.Foreground(styles.Warning)
 			}
 
@@ -380,13 +381,13 @@ func (m WatcherModel) renderDirectoryPicker() string {
 
 func (m WatcherModel) renderFooter() string {
 	var commands []string
-	
+
 	if m.isRunning {
 		commands = append(commands, "[s] Stop")
 	} else {
 		commands = append(commands, "[s] Start")
 	}
-	
+
 	commands = append(commands,
 		"[r] Refresh",
 		"[c] Clear Events",
@@ -494,14 +495,14 @@ func (m *WatcherModel) startWatcher() tea.Cmd {
 			}
 
 			_, err := conv.ExcelToJSON(event.Path, convertOptions)
-			
+
 			// Log the processing result
 			if err != nil {
 				m.logger.Errorf("Failed to process %s: %v", event.Path, err)
 			} else {
 				m.logger.Infof("Successfully processed %s: %s", event.Type, event.Path)
 			}
-			
+
 			return err
 		}
 
@@ -564,7 +565,7 @@ func (m *WatcherModel) stopWatcher() tea.Cmd {
 		if m.watcher != nil {
 			err := m.watcher.Stop()
 			m.watcher = nil
-			
+
 			if err != nil {
 				return watcherEventMsg{
 					event: WatcherEvent{

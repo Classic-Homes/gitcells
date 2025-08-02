@@ -68,6 +68,22 @@ func (ca *ConverterAdapter) ConvertFileWithSheetOptions(excelPath string, sheetO
 	}, nil
 }
 
+// ConvertJSONToExcel converts a JSON file back to Excel
+func (ca *ConverterAdapter) ConvertJSONToExcel(jsonPath string) (*ConversionResult, error) {
+	excelPath := GetExcelPath(jsonPath)
+
+	err := ca.converter.JSONFileToExcel(jsonPath, excelPath, ca.options)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ConversionResult{
+		ExcelPath: excelPath,
+		JSONPath:  jsonPath,
+		Success:   true,
+	}, nil
+}
+
 // GetPendingConversions returns list of Excel files that need conversion
 func (ca *ConverterAdapter) GetPendingConversions(directory string, pattern string) ([]string, error) {
 	// Find Excel files matching pattern
@@ -172,6 +188,14 @@ func GetJSONPath(excelPath string) string {
 	ext := filepath.Ext(base)
 	nameWithoutExt := strings.TrimSuffix(base, ext)
 	return filepath.Join(dir, nameWithoutExt+".json")
+}
+
+// GetExcelPath returns the Excel output path for a JSON file
+func GetExcelPath(jsonPath string) string {
+	dir := filepath.Dir(jsonPath)
+	base := filepath.Base(jsonPath)
+	nameWithoutExt := strings.TrimSuffix(base, ".json")
+	return filepath.Join(dir, nameWithoutExt+".xlsx")
 }
 
 // IsUpToDate checks if the JSON file is up to date with the Excel file

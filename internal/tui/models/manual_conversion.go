@@ -16,13 +16,21 @@ import (
 type ConversionState int
 
 const (
-	ConversionStateFileSelection ConversionState = iota
+	ConversionStateDirectionSelection ConversionState = iota
+	ConversionStateFileSelection
 	ConversionStateModeSelection
 	ConversionStateSheetSelection
 	ConversionStateOptions
 	ConversionStateProcessing
 	ConversionStateResults
 	ConversionStateError
+)
+
+type ConversionDirection int
+
+const (
+	ConversionDirectionExcelToJSON ConversionDirection = iota
+	ConversionDirectionJSONToExcel
 )
 
 type ConversionMode int
@@ -33,23 +41,27 @@ const (
 )
 
 type ManualConversionModel struct {
-	state            ConversionState
-	width            int
-	height           int
-	cursor           int
-	files            []string
-	selectedFile     string
-	conversionMode   ConversionMode
-	modeCursor       int
-	availableSheets  []adapter.SheetInfo
-	selectedSheets   map[string]bool
-	sheetCursor      int
-	options          ConversionOptions
-	optionCursor     int
-	result           *adapter.ConversionResult
-	errorMsg         string
-	showHelp         bool
-	converterAdapter *adapter.ConverterAdapter
+	state               ConversionState
+	width               int
+	height              int
+	cursor              int
+	files               []string
+	jsonFiles           []string
+	jsonFilePaths       map[string]string // Maps display name to actual path
+	selectedFile        string
+	conversionDirection ConversionDirection
+	conversionMode      ConversionMode
+	modeCursor          int
+	directionCursor     int
+	availableSheets     []adapter.SheetInfo
+	selectedSheets      map[string]bool
+	sheetCursor         int
+	options             ConversionOptions
+	optionCursor        int
+	result              *adapter.ConversionResult
+	errorMsg            string
+	showHelp            bool
+	converterAdapter    *adapter.ConverterAdapter
 }
 
 type ConversionOptions struct {
@@ -64,7 +76,7 @@ type ConversionOptions struct {
 
 func NewManualConversionModel() ManualConversionModel {
 	return ManualConversionModel{
-		state: ConversionStateFileSelection,
+		state: ConversionStateDirectionSelection,
 		options: ConversionOptions{
 			PreserveFormulas:    true,
 			PreserveStyles:      true,
@@ -74,18 +86,22 @@ func NewManualConversionModel() ManualConversionModel {
 			CompactJSON:         false,
 			IgnoreEmptyCells:    true,
 		},
-		selectedSheets:   make(map[string]bool),
-		showHelp:         true,
-		converterAdapter: adapter.NewConverterAdapter(),
+		selectedSheets:      make(map[string]bool),
+		jsonFilePaths:       make(map[string]string),
+		showHelp:            true,
+		converterAdapter:    adapter.NewConverterAdapter(),
+		conversionDirection: ConversionDirectionExcelToJSON,
 	}
 }
 
 func (m ManualConversionModel) Init() tea.Cmd {
-	return m.loadExcelFiles
+	return m.loadFiles
 }
 
-func (m ManualConversionModel) loadExcelFiles() tea.Msg {
-	var files []string
+func (m ManualConversionModel) loadFiles() tea.Msg {
+	var excelFiles []string
+	var jsonFiles []string
+	jsonFilePaths := make(map[string]string)
 
 	// Get current working directory
 	cwd, err := os.Getwd()
@@ -100,21 +116,25 @@ func (m ManualConversionModel) loadExcelFiles() tea.Msg {
 		}
 
 		if info.IsDir() {
-			// Skip .git and other hidden directories
-			if strings.HasPrefix(info.Name(), ".") && info.Name() != "." {
+			// Skip .git and other hidden directories (except .gitcells)
+			if strings.HasPrefix(info.Name(), ".") && info.Name() != "." && info.Name() != ".gitcells" {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 
 		ext := strings.ToLower(filepath.Ext(path))
+		// Make path relative to current directory
+		relPath, err := filepath.Rel(cwd, path)
+		if err != nil {
+			relPath = path
+		}
+
 		if ext == ".xlsx" || ext == ".xls" || ext == ".xlsm" {
-			// Make path relative to current directory
-			relPath, err := filepath.Rel(cwd, path)
-			if err != nil {
-				relPath = path
+			// Skip temporary Excel files
+			if !strings.HasPrefix(info.Name(), "~$") {
+				excelFiles = append(excelFiles, relPath)
 			}
-			files = append(files, relPath)
 		}
 		return nil
 	})
@@ -123,7 +143,40 @@ func (m ManualConversionModel) loadExcelFiles() tea.Msg {
 		return errMsg{err}
 	}
 
-	return filesLoadedMsg{files}
+	// Look for GitCells JSON files in .gitcells/data directory
+	gitCellsDataDir := filepath.Join(cwd, ".gitcells", "data")
+	if _, err := os.Stat(gitCellsDataDir); err == nil {
+		// Walk through .gitcells/data looking for chunk directories
+		err = filepath.Walk(gitCellsDataDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil // Skip files we can't access
+			}
+
+			// Look for directories ending with _chunks
+			if info.IsDir() && strings.HasSuffix(info.Name(), "_chunks") {
+				// Check if this is a valid GitCells chunk directory by looking for metadata
+				metadataFile := filepath.Join(path, ".gitcells_chunks.json")
+				if _, err := os.Stat(metadataFile); err == nil {
+					// Extract the original filename from the chunk directory name
+					dirName := info.Name()
+					originalName := strings.TrimSuffix(dirName, "_chunks")
+
+					// Store the actual chunk directory path for conversion
+					jsonFilePaths[originalName] = path
+
+					// Add to JSON files list
+					jsonFiles = append(jsonFiles, originalName)
+				}
+			}
+			return nil
+		})
+
+		if err != nil {
+			return errMsg{err}
+		}
+	}
+
+	return conversionFilesLoadedMsg{excelFiles: excelFiles, jsonFiles: jsonFiles, jsonFilePaths: jsonFilePaths}
 }
 
 func (m ManualConversionModel) loadSheetsForFile(filename string) tea.Cmd {
@@ -136,6 +189,12 @@ func (m ManualConversionModel) loadSheetsForFile(filename string) tea.Cmd {
 	}
 }
 
+type conversionFilesLoadedMsg struct {
+	excelFiles    []string
+	jsonFiles     []string
+	jsonFilePaths map[string]string
+}
+
 type sheetsLoadedMsg struct {
 	sheets []adapter.SheetInfo
 }
@@ -145,29 +204,35 @@ func (m ManualConversionModel) performConversion() tea.Cmd {
 		var result *adapter.ConversionResult
 		var err error
 
-		if m.conversionMode == ConversionModeAll {
-			// Use standard conversion without sheet selection
-			result, err = m.converterAdapter.ConvertFile(m.selectedFile)
-		} else {
-			// Convert selected sheets to slice
-			var sheetsToConvert []string
-			for sheetName, selected := range m.selectedSheets {
-				if selected {
-					sheetsToConvert = append(sheetsToConvert, sheetName)
+		if m.conversionDirection == ConversionDirectionExcelToJSON {
+			// Excel to JSON conversion
+			if m.conversionMode == ConversionModeAll {
+				// Use standard conversion without sheet selection
+				result, err = m.converterAdapter.ConvertFile(m.selectedFile)
+			} else {
+				// Convert selected sheets to slice
+				var sheetsToConvert []string
+				for sheetName, selected := range m.selectedSheets {
+					if selected {
+						sheetsToConvert = append(sheetsToConvert, sheetName)
+					}
 				}
-			}
 
-			// Prepare sheet selection options
-			sheetOptions := adapter.SheetSelectionOptions{
-				SheetsToConvert: sheetsToConvert,
-			}
+				// Prepare sheet selection options
+				sheetOptions := adapter.SheetSelectionOptions{
+					SheetsToConvert: sheetsToConvert,
+				}
 
-			// If no sheets selected, convert all
-			if len(sheetsToConvert) == 0 {
-				sheetOptions = adapter.SheetSelectionOptions{}
-			}
+				// If no sheets selected, convert all
+				if len(sheetsToConvert) == 0 {
+					sheetOptions = adapter.SheetSelectionOptions{}
+				}
 
-			result, err = m.converterAdapter.ConvertFileWithSheetOptions(m.selectedFile, sheetOptions)
+				result, err = m.converterAdapter.ConvertFileWithSheetOptions(m.selectedFile, sheetOptions)
+			}
+		} else {
+			// JSON to Excel conversion
+			result, err = m.converterAdapter.ConvertJSONToExcel(m.selectedFile)
 		}
 
 		if err != nil {
@@ -182,18 +247,20 @@ type conversionCompleteMsg struct {
 	result *adapter.ConversionResult
 }
 
-func (m ManualConversionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *ManualConversionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 		return m, nil
 
-	case filesLoadedMsg:
-		m.files = msg.files
-		if len(m.files) == 0 {
+	case conversionFilesLoadedMsg:
+		m.files = msg.excelFiles
+		m.jsonFiles = msg.jsonFiles
+		m.jsonFilePaths = msg.jsonFilePaths
+		if len(m.files) == 0 && len(m.jsonFiles) == 0 {
 			m.state = ConversionStateError
-			m.errorMsg = "No Excel files found in current directory"
+			m.errorMsg = "No Excel or JSON files found in current directory"
 		}
 		return m, nil
 
@@ -220,8 +287,10 @@ func (m ManualConversionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m ManualConversionModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *ManualConversionModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.state {
+	case ConversionStateDirectionSelection:
+		return m.handleDirectionSelectionKeys(msg)
 	case ConversionStateFileSelection:
 		return m.handleFileSelectionKeys(msg)
 	case ConversionStateModeSelection:
@@ -240,23 +309,68 @@ func (m ManualConversionModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cm
 	return m, nil
 }
 
-func (m ManualConversionModel) handleFileSelectionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *ManualConversionModel) handleDirectionSelectionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c", "q", "esc":
+		m.resetState()
 		return m, func() tea.Msg { return messages.RequestMainMenuMsg{} }
+	case "up", "k":
+		if m.directionCursor > 0 {
+			m.directionCursor--
+		}
+	case "down", "j":
+		if m.directionCursor < 1 {
+			m.directionCursor++
+		}
+	case "enter", " ":
+		m.conversionDirection = ConversionDirection(m.directionCursor)
+		m.state = ConversionStateFileSelection
+		return m, nil
+	case "h", "?":
+		m.showHelp = !m.showHelp
+	}
+	return m, nil
+}
+
+func (m *ManualConversionModel) handleFileSelectionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Get appropriate file list based on conversion direction
+	var fileList []string
+	if m.conversionDirection == ConversionDirectionExcelToJSON {
+		fileList = m.files
+	} else {
+		fileList = m.jsonFiles
+	}
+
+	switch msg.String() {
+	case "ctrl+c", "q", "esc":
+		m.state = ConversionStateDirectionSelection
+		return m, nil
 	case "up", "k":
 		if m.cursor > 0 {
 			m.cursor--
 		}
 	case "down", "j":
-		if m.cursor < len(m.files)-1 {
+		if m.cursor < len(fileList)-1 {
 			m.cursor++
 		}
 	case "enter", " ":
-		if len(m.files) > 0 && m.cursor < len(m.files) {
-			m.selectedFile = m.files[m.cursor]
-			m.state = ConversionStateModeSelection
-			m.modeCursor = 0
+		if len(fileList) > 0 && m.cursor < len(fileList) {
+			selectedName := fileList[m.cursor]
+
+			// For JSON files, get the actual path from the map
+			if m.conversionDirection == ConversionDirectionJSONToExcel {
+				if actualPath, ok := m.jsonFilePaths[selectedName]; ok {
+					m.selectedFile = actualPath
+				} else {
+					m.selectedFile = selectedName // Fallback
+				}
+				m.state = ConversionStateOptions
+				m.optionCursor = 0
+			} else {
+				m.selectedFile = selectedName
+				m.state = ConversionStateModeSelection
+				m.modeCursor = 0
+			}
 			return m, nil
 		}
 	case "h", "?":
@@ -265,11 +379,12 @@ func (m ManualConversionModel) handleFileSelectionKeys(msg tea.KeyMsg) (tea.Mode
 	return m, nil
 }
 
-func (m ManualConversionModel) handleModeSelectionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *ManualConversionModel) handleModeSelectionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c", "q", "esc":
 		m.state = ConversionStateFileSelection
 		m.selectedFile = ""
+		m.cursor = 0
 		return m, nil
 	case "up", "k":
 		if m.modeCursor > 0 {
@@ -295,7 +410,7 @@ func (m ManualConversionModel) handleModeSelectionKeys(msg tea.KeyMsg) (tea.Mode
 	return m, nil
 }
 
-func (m ManualConversionModel) handleSheetSelectionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *ManualConversionModel) handleSheetSelectionKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c", "q", "esc":
 		m.state = ConversionStateModeSelection
@@ -310,7 +425,7 @@ func (m ManualConversionModel) handleSheetSelectionKeys(msg tea.KeyMsg) (tea.Mod
 		if m.sheetCursor < len(m.availableSheets)-1 {
 			m.sheetCursor++
 		}
-	case "enter", " ":
+	case " ":
 		if len(m.availableSheets) > 0 && m.sheetCursor < len(m.availableSheets) {
 			sheetName := m.availableSheets[m.sheetCursor].Name
 			m.selectedSheets[sheetName] = !m.selectedSheets[sheetName]
@@ -323,9 +438,10 @@ func (m ManualConversionModel) handleSheetSelectionKeys(msg tea.KeyMsg) (tea.Mod
 	case "n":
 		// Select none
 		m.selectedSheets = make(map[string]bool)
-	case "tab":
-		// Proceed to options
+	case "enter":
+		// Proceed to options after sheet selection
 		m.state = ConversionStateOptions
+		m.optionCursor = 0
 	case "c":
 		// Convert with current selection
 		m.state = ConversionStateProcessing
@@ -336,12 +452,16 @@ func (m ManualConversionModel) handleSheetSelectionKeys(msg tea.KeyMsg) (tea.Mod
 	return m, nil
 }
 
-func (m ManualConversionModel) handleOptionsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *ManualConversionModel) handleOptionsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c", "q", "esc":
-		if m.conversionMode == ConversionModeAll {
+		// Navigate back based on conversion direction and mode
+		switch {
+		case m.conversionDirection == ConversionDirectionJSONToExcel:
+			m.state = ConversionStateFileSelection
+		case m.conversionMode == ConversionModeAll:
 			m.state = ConversionStateModeSelection
-		} else {
+		default:
 			m.state = ConversionStateSheetSelection
 		}
 		return m, nil
@@ -356,8 +476,7 @@ func (m ManualConversionModel) handleOptionsKeys(msg tea.KeyMsg) (tea.Model, tea
 	case "enter", " ":
 		m.toggleOption(m.optionCursor)
 	case "tab":
-		// Go back to sheet selection
-		m.state = ConversionStateSheetSelection
+		// Tab is not used for navigation in options - removed to avoid confusion
 	case "c":
 		// Convert with current options
 		m.state = ConversionStateProcessing
@@ -387,50 +506,45 @@ func (m *ManualConversionModel) toggleOption(index int) {
 	}
 }
 
-func (m ManualConversionModel) handleProcessingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *ManualConversionModel) handleProcessingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Only allow quit during processing
 	if msg.String() == "ctrl+c" {
+		m.resetState()
 		return m, func() tea.Msg { return messages.RequestMainMenuMsg{} }
 	}
 	return m, nil
 }
 
-func (m ManualConversionModel) handleResultsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *ManualConversionModel) handleResultsKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c", "q", "esc":
+		m.resetState()
 		return m, func() tea.Msg { return messages.RequestMainMenuMsg{} }
 	case "r":
 		// Reset for another conversion
-		m.state = ConversionStateFileSelection
-		m.selectedFile = ""
-		m.availableSheets = nil
-		m.selectedSheets = make(map[string]bool)
-		m.result = nil
-		m.cursor = 0
-		m.modeCursor = 0
-		m.sheetCursor = 0
-		m.optionCursor = 0
-		m.conversionMode = ConversionModeAll
-		return m, m.loadExcelFiles
+		m.resetState()
+		return m, m.loadFiles
 	}
 	return m, nil
 }
 
-func (m ManualConversionModel) handleErrorKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *ManualConversionModel) handleErrorKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c", "q", "esc":
+		m.resetState()
 		return m, func() tea.Msg { return messages.RequestMainMenuMsg{} }
 	case "r":
-		// Retry - go back to file selection
-		m.state = ConversionStateFileSelection
-		m.errorMsg = ""
-		return m, m.loadExcelFiles
+		// Retry - reset and reload
+		m.resetState()
+		return m, m.loadFiles
 	}
 	return m, nil
 }
 
 func (m ManualConversionModel) View() string {
 	switch m.state {
+	case ConversionStateDirectionSelection:
+		return m.renderDirectionSelection()
 	case ConversionStateFileSelection:
 		return m.renderFileSelection()
 	case ConversionStateModeSelection:
@@ -449,39 +563,40 @@ func (m ManualConversionModel) View() string {
 	return "Loading..."
 }
 
-func (m ManualConversionModel) renderFileSelection() string {
+func (m ManualConversionModel) renderDirectionSelection() string {
 	titleStyle := styles.TitleStyle.MarginBottom(1)
-	title := titleStyle.Render("Manual Excel Conversion")
+	title := titleStyle.Render("Manual File Conversion")
 
-	if len(m.files) == 0 {
-		content := lipgloss.JoinVertical(
-			lipgloss.Left,
-			title,
-			"",
-			styles.ErrorStyle.Render("No Excel files found in current directory"),
-			"",
-			styles.HelpStyle.Render("[q] Back to Tools • [r] Retry"),
-		)
-		return styles.Center(m.width, m.height, content)
+	instructions := styles.MutedStyle.Render("Select conversion direction:")
+
+	directions := []struct {
+		name string
+		desc string
+	}{
+		{"Excel → JSON", "Convert Excel files to JSON format"},
+		{"JSON → Excel", "Convert JSON files back to Excel format"},
 	}
 
-	instructions := styles.MutedStyle.Render("Select Excel file to convert:")
-
-	// File list
-	fileList := make([]string, 0, len(m.files))
-	for i, file := range m.files {
+	directionList := make([]string, 0, len(directions))
+	for i, direction := range directions {
 		cursor := "  "
-		fileStyle := lipgloss.NewStyle()
+		directionStyle := lipgloss.NewStyle()
 
-		if i == m.cursor {
+		if i == m.directionCursor {
 			cursor = lipgloss.NewStyle().Foreground(styles.Primary).Render("▶ ")
-			fileStyle = fileStyle.Bold(true)
+			directionStyle = directionStyle.Bold(true)
 		}
 
-		fileList = append(fileList, cursor+fileStyle.Render(file))
+		line := cursor + directionStyle.Render(direction.name)
+		desc := "    " + styles.MutedStyle.Render(direction.desc)
+		directionList = append(directionList, line)
+		directionList = append(directionList, desc)
+		if i < len(directions)-1 {
+			directionList = append(directionList, "")
+		}
 	}
 
-	files := strings.Join(fileList, "\n")
+	directionContent := strings.Join(directionList, "\n")
 
 	help := ""
 	if m.showHelp {
@@ -490,6 +605,82 @@ func (m ManualConversionModel) renderFileSelection() string {
 		)
 	} else {
 		help = styles.HelpStyle.Render("[h/?] Show help • [q] Back to Tools")
+	}
+
+	content := lipgloss.JoinVertical(
+		lipgloss.Left,
+		title,
+		"",
+		instructions,
+		"",
+		directionContent,
+		"",
+		help,
+	)
+
+	return lipgloss.NewStyle().
+		Padding(1, 2).
+		Render(content)
+}
+
+func (m ManualConversionModel) renderFileSelection() string {
+	titleStyle := styles.TitleStyle.MarginBottom(1)
+	var title, instructions, noFilesError string
+	var fileList []string
+
+	if m.conversionDirection == ConversionDirectionExcelToJSON {
+		title = titleStyle.Render("Excel → JSON Conversion")
+		instructions = styles.MutedStyle.Render("Select Excel file to convert:")
+		noFilesError = "No Excel files found in current directory"
+		fileList = m.files
+	} else {
+		title = titleStyle.Render("JSON → Excel Conversion")
+		instructions = styles.MutedStyle.Render("Select GitCells JSON file to convert back to Excel:")
+		noFilesError = "No GitCells JSON files found in .gitcells/data directory"
+		fileList = m.jsonFiles
+	}
+
+	if len(fileList) == 0 {
+		content := lipgloss.JoinVertical(
+			lipgloss.Left,
+			title,
+			"",
+			styles.ErrorStyle.Render(noFilesError),
+			"",
+			styles.HelpStyle.Render("[q] Back to Direction Selection • [r] Retry"),
+		)
+		return styles.Center(m.width, m.height, content)
+	}
+
+	// File list
+	renderedFileList := make([]string, 0, len(fileList))
+	for i, file := range fileList {
+		cursor := "  "
+		fileStyle := lipgloss.NewStyle()
+
+		if i == m.cursor {
+			cursor = lipgloss.NewStyle().Foreground(styles.Primary).Render("▶ ")
+			fileStyle = fileStyle.Bold(true)
+		}
+
+		displayName := file
+		if m.conversionDirection == ConversionDirectionJSONToExcel {
+			// For JSON files, show the original Excel filename
+			displayName = file + ".xlsx"
+		}
+
+		renderedFileList = append(renderedFileList, cursor+fileStyle.Render(displayName))
+	}
+
+	files := strings.Join(renderedFileList, "\n")
+
+	help := ""
+	if m.showHelp {
+		help = styles.HelpStyle.Render(
+			"[↑/↓] Navigate • [Enter/Space] Select • [h/?] Toggle help • [q] Back to Direction Selection",
+		)
+	} else {
+		help = styles.HelpStyle.Render("[h/?] Show help • [q] Back to Direction Selection")
 	}
 
 	content := lipgloss.JoinVertical(
@@ -599,7 +790,7 @@ func (m ManualConversionModel) renderSheetSelection() string {
 	help := ""
 	if m.showHelp {
 		help = styles.HelpStyle.Render(
-			"[↑/↓] Navigate • [Space] Toggle • [a] All • [n] None • [Tab] Options • [c] Convert • [q] Back",
+			"[↑/↓] Navigate • [Space] Toggle • [a] All • [n] None • [Enter] Options • [c] Convert • [q] Back",
 		)
 	} else {
 		help = styles.HelpStyle.Render("[h/?] Show help • [c] Convert • [q] Back")
@@ -667,7 +858,7 @@ func (m ManualConversionModel) renderOptions() string {
 	help := ""
 	if m.showHelp {
 		help = styles.HelpStyle.Render(
-			"[↑/↓] Navigate • [Space] Toggle • [Tab] Back to Sheets • [c] Convert • [q] Back",
+			"[↑/↓] Navigate • [Space] Toggle • [c] Convert • [q] Back",
 		)
 	} else {
 		help = styles.HelpStyle.Render("[h/?] Show help • [c] Convert • [q] Back")
@@ -755,4 +946,22 @@ func (m ManualConversionModel) renderError() string {
 		styles.HelpStyle.Render("[r] Retry • [q] Back to Tools"),
 	)
 	return styles.Center(m.width, m.height, content)
+}
+
+// resetState resets the model to initial state
+func (m *ManualConversionModel) resetState() {
+	m.state = ConversionStateDirectionSelection
+	m.cursor = 0
+	m.directionCursor = 0
+	m.modeCursor = 0
+	m.sheetCursor = 0
+	m.optionCursor = 0
+	m.selectedFile = ""
+	m.conversionDirection = ConversionDirectionExcelToJSON
+	m.conversionMode = ConversionModeAll
+	m.availableSheets = nil
+	m.selectedSheets = make(map[string]bool)
+	m.jsonFilePaths = make(map[string]string)
+	m.result = nil
+	m.errorMsg = ""
 }

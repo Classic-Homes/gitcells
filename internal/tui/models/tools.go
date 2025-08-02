@@ -61,6 +61,11 @@ func (m ToolsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return m.handleKeyPress(msg)
 
+	case messages.RequestMainMenuMsg:
+		// Reset to selection state when returning from sub-models
+		m.state = ToolsStateSelection
+		return m, func() tea.Msg { return messages.RequestMainMenuMsg{} }
+
 	default:
 		// Handle messages for sub-models
 		var cmd tea.Cmd
@@ -72,8 +77,8 @@ func (m ToolsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		} else if m.state == ToolsStateConversion {
 			convModel, convCmd := m.conversionModel.Update(msg)
-			if convModel, ok := convModel.(ManualConversionModel); ok {
-				m.conversionModel = convModel
+			if convModel, ok := convModel.(*ManualConversionModel); ok {
+				m.conversionModel = *convModel
 				cmd = convCmd
 			}
 		}
@@ -98,15 +103,10 @@ func (m ToolsModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, cmd
 	case ToolsStateConversion:
-		// Handle keys that might return to tools menu
-		if msg.String() == "ctrl+c" || msg.String() == "q" || msg.String() == "esc" {
-			m.state = ToolsStateSelection
-			return m, nil
-		}
-		// Pass other keys to conversion model
+		// Pass all keys to conversion model
 		convModel, cmd := m.conversionModel.handleKeyPress(msg)
-		if convModel, ok := convModel.(ManualConversionModel); ok {
-			m.conversionModel = convModel
+		if convModel, ok := convModel.(*ManualConversionModel); ok {
+			m.conversionModel = *convModel
 		}
 		return m, cmd
 	}

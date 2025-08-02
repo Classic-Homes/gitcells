@@ -154,7 +154,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case messages.RequestMainMenuMsg:
 		return m, backToMenu()
-		
+
 	case messages.RequestModeChangeMsg:
 		switch msg.Mode {
 		case "watcher":
