@@ -11,16 +11,16 @@ Convert an Excel file to JSON:
 gitcells convert Budget2024.xlsx
 ```
 
-This creates `Budget2024.xlsx.json` in the same directory.
+This creates JSON chunk files in `.gitcells/data/Budget2024.xlsx_chunks/`.
 
 ### JSON to Excel
 
-Convert a JSON file back to Excel:
+Convert JSON chunks back to Excel:
 ```bash
-gitcells convert Budget2024.xlsx.json
+gitcells convert .gitcells/data/Budget2024.xlsx_chunks/
 ```
 
-This creates `Budget2024.xlsx` (or restores it if it was deleted).
+This reads the chunks from the specified directory and creates `Budget2024.xlsx`.
 
 ## Conversion Options
 
@@ -28,11 +28,11 @@ This creates `Budget2024.xlsx` (or restores it if it was deleted).
 
 Use the `-o` flag to specify the output location:
 ```bash
-# Excel to JSON with custom output
-gitcells convert Budget.xlsx -o /path/to/output/Budget.json
+# Excel to JSON (output path determines chunk location)
+gitcells convert Budget.xlsx
 
 # JSON to Excel with custom output
-gitcells convert Budget.json -o RestoresBudget.xlsx
+gitcells convert .gitcells/data/Budget.xlsx_chunks/ -o RestoredBudget.xlsx
 ```
 
 ### Conversion Flags
@@ -214,8 +214,8 @@ Convert before committing to Git:
 # Convert to JSON
 gitcells convert Report.xlsx
 
-# Add both files to Git
-git add Report.xlsx Report.xlsx.json
+# Add Excel file and JSON chunks to Git
+git add Report.xlsx .gitcells/data/Report.xlsx_chunks/
 git commit -m "Updated report with Q4 data"
 ```
 
@@ -223,8 +223,8 @@ git commit -m "Updated report with Q4 data"
 
 Recover from JSON if Excel file is corrupted:
 ```bash
-# Excel file corrupted? Restore from JSON
-gitcells convert Report.xlsx.json -o Report_Restored.xlsx
+# Excel file corrupted? Restore from JSON chunks
+gitcells convert .gitcells/data/Report.xlsx_chunks/ -o Report_Restored.xlsx
 ```
 
 ### 3. Automation
@@ -250,11 +250,11 @@ Convert to JSON for processing with other tools:
 # Convert to JSON
 gitcells convert data.xlsx
 
-# Process with jq
-cat data.xlsx.json | jq '.sheets[0].cells | length'
+# Process with jq (from chunk files)
+cat .gitcells/data/data.xlsx_chunks/sheet_Sheet1.json | jq '.sheet.cells | length'
 
 # Extract specific data
-cat data.xlsx.json | jq '.sheets[0].cells.A1.value'
+cat .gitcells/data/data.xlsx_chunks/sheet_Sheet1.json | jq '.sheet.cells.A1.value'
 ```
 
 ## Validation and Testing
@@ -336,7 +336,7 @@ Create a pre-commit hook (`.git/hooks/pre-commit`):
 
 for file in $(git diff --cached --name-only | grep -E '\.(xlsx|xls)$'); do
   gitcells convert "$file"
-  git add "$file.json"
+  git add ".gitcells/data/${file}_chunks/"
 done
 ```
 

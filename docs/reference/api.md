@@ -112,7 +112,7 @@ func main() {
     }
     
     // Save to file
-    err = conv.ExcelToJSONFile("Budget.xlsx", "Budget.json", opts)
+    err = conv.ExcelToJSONFile("Budget.xlsx", "Budget.xlsx", opts)
     if err != nil {
         log.Fatal(err)
     }
@@ -345,7 +345,7 @@ func main() {
     log.Printf("Branch: %s, Clean: %v\n", status.Branch, status.Clean)
     
     // Commit files
-    files := []string{"Budget.xlsx", "Budget.xlsx.json"}
+    files := []string{"Budget.xlsx", ".gitcells/data/Budget.xlsx_chunks/"}
     err = client.AutoCommit(files, "Updated budget spreadsheet")
     if err != nil {
         log.Fatal(err)
@@ -574,7 +574,7 @@ func main() {
             PreserveStyles:   cfg.Converter.PreserveStyles,
         }
         
-        jsonPath := event.Path + ".json"
+        // Convert to chunks in .gitcells/data/
         err := conv.ExcelToJSONFile(event.Path, jsonPath, opts)
         if err != nil {
             return err

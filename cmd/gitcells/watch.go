@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -61,7 +60,7 @@ func newWatchCommand(logger *logrus.Logger) *cobra.Command {
 					return nil
 				}
 
-				// Convert Excel to JSON
+				// Convert Excel to JSON using chunking
 				convertOptions := converter.ConvertOptions{
 					PreserveFormulas: cfg.Converter.PreserveFormulas,
 					PreserveStyles:   cfg.Converter.PreserveStyles,
@@ -69,27 +68,26 @@ func newWatchCommand(logger *logrus.Logger) *cobra.Command {
 					CompactJSON:      cfg.Converter.CompactJSON,
 					IgnoreEmptyCells: cfg.Converter.IgnoreEmptyCells,
 					MaxCellsPerSheet: cfg.Converter.MaxCellsPerSheet,
+					ChunkingStrategy: "sheet-based",
 				}
-				doc, convertErr := conv.ExcelToJSON(event.Path, convertOptions)
-				if convertErr != nil {
+
+				// The converter will automatically save to .gitcells/data directory
+				if convertErr := conv.ExcelToJSONFile(event.Path, event.Path, convertOptions); convertErr != nil {
 					return utils.WrapFileError(convertErr, utils.ErrorTypeConverter, "watch", event.Path, "failed to convert Excel to JSON")
-				}
-
-				// Save JSON file
-				jsonPath := event.Path + ".json"
-				jsonData, jsonErr := json.MarshalIndent(doc, "", "  ")
-				if jsonErr != nil {
-					return utils.WrapError(jsonErr, utils.ErrorTypeConverter, "watch", "failed to marshal JSON")
-				}
-
-				if writeErr := os.WriteFile(jsonPath, jsonData, filePermissions); writeErr != nil {
-					return utils.WrapFileError(writeErr, utils.ErrorTypeFileSystem, "watch", jsonPath, "failed to write JSON file")
 				}
 
 				// Commit changes if git repository exists
 				if gitClient != nil {
+					// Get the chunk paths that were created
+					chunkPaths, err := conv.GetChunkPaths(event.Path)
+					if err != nil {
+						logger.Warnf("Failed to get chunk paths for git commit: %v", err)
+						// Fall back to committing the entire .gitcells/data directory
+						chunkPaths = []string{filepath.Join(".gitcells", "data")}
+					}
+
 					message := fmt.Sprintf("GitCells: %s %s", event.Type.String(), filepath.Base(event.Path))
-					return gitClient.AutoCommit([]string{jsonPath}, message)
+					return gitClient.AutoCommit(chunkPaths, message)
 				}
 				return nil
 			}

@@ -36,6 +36,44 @@ func ValidateDirectory(path string) error {
 		return fmt.Errorf("path must be absolute")
 	}
 
+	// Check if directory exists and is writable
+	if stat, err := os.Stat(absPath); err == nil {
+		// Directory exists
+		if !stat.IsDir() {
+			return fmt.Errorf("path exists but is not a directory")
+		}
+
+		// Check write permissions
+		testFile := filepath.Join(absPath, ".gitcells_test")
+		if err := os.WriteFile(testFile, []byte("test"), 0600); err != nil {
+			return fmt.Errorf("directory is not writable: %w", err)
+		}
+		os.Remove(testFile)
+	} else if !os.IsNotExist(err) {
+		// Some other error occurred
+		return fmt.Errorf("cannot access directory: %w", err)
+	} else {
+		// Directory doesn't exist - check if parent is writable
+		parent := filepath.Dir(absPath)
+		if parent != absPath { // Avoid infinite loop at root
+			if stat, err := os.Stat(parent); err == nil {
+				if !stat.IsDir() {
+					return fmt.Errorf("parent path is not a directory")
+				}
+				// Check if we can create in parent
+				testDir := filepath.Join(parent, ".gitcells_test_dir")
+				if err := os.Mkdir(testDir, 0755); err != nil {
+					return fmt.Errorf("cannot create directory (parent not writable): %w", err)
+				}
+				os.Remove(testDir)
+			} else if os.IsNotExist(err) {
+				return fmt.Errorf("parent directory does not exist")
+			} else {
+				return fmt.Errorf("cannot access parent directory: %w", err)
+			}
+		}
+	}
+
 	return nil
 }
 

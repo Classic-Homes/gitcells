@@ -90,6 +90,10 @@ func (m SetupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focusPrev()
 
 		case "enter":
+			if m.finished && m.error != "" {
+				// If we're on the error screen, allow Esc to go back
+				return m, nil
+			}
 			if m.validateCurrentStep() && m.canProceed() {
 				if m.step == 3 { // Last step
 					m.saveConfig()
@@ -212,6 +216,11 @@ func (m SetupModel) renderDirectoryStep() string {
 		if dirInfo, err := validation.InspectDirectory(dir); err == nil {
 			if dirInfo.Exists {
 				info = append(info, styles.SuccessStyle.Render("✓ Directory exists"))
+				if dirInfo.IsWritable {
+					info = append(info, styles.SuccessStyle.Render("✓ Directory is writable"))
+				} else {
+					info = append(info, styles.ErrorStyle.Render("✗ Directory is not writable"))
+				}
 				if dirInfo.IsGitRepo {
 					info = append(info, styles.SuccessStyle.Render("✓ Git repository detected"))
 				}
@@ -345,18 +354,32 @@ Commit template:  %s`,
 }
 
 func (m SetupModel) renderComplete() string {
-	completeBox := styles.BoxStyle.
-		Width(60).
-		Render(
-			styles.SuccessStyle.Render("✓ GitCells Setup Complete!") + "\n\n" +
-				"Your repository has been initialized with the following:\n\n" +
-				"• Configuration saved to .gitcells.yaml\n" +
-				"• Git repository initialized\n" +
-				"• .gitignore created with Excel patterns\n\n" +
-				"You can now run 'gitcells watch' to start monitoring Excel files.",
-		)
+	var box string
+	if m.error != "" {
+		// Show error message
+		box = styles.BoxStyle.
+			Width(60).
+			Render(
+				styles.ErrorStyle.Render("✗ Setup Failed") + "\n\n" +
+					styles.ErrorStyle.Render(m.error) + "\n\n" +
+					"Please check the directory permissions and try again.\n\n" +
+					styles.HelpStyle.Render("Press Esc to return to main menu"),
+			)
+	} else {
+		// Show success message
+		box = styles.BoxStyle.
+			Width(60).
+			Render(
+				styles.SuccessStyle.Render("✓ GitCells Setup Complete!") + "\n\n" +
+					"Your repository has been initialized with the following:\n\n" +
+					"• Configuration saved to .gitcells.yaml\n" +
+					"• Git repository initialized\n" +
+					"• .gitignore created with Excel patterns\n\n" +
+					"You can now run 'gitcells watch' to start monitoring Excel files.",
+			)
+	}
 
-	return styles.Center(m.width, m.height, completeBox)
+	return styles.Center(m.width, m.height, box)
 }
 
 func (m *SetupModel) focusNext() {
@@ -442,9 +465,17 @@ func (m *SetupModel) saveConfig() {
 		CommitTemplate: m.commitTemplate.Value(),
 	}
 
+	// Final permission check before attempting any writes
+	if err := validation.ValidateDirectory(m.config.Directory); err != nil {
+		m.error = fmt.Sprintf("Directory validation failed: %v", err)
+		m.finished = false
+		return
+	}
+
 	// Create directory if needed
 	if err := os.MkdirAll(m.config.Directory, constants.DirPermissions); err != nil {
 		m.error = fmt.Sprintf("Failed to create directory: %v", err)
+		m.finished = false
 		return
 	}
 
@@ -452,18 +483,21 @@ func (m *SetupModel) saveConfig() {
 	configAdapter := adapter.NewConfigAdapter(m.config.Directory)
 	if err := configAdapter.SaveSetupConfig(m.config); err != nil {
 		m.error = fmt.Sprintf("Failed to save configuration: %v", err)
+		m.finished = false
 		return
 	}
 
 	// Create .gitignore
 	if err := configAdapter.CreateGitIgnore(m.config.Directory); err != nil {
 		m.error = fmt.Sprintf("Failed to create .gitignore: %v", err)
+		m.finished = false
 		return
 	}
 
 	// Initialize git repository
 	if _, err := adapter.NewGitAdapter(m.config.Directory); err != nil {
 		m.error = fmt.Sprintf("Failed to initialize git repository: %v", err)
+		m.finished = false
 		return
 	}
 }

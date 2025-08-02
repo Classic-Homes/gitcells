@@ -159,11 +159,11 @@ gitcells status
 # Pull latest changes
 git pull
 
-# Resolve conflicts in JSON files
+# Resolve conflicts in JSON chunk files
 git mergetool
 
-# Convert back to Excel
-gitcells convert resolved.xlsx.json
+# Convert back to Excel from chunks
+gitcells convert .gitcells/data/resolved.xlsx_chunks/
 ```
 
 ### Best Practices for Teams
@@ -210,11 +210,12 @@ for file in $(git diff --cached --name-only | grep '\.xlsx$'); do
     exit 1
   fi
   
-  # Ensure JSON exists
-  if [ ! -f "$file.json" ]; then
-    echo "Converting $file to JSON..."
+  # Ensure JSON chunks exist
+  chunk_dir=".gitcells/data/${file}_chunks"
+  if [ ! -d "$chunk_dir" ]; then
+    echo "Converting $file to JSON chunks..."
     gitcells convert "$file"
-    git add "$file.json"
+    git add "$chunk_dir/"
   fi
 done
 ```
@@ -225,10 +226,10 @@ done
 #!/bin/bash
 # Regenerate Excel files after merge
 
-for json in $(find . -name "*.xlsx.json" -newer .git/MERGE_HEAD); do
-  excel="${json%.json}"
-  echo "Regenerating $excel from JSON..."
-  gitcells convert "$json" -o "$excel"
+for chunk_dir in $(find .gitcells/data -name "*_chunks" -newer .git/MERGE_HEAD); do
+  excel_name=$(basename "$chunk_dir" | sed 's/_chunks$//')
+  echo "Regenerating $excel_name from JSON chunks..."
+  gitcells convert "$chunk_dir" -o "$excel_name"
 done
 ```
 
@@ -243,12 +244,11 @@ Configure Git attributes for Excel files:
 *.xls binary
 *.xlsm binary
 
-# JSON files - ensure LF line endings
-*.xlsx.json text eol=lf
-*.xls.json text eol=lf
+# JSON chunk files - ensure LF line endings
+.gitcells/data/**/*.json text eol=lf
 
 # Mark generated files
-*.xlsx.json linguist-generated=true
+.gitcells/data/** linguist-generated=true
 ```
 
 ### Git LFS for Large Files
@@ -282,10 +282,12 @@ View Excel file history:
 git log --follow Budget.xlsx
 
 # See what changed in each commit
-git log -p Budget.xlsx.json
+git log -p .gitcells/data/Budget.xlsx_chunks/
 
-# View specific version
-git show HEAD~3:Budget.xlsx.json | gitcells convert - -o OldBudget.xlsx
+# View specific version (requires checking out chunks)
+git checkout HEAD~3 -- .gitcells/data/Budget.xlsx_chunks/
+gitcells convert .gitcells/data/Budget.xlsx_chunks/ -o OldBudget.xlsx
+git checkout HEAD -- .gitcells/data/Budget.xlsx_chunks/
 ```
 
 ### GitCells Status Command

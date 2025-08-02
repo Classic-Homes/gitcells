@@ -19,12 +19,12 @@ GitCells solves these problems by converting Excel files to a text format that G
 Think of GitCells as a translator between Excel and Git:
 
 ```
-Excel File (.xlsx) → GitCells → JSON File (.json) → Git
+Excel File (.xlsx) → GitCells → JSON Chunks (.gitcells/data/) → Git
 ```
 
 - **Excel File**: Your normal spreadsheet file
 - **GitCells**: The translator that converts between formats
-- **JSON File**: A text version of your spreadsheet that Git can track
+- **JSON Chunks**: Text versions of your spreadsheet (split by sheets) that Git can track
 - **Git**: The version control system that tracks changes
 
 ### 2. What Gets Preserved
@@ -75,7 +75,7 @@ GitCells can watch folders for changes:
 - You edit and save an Excel file
 - GitCells detects the change immediately
 - It automatically converts the file to JSON
-- The JSON file is saved alongside your Excel file
+- The JSON chunk files are saved in `.gitcells/data` directory
 
 ### Bidirectional Conversion
 
@@ -124,7 +124,7 @@ This file tells GitCells how to behave:
 
 Sometimes you just want to convert files:
 1. Convert Excel to JSON to see the content
-2. Edit the JSON file directly (advanced users)
+2. Edit the JSON chunk files directly (advanced users)
 3. Convert back to Excel
 4. Share the file with others
 
@@ -136,10 +136,18 @@ After using GitCells, your folder might look like this:
 MyExcelFiles/
 ├── .gitcells.yaml          # GitCells configuration
 ├── .git/                   # Git repository (if using Git)
+├── .gitcells/
+│   └── data/               # Centralized JSON storage
+│       ├── Budget2024.xlsx_chunks/
+│       │   ├── workbook.json
+│       │   ├── sheet_Sheet1.json
+│       │   └── .gitcells_chunks.json
+│       └── Sales.xlsx_chunks/
+│           ├── workbook.json
+│           ├── sheet_Data.json
+│           └── .gitcells_chunks.json
 ├── Budget2024.xlsx         # Your Excel file
-├── Budget2024.xlsx.json    # JSON version (auto-created)
-├── Sales.xlsx              # Another Excel file
-└── Sales.xlsx.json         # Its JSON version
+└── Sales.xlsx              # Another Excel file
 ```
 
 ## Important Notes
@@ -147,13 +155,13 @@ MyExcelFiles/
 ### Your Excel Files Are Safe
 
 - GitCells never modifies your original Excel files
-- It only creates additional JSON files
-- You can delete JSON files anytime (though you'll lose history)
+- It only creates additional JSON chunk files
+- You can delete JSON chunk files anytime (though you'll lose history)
 - Excel files work normally with or without GitCells
 
 ### Storage Considerations
 
-- JSON files are usually larger than Excel files
+- JSON chunk files combined are usually larger than Excel files
 - But Git compresses them efficiently
 - Overall repository size is manageable
 - Old versions are compressed even more

@@ -17,6 +17,7 @@ type Converter interface {
 
 	// Utility operations
 	GetExcelSheetNames(filePath string) ([]string, error)
+	GetChunkPaths(basePath string) ([]string, error)
 }
 
 type ConvertOptions struct {
@@ -48,8 +49,10 @@ type converter struct {
 }
 
 func NewConverter(logger *logrus.Logger) Converter {
-	return &converter{
+	c := &converter{
 		logger:           logger,
-		chunkingStrategy: NewSheetBasedChunking(logger),
+		chunkingStrategy: nil,
 	}
+	c.chunkingStrategy = NewSheetBasedChunking(c.logger)
+	return c
 }

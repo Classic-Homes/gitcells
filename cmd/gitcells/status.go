@@ -150,17 +150,10 @@ func getFileStatus(excelPath string, logger *logrus.Logger) (FileStatus, error) 
 	jsonDir := filepath.Join(gitRoot, constants.GitCellsDataDir, filepath.Dir(relPath))
 	baseName := strings.TrimSuffix(filepath.Base(excelPath), filepath.Ext(excelPath))
 
-	// Check for chunked files
+	// Check for chunked files only
 	chunkDir := filepath.Join(jsonDir, baseName+constants.ChunksDirSuffix)
 	workbookJsonPath := filepath.Join(chunkDir, constants.WorkbookFileName)
-
-	// First check for chunked workbook.json
-	if _, err := os.Stat(workbookJsonPath); err == nil {
-		status.JSONPath = workbookJsonPath
-	} else {
-		// Fallback to single JSON file
-		status.JSONPath = filepath.Join(jsonDir, baseName+constants.ExtJSON)
-	}
+	status.JSONPath = workbookJsonPath
 
 	// Check if JSON exists
 	jsonInfo, err := os.Stat(status.JSONPath)

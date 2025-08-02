@@ -58,3 +58,8 @@ func (c *converter) GetExcelSheetNames(filePath string) ([]string, error) {
 	sheetList := f.GetSheetList()
 	return sheetList, nil
 }
+
+// GetChunkPaths returns the paths to the JSON chunk files for a given Excel file
+func (c *converter) GetChunkPaths(basePath string) ([]string, error) {
+	return c.chunkingStrategy.GetChunkPaths(basePath)
+}

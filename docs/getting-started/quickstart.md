@@ -118,11 +118,11 @@ This shows exactly what cells, formulas, or data changed.
 You can also convert files between Excel and JSON format:
 
 ```bash
-# Convert Excel to JSON (to see the trackable format)
+# Convert Excel to JSON (creates chunks in .gitcells/data/)
 gitcells convert YourFile.xlsx
 
-# Convert JSON back to Excel
-gitcells convert YourFile.xlsx.json
+# Convert JSON chunks back to Excel
+gitcells convert .gitcells/data/YourFile.xlsx_chunks/
 ```
 
 ### Keep GitCells Updated

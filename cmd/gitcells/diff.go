@@ -31,8 +31,7 @@ func newDiffCommand(logger *logrus.Logger) *cobra.Command {
 
 Examples:
   gitcells diff file1.xlsx file2.xlsx    # Compare two Excel files
-  gitcells diff file.xlsx                # Compare with JSON version
-  gitcells diff --json file1.json file2.json  # Compare JSON files directly`,
+  gitcells diff file.xlsx                # Compare with stored version`,
 		Args: cobra.RangeArgs(minDiffArgs, maxDiffArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDiff(cmd, args, logger)
@@ -40,7 +39,6 @@ Examples:
 	}
 
 	// Add flags
-	cmd.Flags().Bool("json", false, "Compare JSON files directly")
 	cmd.Flags().Bool("summary", false, "Show only summary of changes")
 	cmd.Flags().Bool("no-color", false, "Disable colored output")
 	cmd.Flags().Bool("tui", false, "Launch interactive TUI diff viewer")
@@ -54,7 +52,6 @@ Examples:
 
 func runDiff(cmd *cobra.Command, args []string, logger *logrus.Logger) error {
 	// Get flags
-	jsonMode, _ := cmd.Flags().GetBool("json")
 	summaryOnly, _ := cmd.Flags().GetBool("summary")
 	noColor, _ := cmd.Flags().GetBool("no-color")
 	tuiMode, _ := cmd.Flags().GetBool("tui")
@@ -70,39 +67,20 @@ func runDiff(cmd *cobra.Command, args []string, logger *logrus.Logger) error {
 	if len(args) == maxDiffArgs {
 		file2 = args[1]
 	} else {
-		// Auto-detect companion file
-		if jsonMode || strings.HasSuffix(strings.ToLower(file1), ".json") {
-			// Looking for Excel equivalent
-			base := strings.TrimSuffix(file1, ".json")
-			for _, ext := range []string{".xlsx", ".xls", ".xlsm"} {
-				if _, err := os.Stat(base + ext); err == nil {
-					file2 = base + ext
-					break
-				}
-			}
-		} else {
-			// Looking for JSON equivalent
-			file2 = file1 + ".json"
-		}
-
-		if file2 == "" || file1 == file2 {
-			return utils.NewError(utils.ErrorTypeValidation, "diff", fmt.Sprintf("could not auto-detect comparison file for %s", file1))
-		}
-
-		if _, err := os.Stat(file2); os.IsNotExist(err) {
-			return utils.NewError(utils.ErrorTypeFileSystem, "diff", fmt.Sprintf("comparison file does not exist: %s", file2))
-		}
+		// For single file diff, we would need to load from chunks
+		// This is not yet implemented
+		return utils.NewError(utils.ErrorTypeValidation, "diff", "comparing with stored version not yet implemented - please specify two Excel files")
 	}
 
 	logger.Debugf("Comparing %s with %s", file1, file2)
 
 	// Load documents
-	doc1, err := loadDocument(file1, jsonMode, ignoreFormatting, logger)
+	doc1, err := loadDocument(file1, false, ignoreFormatting, logger)
 	if err != nil {
 		return utils.WrapFileError(err, utils.ErrorTypeConverter, "load_document", file1, "failed to load first document")
 	}
 
-	doc2, err := loadDocument(file2, jsonMode, ignoreFormatting, logger)
+	doc2, err := loadDocument(file2, false, ignoreFormatting, logger)
 	if err != nil {
 		return utils.WrapFileError(err, utils.ErrorTypeConverter, "load_document", file2, "failed to load second document")
 	}
@@ -137,19 +115,9 @@ func runDiff(cmd *cobra.Command, args []string, logger *logrus.Logger) error {
 func loadDocument(filePath string, jsonMode, ignoreFormatting bool, logger *logrus.Logger) (*models.ExcelDocument, error) {
 	ext := strings.ToLower(filepath.Ext(filePath))
 
-	if jsonMode || ext == ".json" {
-		// Load JSON directly
-		data, err := os.ReadFile(filePath) // #nosec G304 - file path comes from user input
-		if err != nil {
-			return nil, err
-		}
-
-		var doc models.ExcelDocument
-		if err := json.Unmarshal(data, &doc); err != nil {
-			return nil, utils.WrapFileError(err, utils.ErrorTypeConverter, "loadDocument", filePath, "invalid JSON format")
-		}
-
-		return &doc, nil
+	// Only support Excel files
+	if ext != ".xlsx" && ext != ".xls" && ext != ".xlsm" {
+		return nil, utils.NewError(utils.ErrorTypeValidation, "loadDocument", fmt.Sprintf("unsupported file type: %s", ext))
 	}
 
 	// Load Excel file and convert

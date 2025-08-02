@@ -26,22 +26,37 @@ func newConvertCommand(logger *logrus.Logger) *cobra.Command {
 			inputFile := args[0]
 			outputFile, _ := cmd.Flags().GetString("output")
 
-			// Determine conversion direction based on file extension
+			// Determine conversion direction
 			ext := strings.ToLower(filepath.Ext(inputFile))
 			isExcelToJSON := ext == extXLSX || ext == ".xls" || ext == ".xlsm"
+
+			// Check if input is a chunk directory
+			isChunkDir := false
+			if !isExcelToJSON {
+				// Check if it's a chunk directory
+				if strings.HasSuffix(inputFile, "_chunks") {
+					isChunkDir = true
+				} else if ext == extJSON {
+					// Legacy single JSON file - not supported
+					return utils.NewError(utils.ErrorTypeValidation, "convert", "single JSON files are no longer supported, please use chunk directories")
+				}
+			}
 
 			if outputFile == "" {
 				// Auto-generate output filename
 				switch {
 				case isExcelToJSON:
-					outputFile = inputFile + extJSON
-				case ext == extJSON:
-					outputFile = strings.TrimSuffix(inputFile, extJSON)
+					// For Excel to JSON, we'll use the input path as the base for chunking
+					outputFile = inputFile
+				case isChunkDir:
+					// Extract Excel filename from chunk directory name
+					baseName := strings.TrimSuffix(filepath.Base(inputFile), "_chunks")
+					outputFile = filepath.Join(filepath.Dir(inputFile), baseName)
 					if !strings.HasSuffix(outputFile, extXLSX) {
 						outputFile += extXLSX
 					}
 				default:
-					return utils.NewError(utils.ErrorTypeValidation, "convert", fmt.Sprintf("unsupported file type: %s", ext))
+					return utils.NewError(utils.ErrorTypeValidation, "convert", fmt.Sprintf("unsupported input: %s", inputFile))
 				}
 			}
 
@@ -71,7 +86,7 @@ func newConvertCommand(logger *logrus.Logger) *cobra.Command {
 			}
 
 			if isExcelToJSON {
-				logger.Infof("Converting Excel to JSON: %s -> %s", inputFile, outputFile)
+				logger.Infof("Converting Excel to JSON chunks in .gitcells/data: %s", inputFile)
 				if err := conv.ExcelToJSONFile(inputFile, outputFile, opts); err != nil {
 					return utils.WrapFileError(err, utils.ErrorTypeConverter, "convert", inputFile, "conversion failed")
 				}

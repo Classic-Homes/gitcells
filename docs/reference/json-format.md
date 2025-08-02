@@ -404,17 +404,17 @@ Formulas are stored in both A1 and R1C1 notation:
 ### Reading with jq
 
 ```bash
-# Get all sheet names
-cat file.xlsx.json | jq '.sheets[].name'
+# Get all sheet names from workbook.json
+cat .gitcells/data/file.xlsx_chunks/workbook.json | jq '.sheets[].name'
 
 # Get value of cell A1 from first sheet
-cat file.xlsx.json | jq '.sheets[0].cells.A1.value'
+cat .gitcells/data/file.xlsx_chunks/sheet_Sheet1.json | jq '.sheet.cells.A1.value'
 
-# Find all cells with formulas
-cat file.xlsx.json | jq '.sheets[].cells | to_entries[] | select(.value.formula != "")'
+# Find all cells with formulas in a sheet
+cat .gitcells/data/file.xlsx_chunks/sheet_Sheet1.json | jq '.sheet.cells | to_entries[] | select(.value.formula != "")'
 
-# Extract all comments
-cat file.xlsx.json | jq '.sheets[].cells | to_entries[] | select(.value.comment != null)'
+# Extract all comments from a sheet
+cat .gitcells/data/file.xlsx_chunks/sheet_Sheet1.json | jq '.sheet.cells | to_entries[] | select(.value.comment != null)'
 ```
 
 ### Python Example
@@ -422,9 +422,13 @@ cat file.xlsx.json | jq '.sheets[].cells | to_entries[] | select(.value.comment 
 ```python
 import json
 
-# Load GitCells JSON
-with open('Budget.xlsx.json', 'r') as f:
+# Load GitCells workbook metadata
+with open('.gitcells/data/Budget.xlsx_chunks/workbook.json', 'r') as f:
     workbook = json.load(f)
+
+# Load specific sheet data
+with open('.gitcells/data/Budget.xlsx_chunks/sheet_Sheet1.json', 'r') as f:
+    sheet_data = json.load(f)
 
 # Access sheet data
 for sheet in workbook['sheets']:
@@ -447,7 +451,11 @@ for sheet in workbook['sheets']:
 const fs = require('fs');
 
 // Load GitCells JSON
-const workbook = JSON.parse(fs.readFileSync('Budget.xlsx.json', 'utf8'));
+// Load workbook metadata
+const workbook = JSON.parse(fs.readFileSync('.gitcells/data/Budget.xlsx_chunks/workbook.json', 'utf8'));
+
+// Load specific sheet
+const sheet1 = JSON.parse(fs.readFileSync('.gitcells/data/Budget.xlsx_chunks/sheet_Sheet1.json', 'utf8'));
 
 // Process sheets
 workbook.sheets.forEach(sheet => {
@@ -498,7 +506,11 @@ For large Excel files, GitCells may split the JSON into chunks:
 ### Chunked Structure
 
 ```
-Budget.xlsx.json          # Main file with metadata
+.gitcells/data/Budget.xlsx_chunks/
+├── workbook.json         # Main file with metadata
+├── sheet_Sheet1.json     # First sheet data
+├── sheet_Sheet2.json     # Second sheet data
+└── .gitcells_chunks.json # Chunk metadata
 Budget.xlsx.chunk1.json   # First chunk of data
 Budget.xlsx.chunk2.json   # Second chunk of data
 ```

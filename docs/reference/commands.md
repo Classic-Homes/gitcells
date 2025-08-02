@@ -135,7 +135,7 @@ gitcells convert <file> [flags]
 
 ### Description
 
-Converts Excel files to JSON or JSON files back to Excel. Direction is determined by file extension.
+Converts Excel files to JSON chunks or JSON chunks back to Excel. Direction is determined by input type.
 
 ### Flags
 
@@ -148,14 +148,14 @@ Converts Excel files to JSON or JSON files back to Excel. Direction is determine
 ### Examples
 
 ```bash
-# Convert Excel to JSON (auto-names as file.xlsx.json)
+# Convert Excel to JSON chunks
 gitcells convert Budget.xlsx
 
-# Convert with specific output
-gitcells convert Budget.xlsx -o /backup/Budget.json
+# Convert with specific output location
+gitcells convert Budget.xlsx -o /backup/Budget.xlsx
 
-# Convert JSON back to Excel
-gitcells convert Budget.xlsx.json
+# Convert JSON chunks back to Excel
+gitcells convert .gitcells/data/Budget.xlsx_chunks/
 
 # Compact JSON output
 gitcells convert Report.xlsx --compact
@@ -167,10 +167,10 @@ gitcells convert Data.xlsx \
   --preserve-comments=false
 ```
 
-### File Naming
+### File Storage
 
-- Excel → JSON: Adds `.json` extension (e.g., `file.xlsx` → `file.xlsx.json`)
-- JSON → Excel: Removes `.json` extension (e.g., `file.xlsx.json` → `file.xlsx`)
+- Excel → JSON: Creates chunks in `.gitcells/data/file.xlsx_chunks/`
+- JSON → Excel: Reads chunks from `.gitcells/data/` to create Excel file
 
 ## sync
 
@@ -212,10 +212,10 @@ gitcells sync --force .
 
 ### Sync Logic
 
-1. Compares timestamps of Excel and JSON files
-2. Updates older file from newer file
-3. Creates missing JSON files from Excel
-4. Recreates missing Excel files from JSON
+1. Compares timestamps of Excel and JSON chunk files
+2. Updates older files from newer files
+3. Creates missing JSON chunks from Excel
+4. Recreates missing Excel files from JSON chunks
 
 ## status
 

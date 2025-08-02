@@ -118,21 +118,16 @@ func newSyncCommand(logger *logrus.Logger) *cobra.Command {
 				fmt.Println("✅")
 				successCount++
 
-				// Track converted files for git commit
-				// If file was chunked, we need to add all chunk files
-				if strings.Contains(fileStatus.JSONPath, "_chunks/workbook.json") {
-					chunkDir := filepath.Dir(fileStatus.JSONPath)
-					err := filepath.Walk(chunkDir, func(path string, info os.FileInfo, err error) error {
-						if err == nil && !info.IsDir() && strings.HasSuffix(path, ".json") {
-							convertedFiles = append(convertedFiles, path)
-						}
-						return nil
-					})
-					if err != nil {
-						logger.Warnf("Failed to track chunk files: %v", err)
+				// Track converted chunk files for git commit
+				chunkDir := filepath.Dir(fileStatus.JSONPath)
+				err = filepath.Walk(chunkDir, func(path string, info os.FileInfo, err error) error {
+					if err == nil && !info.IsDir() && strings.HasSuffix(path, ".json") {
+						convertedFiles = append(convertedFiles, path)
 					}
-				} else {
-					convertedFiles = append(convertedFiles, fileStatus.JSONPath)
+					return nil
+				})
+				if err != nil {
+					logger.Warnf("Failed to track chunk files: %v", err)
 				}
 			}
 

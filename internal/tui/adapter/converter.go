@@ -183,32 +183,69 @@ func ValidatePattern(pattern string) error {
 
 // GetJSONPath returns the JSON output path for an Excel file
 func GetJSONPath(excelPath string) string {
-	dir := filepath.Dir(excelPath)
-	base := filepath.Base(excelPath)
-	ext := filepath.Ext(base)
-	nameWithoutExt := strings.TrimSuffix(base, ext)
-	return filepath.Join(dir, nameWithoutExt+".json")
+	// For conversion, we use the Excel path as the base
+	// The converter will handle creating the proper chunk directory
+	return excelPath
 }
 
-// GetExcelPath returns the Excel output path for a JSON file
-func GetExcelPath(jsonPath string) string {
-	dir := filepath.Dir(jsonPath)
-	base := filepath.Base(jsonPath)
+// GetExcelPath returns the Excel output path for a JSON chunk directory
+func GetExcelPath(jsonChunkPath string) string {
+	// If it's a chunk directory path, extract the original filename
+	if strings.Contains(jsonChunkPath, ".gitcells/data/") && strings.HasSuffix(jsonChunkPath, "_chunks") {
+		// Extract the original filename from chunk directory name
+		base := filepath.Base(jsonChunkPath)
+		originalName := strings.TrimSuffix(base, "_chunks")
+
+		// For simplicity, place the Excel file in the current working directory
+		return originalName
+	}
+
+	// Fallback for legacy paths
+	dir := filepath.Dir(jsonChunkPath)
+	base := filepath.Base(jsonChunkPath)
 	nameWithoutExt := strings.TrimSuffix(base, ".json")
 	return filepath.Join(dir, nameWithoutExt+".xlsx")
 }
 
-// IsUpToDate checks if the JSON file is up to date with the Excel file
+// IsUpToDate checks if the JSON chunks are up to date with the Excel file
 func IsUpToDate(excelPath, jsonPath string) bool {
 	excelInfo, err := os.Stat(excelPath)
 	if err != nil {
 		return false
 	}
 
-	jsonInfo, err := os.Stat(jsonPath)
+	// Check for chunk directory in .gitcells/data
+	cwd, _ := os.Getwd()
+	gitRoot := findGitRoot(cwd)
+	relPath, _ := filepath.Rel(gitRoot, filepath.Dir(excelPath))
+	chunkDir := filepath.Join(gitRoot, ".gitcells", "data", relPath, filepath.Base(excelPath)+"_chunks")
+
+	// Check if chunk metadata exists
+	metadataPath := filepath.Join(chunkDir, ".gitcells_chunks.json")
+	metadataInfo, err := os.Stat(metadataPath)
 	if err != nil {
 		return false
 	}
 
-	return jsonInfo.ModTime().After(excelInfo.ModTime())
+	return metadataInfo.ModTime().After(excelInfo.ModTime())
+}
+
+// findGitRoot finds the git repository root, or returns the current directory
+func findGitRoot(startDir string) string {
+	dir := startDir
+	for {
+		// Check if .git directory exists
+		gitPath := filepath.Join(dir, ".git")
+		if _, err := os.Stat(gitPath); err == nil {
+			return dir
+		}
+
+		// Check if we've reached the root
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Return the original directory if no git root found
+			return startDir
+		}
+		dir = parent
+	}
 }
