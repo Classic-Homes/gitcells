@@ -74,7 +74,7 @@ function Download-Binary {
     Write-Log "Created temporary directory: $tempDir"
     
     # Construct download URL
-    $filename = "gitcells-$Version-windows-amd64.zip"
+    $filename = "gitcells-windows.zip"
     $downloadUrl = "https://github.com/$Repo/releases/download/$Version/$filename"
     $tempFile = Join-Path $tempDir $filename
     
@@ -96,7 +96,7 @@ function Download-Binary {
         Expand-Archive -Path $tempFile -DestinationPath $tempDir -Force
         
         # Find the binary
-        $binaryPath = Join-Path $tempDir "gitcells-windows-amd64.exe"
+        $binaryPath = Join-Path $tempDir "gitcells-windows.exe"
         if (-not (Test-Path $binaryPath)) {
             Write-Error-And-Exit "Binary not found in archive: $binaryPath"
         }

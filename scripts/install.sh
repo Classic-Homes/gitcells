@@ -87,13 +87,28 @@ download_binary() {
     temp_dir=$(mktemp -d)
     log "Created temporary directory: $temp_dir"
     
-    # Construct download URL
-    local filename="${BINARY_NAME}-${version}-${platform}"
-    if [[ "$platform" == *"windows"* ]]; then
-        filename="${filename}.zip"
-    else
-        filename="${filename}.tar.gz"
-    fi
+    # Construct download URL based on platform
+    local filename
+    case "$platform" in
+        "linux-amd64")
+            filename="gitcells-linux.tar.gz"
+            ;;
+        "linux-arm64")
+            filename="gitcells-linux-arm64.tar.gz"
+            ;;
+        "darwin-amd64")
+            filename="gitcells-macos-intel.tar.gz"
+            ;;
+        "darwin-arm64")
+            filename="gitcells-macos-apple-silicon.tar.gz"
+            ;;
+        "windows-amd64")
+            filename="gitcells-windows.zip"
+            ;;
+        *)
+            error "Unsupported platform: $platform"
+            ;;
+    esac
     
     local download_url="https://github.com/${REPO}/releases/download/${version}/${filename}"
     log "Downloading from: $download_url"
@@ -115,13 +130,28 @@ download_binary() {
         tar -xzf "$filename" || error "Failed to extract tar.gz file"
     fi
     
-    # Find the binary
+    # Find the binary based on platform
     local binary_path
-    if [[ "$platform" == *"windows"* ]]; then
-        binary_path="${BINARY_NAME}-${platform}.exe"
-    else
-        binary_path="${BINARY_NAME}-${platform}"
-    fi
+    case "$platform" in
+        "linux-amd64")
+            binary_path="gitcells-linux"
+            ;;
+        "linux-arm64")
+            binary_path="gitcells-linux-arm64"
+            ;;
+        "darwin-amd64")
+            binary_path="gitcells-macos-intel"
+            ;;
+        "darwin-arm64")
+            binary_path="gitcells-macos-apple-silicon"
+            ;;
+        "windows-amd64")
+            binary_path="gitcells-windows.exe"
+            ;;
+        *)
+            error "Unsupported platform: $platform"
+            ;;
+    esac
     
     if [ ! -f "$binary_path" ]; then
         error "Binary not found in archive: $binary_path"

@@ -12,12 +12,12 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
-	"github.com/Classic-Homes/gitcells/internal/constants"
 	"github.com/Masterminds/semver/v3"
 	"github.com/inconshreveable/go-update"
 )
@@ -207,26 +207,33 @@ func (u *Updater) Update(release *GitHubRelease) error {
 	}
 
 	// Extract binary from archive
-	var binary io.Reader
+	var binaryData []byte
 
 	// Determine archive type by the asset name in the URL
 	if strings.HasSuffix(downloadURL, ".zip") {
-		binary, err = u.extractBinaryFromZip(data, assetName)
+		reader, err := u.extractBinaryFromZip(data, assetName)
+		if err != nil {
+			return fmt.Errorf("failed to extract binary: %w", err)
+		}
+		binaryData, err = io.ReadAll(reader)
+		if err != nil {
+			return fmt.Errorf("failed to read binary data: %w", err)
+		}
 	} else {
-		binary, err = u.extractBinaryFromTarGz(strings.NewReader(string(data)), assetName)
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to extract binary: %w", err)
+		reader, err := u.extractBinaryFromTarGz(strings.NewReader(string(data)), assetName)
+		if err != nil {
+			return fmt.Errorf("failed to extract binary: %w", err)
+		}
+		binaryData, err = io.ReadAll(reader)
+		if err != nil {
+			return fmt.Errorf("failed to read binary data: %w", err)
+		}
 	}
 
 	// Apply the update with backup
-	err = update.Apply(binary, update.Options{
-		// Create a backup of the current binary
-		TargetMode: constants.DirPermissions,
-	})
+	err = u.applyUpdateWithPermissions(bytes.NewReader(binaryData))
 	if err != nil {
-		return fmt.Errorf("failed to apply update: %w", err)
+		return err
 	}
 
 	return nil
@@ -448,4 +455,172 @@ func (u *Updater) GetCurrentExecutablePath() (string, error) {
 	}
 
 	return filepath.EvalSymlinks(executable)
+}
+
+// applyUpdateWithPermissions attempts to apply the update with proper permission handling
+func (u *Updater) applyUpdateWithPermissions(binary io.Reader) error {
+	// Read the binary data once so we can retry if needed
+	binaryData, err := io.ReadAll(binary)
+	if err != nil {
+		return fmt.Errorf("failed to read binary data: %w", err)
+	}
+	// First try to apply normally
+	err = update.Apply(bytes.NewReader(binaryData), update.Options{
+		TargetMode: 0755,
+	})
+
+	// If permission denied, handle based on platform
+	if err != nil && strings.Contains(err.Error(), "permission denied") {
+		execPath, pathErr := u.GetCurrentExecutablePath()
+		if pathErr != nil {
+			return fmt.Errorf("failed to get executable path: %w", pathErr)
+		}
+
+		switch runtime.GOOS {
+		case "darwin", "linux":
+			return u.applyUpdateWithSudo(bytes.NewReader(binaryData), execPath)
+		case "windows":
+			return u.applyUpdateWithElevation(bytes.NewReader(binaryData), execPath)
+		default:
+			return fmt.Errorf("update failed due to permissions: %w. Please run with elevated privileges", err)
+		}
+	}
+
+	return err
+}
+
+// applyUpdateWithSudo handles Unix-like systems that require sudo
+func (u *Updater) applyUpdateWithSudo(binary io.Reader, targetPath string) error {
+	// Create a temporary file to store the new binary
+	tmpFile, err := os.CreateTemp("", "gitcells-update-*.tmp")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary file: %w", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	// Write the binary to temp file
+	_, err = io.Copy(tmpFile, binary)
+	if err != nil {
+		tmpFile.Close()
+		return fmt.Errorf("failed to write update to temp file: %w", err)
+	}
+	tmpFile.Close()
+
+	// Make temp file executable
+	err = os.Chmod(tmpFile.Name(), 0755)
+	if err != nil {
+		return fmt.Errorf("failed to set permissions on temp file: %w", err)
+	}
+
+	fmt.Println("\nPermission denied. GitCells needs elevated privileges to update.")
+	fmt.Println("You have two options:")
+	fmt.Println()
+	fmt.Println("Option 1 - Use sudo (recommended):")
+	fmt.Printf("  sudo mv %s %s\n", tmpFile.Name(), targetPath)
+	fmt.Println()
+	fmt.Println("Option 2 - Update manually:")
+	fmt.Printf("  The new version has been downloaded to: %s\n", tmpFile.Name())
+	fmt.Printf("  You can manually replace %s with this file\n", targetPath)
+	fmt.Println()
+
+	fmt.Print("Would you like to run the sudo command now? (y/N): ")
+	var response string
+	if _, err := fmt.Scanln(&response); err == nil && (response == "y" || response == "Y") {
+		// Execute sudo command
+		// #nosec G204 - tmpFile.Name() and targetPath are from our own code, not user input
+		cmd := exec.Command("sudo", "mv", tmpFile.Name(), targetPath)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("sudo command failed: %w", err)
+		}
+
+		// Ensure the file has correct permissions
+		cmd = exec.Command("sudo", "chmod", "755", targetPath)
+		if err := cmd.Run(); err != nil {
+			// Non-fatal, just warn
+			fmt.Printf("Warning: failed to set permissions: %v\n", err)
+		}
+
+		return nil
+	}
+
+	// If user chose not to use sudo, provide manual instructions
+	return fmt.Errorf("update downloaded to %s. Please manually move it to %s", tmpFile.Name(), targetPath)
+}
+
+// applyUpdateWithElevation handles Windows systems that require elevation
+func (u *Updater) applyUpdateWithElevation(binary io.Reader, targetPath string) error {
+	// Create a temporary file to store the new binary
+	tmpFile, err := os.CreateTemp("", "gitcells-update-*.exe.tmp")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary file: %w", err)
+	}
+
+	// Write the binary to temp file
+	_, err = io.Copy(tmpFile, binary)
+	if err != nil {
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+		return fmt.Errorf("failed to write update to temp file: %w", err)
+	}
+	tmpFile.Close()
+
+	// Create a batch script to perform the update
+	batchScript := fmt.Sprintf(`@echo off
+echo Updating GitCells...
+ping 127.0.0.1 -n 2 > nul
+move /Y "%s" "%s"
+if %%errorlevel%% equ 0 (
+    echo Update successful!
+) else (
+    echo Update failed. Please run as administrator.
+    pause
+)
+`, tmpFile.Name(), targetPath)
+
+	batchFile, err := os.CreateTemp("", "gitcells-update-*.bat")
+	if err != nil {
+		os.Remove(tmpFile.Name())
+		return fmt.Errorf("failed to create batch file: %w", err)
+	}
+
+	_, err = batchFile.WriteString(batchScript)
+	batchFile.Close()
+	if err != nil {
+		os.Remove(tmpFile.Name())
+		os.Remove(batchFile.Name())
+		return fmt.Errorf("failed to write batch file: %w", err)
+	}
+
+	fmt.Println("\nPermission denied. GitCells needs administrator privileges to update.")
+	fmt.Println("Please run one of the following commands in an elevated command prompt:")
+	fmt.Println()
+	fmt.Printf("Option 1 - Run the update script:\n")
+	fmt.Printf("  %s\n", batchFile.Name())
+	fmt.Println()
+	fmt.Printf("Option 2 - Update manually:\n")
+	fmt.Printf("  move /Y \"%s\" \"%s\"\n", tmpFile.Name(), targetPath)
+	fmt.Println()
+
+	// Try to run with elevation using PowerShell
+	fmt.Print("Would you like to try running with administrator privileges now? (y/N): ")
+	var response string
+	if _, err := fmt.Scanln(&response); err == nil && (response == "y" || response == "Y") {
+		// Use PowerShell to run as administrator
+		// #nosec G204 - batchFile.Name() is from our own temp file creation, not user input
+		cmd := exec.Command("powershell", "-Command",
+			fmt.Sprintf("Start-Process cmd -ArgumentList '/c %s' -Verb RunAs", batchFile.Name()))
+
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to run with elevation: %w. Please run the command manually", err)
+		}
+
+		fmt.Println("Update script launched. Please check the elevated window for results.")
+		return nil
+	}
+
+	return fmt.Errorf("update downloaded to %s. Please run the update script or move manually", tmpFile.Name())
 }

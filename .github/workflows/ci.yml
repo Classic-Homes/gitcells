@@ -68,7 +68,7 @@ jobs:
       run: |
         mkdir -p dist
         GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build \
-          -ldflags "-s -w -X 'github.com/Classic-Homes/gitcells/internal/constants.Version=$(git describe --tags --always --dirty 2>/dev/null || echo 'dev')' -X 'github.com/Classic-Homes/gitcells/internal/constants.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)' -X 'github.com/Classic-Homes/gitcells/internal/constants.CommitHash=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')'" \
+          -ldflags "-s -w -X 'github.com/Classic-Homes/gitcells/internal/constants.Version=$(cat VERSION 2>/dev/null || echo 'dev')' -X 'github.com/Classic-Homes/gitcells/internal/constants.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)' -X 'github.com/Classic-Homes/gitcells/internal/constants.CommitHash=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')'" \
           -o dist/gitcells-linux-amd64 ./cmd/gitcells
         
     - name: Create Linux 64-bit executable and archive
@@ -107,7 +107,7 @@ jobs:
       run: |
         mkdir -p dist
         GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build \
-          -ldflags "-s -w -X 'github.com/Classic-Homes/gitcells/internal/constants.Version=$(git describe --tags --always --dirty 2>/dev/null || echo 'dev')' -X 'github.com/Classic-Homes/gitcells/internal/constants.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)' -X 'github.com/Classic-Homes/gitcells/internal/constants.CommitHash=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')'" \
+          -ldflags "-s -w -X 'github.com/Classic-Homes/gitcells/internal/constants.Version=$(cat VERSION 2>/dev/null || echo 'dev')' -X 'github.com/Classic-Homes/gitcells/internal/constants.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)' -X 'github.com/Classic-Homes/gitcells/internal/constants.CommitHash=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')'" \
           -o dist/gitcells-linux-arm64 ./cmd/gitcells
         
     - name: Create Linux ARM64 executable and archive
@@ -143,7 +143,7 @@ jobs:
       run: |
         mkdir -p dist
         GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build \
-          -ldflags "-s -w -X 'github.com/Classic-Homes/gitcells/internal/constants.Version=$(git describe --tags --always --dirty 2>/dev/null || echo 'dev')' -X 'github.com/Classic-Homes/gitcells/internal/constants.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)' -X 'github.com/Classic-Homes/gitcells/internal/constants.CommitHash=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')'" \
+          -ldflags "-s -w -X 'github.com/Classic-Homes/gitcells/internal/constants.Version=$(cat VERSION 2>/dev/null || echo 'dev')' -X 'github.com/Classic-Homes/gitcells/internal/constants.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)' -X 'github.com/Classic-Homes/gitcells/internal/constants.CommitHash=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')'" \
           -o dist/gitcells-darwin-amd64 ./cmd/gitcells
         
     - name: Create macOS Intel executable and archive
@@ -182,7 +182,7 @@ jobs:
       run: |
         mkdir -p dist
         GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build \
-          -ldflags "-s -w -X 'github.com/Classic-Homes/gitcells/internal/constants.Version=$(git describe --tags --always --dirty 2>/dev/null || echo 'dev')' -X 'github.com/Classic-Homes/gitcells/internal/constants.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)' -X 'github.com/Classic-Homes/gitcells/internal/constants.CommitHash=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')'" \
+          -ldflags "-s -w -X 'github.com/Classic-Homes/gitcells/internal/constants.Version=$(cat VERSION 2>/dev/null || echo 'dev')' -X 'github.com/Classic-Homes/gitcells/internal/constants.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)' -X 'github.com/Classic-Homes/gitcells/internal/constants.CommitHash=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')'" \
           -o dist/gitcells-darwin-arm64 ./cmd/gitcells
         
     - name: Create macOS Apple Silicon executable and archive
@@ -222,7 +222,7 @@ jobs:
       run: |
         mkdir -p dist
         GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build \
-          -ldflags "-s -w -X 'github.com/Classic-Homes/gitcells/internal/constants.Version=$(git describe --tags --always --dirty 2>/dev/null || echo 'dev')' -X 'github.com/Classic-Homes/gitcells/internal/constants.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)' -X 'github.com/Classic-Homes/gitcells/internal/constants.CommitHash=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')'" \
+          -ldflags "-s -w -X 'github.com/Classic-Homes/gitcells/internal/constants.Version=$(cat VERSION 2>/dev/null || echo 'dev')' -X 'github.com/Classic-Homes/gitcells/internal/constants.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)' -X 'github.com/Classic-Homes/gitcells/internal/constants.CommitHash=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')'" \
           -o dist/gitcells-windows-amd64.exe ./cmd/gitcells
         
     - name: Create Windows executable and archive
