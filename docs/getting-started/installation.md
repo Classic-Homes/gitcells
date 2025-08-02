@@ -27,19 +27,19 @@ curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitce
 tar -xzf gitcells-macos-apple-silicon.tar.gz
 ```
 
-2. Move to your PATH:
+2. Make executable and move to your PATH:
 ```bash
+# Make executable
+chmod +x gitcells-macos-*
+
 # For Intel Macs
 sudo mv gitcells-macos-intel /usr/local/bin/gitcells
 
 # For Apple Silicon Macs
 sudo mv gitcells-macos-apple-silicon /usr/local/bin/gitcells
-
-# Make executable
-sudo chmod +x /usr/local/bin/gitcells
 ```
 
-4. Verify installation:
+3. Verify installation:
 ```bash
 gitcells version
 ```
@@ -57,30 +57,40 @@ curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitce
 tar -xzf gitcells-linux-arm64.tar.gz
 ```
 
-2. Move to your PATH:
+2. Make executable and move to your PATH:
 ```bash
+# Make executable
+chmod +x gitcells-linux*
+
 # For x86_64 Linux
 sudo mv gitcells-linux /usr/local/bin/gitcells
 
 # For ARM64 Linux
 sudo mv gitcells-linux-arm64 /usr/local/bin/gitcells
-
-# Make executable
-sudo chmod +x /usr/local/bin/gitcells
 ```
 
-4. Verify installation:
+3. Verify installation:
 ```bash
 gitcells version
 ```
 
 #### Windows
 
-1. Download the latest release from [GitHub Releases](https://github.com/Classic-Homes/gitcells/releases)
-2. Download `gitcells-windows.zip` or `gitcells-windows.tar.gz`
-3. Extract the archive to get `gitcells-windows.exe`
-4. Rename to `gitcells.exe` and place in a directory in your PATH
-5. Open a new Command Prompt or PowerShell and verify:
+1. Download the latest release:
+```powershell
+# Download the executable directly
+curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-windows.exe -o gitcells.exe
+
+# Or download the zip archive
+curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-windows.zip -o gitcells-windows.zip
+Expand-Archive gitcells-windows.zip .
+```
+
+2. Add to your PATH:
+   - Move `gitcells.exe` to a directory in your PATH (e.g., `C:\Windows\System32`)
+   - Or add the current directory to your PATH environment variable
+
+3. Verify installation:
 ```cmd
 gitcells version
 ```
@@ -105,15 +115,16 @@ go mod download
 make build
 ```
 
-This will create binaries for all supported platforms in the `dist/` directory.
+This will create a binary for your current platform in the `dist/` directory.
 
 4. Install locally:
 ```bash
 # macOS/Linux
-sudo cp dist/gitcells-$(go env GOOS)-$(go env GOARCH) /usr/local/bin/gitcells
+sudo cp dist/gitcells /usr/local/bin/gitcells
+sudo chmod +x /usr/local/bin/gitcells
 
 # Windows (run as Administrator)
-copy dist\gitcells-windows-amd64.exe C:\Windows\System32\gitcells.exe
+copy dist\gitcells.exe C:\Windows\System32\gitcells.exe
 ```
 
 ### Using Docker

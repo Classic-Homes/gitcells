@@ -50,11 +50,15 @@ curl -sSL https://raw.githubusercontent.com/Classic-Homes/gitcells/main/scripts/
 iwr -useb https://raw.githubusercontent.com/Classic-Homes/gitcells/main/scripts/install.ps1 | iex
 ```
 
-### From Source
+### Manual Download
 
-```bash
-go install github.com/Classic-Homes/gitcells/cmd/gitcells@latest
-```
+Download the latest release from the [releases page](https://github.com/Classic-Homes/gitcells/releases):
+
+- **Windows**: `gitcells-windows.exe`
+- **macOS Intel**: `gitcells-macos-intel.tar.gz`
+- **macOS Apple Silicon**: `gitcells-macos-apple-silicon.tar.gz`
+- **Linux x64**: `gitcells-linux.tar.gz`
+- **Linux ARM64**: `gitcells-linux-arm64.tar.gz`
 
 ### Build from Repository
 
@@ -65,6 +69,20 @@ make build
 
 # Install locally
 make install
+```
+
+## Updating GitCells
+
+GitCells includes a self-update feature that handles permission issues gracefully:
+
+```bash
+# Check for updates
+gitcells update --check
+
+# Update to latest version
+gitcells update
+
+# If installed in a system directory, GitCells will prompt for elevated permissions
 ```
 
 ## Quick Start

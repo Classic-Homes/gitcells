@@ -46,10 +46,14 @@ GitCells solves a common problem: Excel files are binary formats that don't work
 
 === "Windows"
 
-    Download and run the installer:
-    ```bash
+    Download and install:
+    ```powershell
     # Download the latest release
     curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-windows.exe -o gitcells.exe
+
+    # Or download the zip archive
+    curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-windows.zip -o gitcells-windows.zip
+    Expand-Archive gitcells-windows.zip .
 
     # Add to PATH and verify
     gitcells version
@@ -59,14 +63,16 @@ GitCells solves a common problem: Excel files are binary formats that don't work
 
     Install using curl:
     ```bash
-    # Download the latest release
-    curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-macos -o gitcells
+    # For Apple Silicon Macs (M1/M2/M3)
+    curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-macos-apple-silicon.tar.gz | tar -xz
+    sudo mv gitcells-macos-apple-silicon /usr/local/bin/gitcells
 
-    # Make executable and move to PATH
-    chmod +x gitcells
-    sudo mv gitcells /usr/local/bin/
+    # For Intel Macs
+    curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-macos-intel.tar.gz | tar -xz
+    sudo mv gitcells-macos-intel /usr/local/bin/gitcells
 
-    # Verify installation
+    # Make executable and verify
+    sudo chmod +x /usr/local/bin/gitcells
     gitcells version
     ```
 
@@ -74,14 +80,16 @@ GitCells solves a common problem: Excel files are binary formats that don't work
 
     Install using curl:
     ```bash
-    # Download the latest release
-    curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-linux -o gitcells
+    # For x86_64 Linux
+    curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-linux.tar.gz | tar -xz
+    sudo mv gitcells-linux /usr/local/bin/gitcells
 
-    # Make executable and move to PATH
-    chmod +x gitcells
-    sudo mv gitcells /usr/local/bin/
+    # For ARM64 Linux
+    curl -L https://github.com/Classic-Homes/gitcells/releases/latest/download/gitcells-linux-arm64.tar.gz | tar -xz
+    sudo mv gitcells-linux-arm64 /usr/local/bin/gitcells
 
-    # Verify installation
+    # Make executable and verify
+    sudo chmod +x /usr/local/bin/gitcells
     gitcells version
     ```
 

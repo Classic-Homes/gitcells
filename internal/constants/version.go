@@ -4,7 +4,7 @@ import "runtime"
 
 var (
 	// Version is the current version of GitCells (set at build time via ldflags)
-	Version = "0.1.1"
+	Version = "0.1.2"
 	// BuildTime is when the binary was built (set at build time via ldflags)
 	BuildTime = "unknown"
 	// CommitHash is the git commit hash (set at build time via ldflags)
