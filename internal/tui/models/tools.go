@@ -97,15 +97,15 @@ func (m ToolsModel) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		// Pass other keys to diff model
-		diffModel, cmd := m.diffModel.handleKeyPress(msg)
-		if diffModel, ok := diffModel.(DiffModel); ok {
+		updatedModel, cmd := m.diffModel.Update(msg)
+		if diffModel, ok := updatedModel.(DiffModel); ok {
 			m.diffModel = diffModel
 		}
 		return m, cmd
 	case ToolsStateConversion:
 		// Pass all keys to conversion model
-		convModel, cmd := m.conversionModel.handleKeyPress(msg)
-		if convModel, ok := convModel.(*ManualConversionModel); ok {
+		updatedModel, cmd := m.conversionModel.Update(msg)
+		if convModel, ok := updatedModel.(*ManualConversionModel); ok {
 			m.conversionModel = *convModel
 		}
 		return m, cmd

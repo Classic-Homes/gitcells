@@ -130,6 +130,33 @@ var (
 			PaddingTop(1).
 			PaddingBottom(1).
 			MarginBottom(1)
+
+	// Tab styles
+	TabStyle = lipgloss.NewStyle().
+			Foreground(Muted).
+			Padding(0, 2).
+			MarginRight(1)
+
+	ActiveTabStyle = lipgloss.NewStyle().
+			Foreground(Primary).
+			Background(lipgloss.Color("237")).
+			Bold(true).
+			Padding(0, 2).
+			MarginRight(1)
+
+	// Status bar styles
+	StatusStyle = lipgloss.NewStyle().
+			Foreground(Info).
+			Padding(0, 1)
+
+	// Border styles
+	BorderStyle = lipgloss.NewStyle().
+			Foreground(Muted)
+
+	// Action bar styles
+	ActionStyle = lipgloss.NewStyle().
+			Foreground(Primary).
+			Bold(true)
 )
 
 func CenterHorizontal(width int, content string) string {

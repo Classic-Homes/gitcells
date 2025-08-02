@@ -183,9 +183,12 @@ func ValidatePattern(pattern string) error {
 
 // GetJSONPath returns the JSON output path for an Excel file
 func GetJSONPath(excelPath string) string {
-	// For conversion, we use the Excel path as the base
-	// The converter will handle creating the proper chunk directory
-	return excelPath
+	// Generate a JSON path in the same directory as the Excel file
+	// The converter will create the chunk directory in .gitcells/data automatically
+	dir := filepath.Dir(excelPath)
+	base := filepath.Base(excelPath)
+	nameWithoutExt := strings.TrimSuffix(base, filepath.Ext(base))
+	return filepath.Join(dir, nameWithoutExt+".json")
 }
 
 // GetExcelPath returns the Excel output path for a JSON chunk directory

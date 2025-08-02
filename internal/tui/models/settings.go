@@ -40,6 +40,7 @@ const (
 	viewGit
 	viewWatcher
 	viewConverter
+	viewWatchedDirs
 )
 
 type updateCheckMsg struct {
@@ -120,6 +121,7 @@ var watcherSettingsItems = []struct {
 	desc  string
 	key   string
 }{
+	{"Watched Directories", "Directories to monitor for Excel file changes", "directories"},
 	{"Debounce Delay", "Time to wait before processing file changes", "debounce_delay"},
 	{"File Extensions", "Excel file extensions to watch", "file_extensions"},
 	{"Ignore Patterns", "File patterns to ignore during watching", "ignore_patterns"},
@@ -251,6 +253,10 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor < maxItems-1 {
 				m.cursor++
 			}
+		case "d":
+			if m.currentView == viewWatchedDirs && m.cursor < len(m.config.Watcher.Directories) {
+				return m.removeDirectory(m.cursor)
+			}
 		case "enter", " ":
 			return m.handleSelectionAndReturn()
 		}
@@ -308,6 +314,8 @@ func (m SettingsModel) getMaxCursor() int {
 		return len(watcherSettingsItems)
 	case viewConverter:
 		return len(converterSettingsItems)
+	case viewWatchedDirs:
+		return len(m.config.Watcher.Directories) + 1 // +1 for "Add new directory" option
 	default:
 		return len(mainSettingsItems)
 	}
@@ -371,6 +379,10 @@ func (m SettingsModel) View() string {
 		title = "Converter Settings"
 		subtitle = "Excel to JSON Conversion Options"
 		breadcrumb = "Main Menu > Converter Settings"
+	case viewWatchedDirs:
+		title = "Watched Directories"
+		subtitle = "Manage directories to monitor for Excel file changes"
+		breadcrumb = "Main Menu > Watcher Settings > Watched Directories"
 	}
 
 	breadcrumbStyle := lipgloss.NewStyle().
@@ -411,6 +423,9 @@ func (m SettingsModel) View() string {
 			items = watcherSettingsItems
 		case viewConverter:
 			items = converterSettingsItems
+		case viewWatchedDirs:
+			// Special handling for watched directories view
+			return m.renderWatchedDirsView(s, cursorStyle, descStyle, statusStyle)
 		}
 
 		for i, item := range items {
@@ -454,6 +469,21 @@ func (m SettingsModel) View() string {
 }
 
 func (m SettingsModel) handleSelectionAndReturn() (tea.Model, tea.Cmd) {
+	// Handle watched directories view
+	if m.currentView == viewWatchedDirs {
+		if m.cursor == len(m.config.Watcher.Directories) {
+			// Add new directory
+			m.editMode = true
+			m.editKey = "new_directory"
+			m.editValue = ""
+			m.status = "Enter directory path"
+			return m, nil
+		} else if m.cursor < len(m.config.Watcher.Directories) {
+			// Remove directory
+			return m.removeDirectory(m.cursor)
+		}
+	}
+
 	var selectedItem struct {
 		title string
 		desc  string
@@ -473,6 +503,9 @@ func (m SettingsModel) handleSelectionAndReturn() (tea.Model, tea.Cmd) {
 		selectedItem = watcherSettingsItems[m.cursor]
 	case viewConverter:
 		selectedItem = converterSettingsItems[m.cursor]
+	case viewWatchedDirs:
+		// Already handled above
+		return m, nil
 	}
 
 	switch selectedItem.key {
@@ -526,6 +559,13 @@ func (m SettingsModel) handleSelectionAndReturn() (tea.Model, tea.Cmd) {
 		"preserve_styles", "preserve_comments", "compact_json", "ignore_empty_cells":
 		return m.toggleBooleanSetting(selectedItem.key)
 
+	// Handle directory management
+	case "directories":
+		m.currentView = viewWatchedDirs
+		m.cursor = 0
+		m.status = "Managing watched directories"
+		return m, nil
+
 	// Handle text/number edits for all other fields
 	default:
 		if m.config != nil && m.isEditableField(selectedItem.key) {
@@ -561,6 +601,11 @@ func (m SettingsModel) getCurrentValue(key string) string {
 		return m.config.Git.CommitTemplate
 
 	// Watcher settings
+	case "directories":
+		if len(m.config.Watcher.Directories) == 0 {
+			return "None configured"
+		}
+		return strings.Join(m.config.Watcher.Directories, ", ")
 	case "debounce_delay":
 		return m.config.Watcher.DebounceDelay.String()
 	case "file_extensions":
@@ -678,6 +723,33 @@ func (m SettingsModel) saveEdit() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Handle new directory addition
+	if m.editKey == "new_directory" {
+		if m.editValue == "" {
+			m.status = "Directory path cannot be empty"
+			return m, nil
+		}
+		// Check if directory exists
+		if _, err := os.Stat(m.editValue); os.IsNotExist(err) {
+			m.status = fmt.Sprintf("Directory does not exist: %s", m.editValue)
+			return m, nil
+		}
+		// Check if already watching this directory
+		for _, dir := range m.config.Watcher.Directories {
+			if dir == m.editValue {
+				m.status = "Already watching this directory"
+				return m, nil
+			}
+		}
+		// Add the directory
+		m.config.Watcher.Directories = append(m.config.Watcher.Directories, m.editValue)
+		m.editMode = false
+		m.editKey = ""
+		m.editValue = ""
+		m.status = fmt.Sprintf("Added directory: %s", m.editValue)
+		return m, m.saveConfig()
+	}
+
 	// Parse and validate the input based on field type
 	switch m.editKey {
 	// Git string fields
@@ -693,7 +765,7 @@ func (m SettingsModel) saveEdit() (tea.Model, tea.Cmd) {
 			m.status = fmt.Sprintf("Invalid duration: %v", err)
 			return m, nil
 		}
-	case "file_extensions", "ignore_patterns":
+	case "directories", "file_extensions", "ignore_patterns":
 		if err := m.setStringSliceValue(m.editKey, m.editValue); err != nil {
 			m.status = fmt.Sprintf("Invalid list: %v", err)
 			return m, nil
@@ -780,6 +852,8 @@ func (m SettingsModel) setStringSliceValue(key, value string) error {
 	}
 
 	switch key {
+	case "directories":
+		m.config.Watcher.Directories = slice
 	case "file_extensions":
 		m.config.Watcher.FileExtensions = slice
 	case "ignore_patterns":
@@ -900,4 +974,68 @@ func (m SettingsModel) performSimpleUninstall() error {
 	}
 
 	return nil
+}
+
+func (m SettingsModel) renderWatchedDirsView(s string, cursorStyle, descStyle, statusStyle lipgloss.Style) string {
+	if m.config == nil {
+		s += "Configuration not loaded\n"
+		return s
+	}
+
+	// Show existing directories
+	if len(m.config.Watcher.Directories) == 0 {
+		s += descStyle.Render("No directories are currently being watched.\n\n")
+	} else {
+		s += "Current watched directories:\n\n"
+		for i, dir := range m.config.Watcher.Directories {
+			cursor := "  "
+			if i == m.cursor {
+				cursor = cursorStyle.Render("▶ ")
+			}
+			s += fmt.Sprintf("%s%s\n", cursor, dir)
+			s += fmt.Sprintf("    %s\n\n", descStyle.Render("Press Enter to remove, d to delete"))
+		}
+	}
+
+	// Add new directory option
+	cursor := "  "
+	if m.cursor == len(m.config.Watcher.Directories) {
+		cursor = cursorStyle.Render("▶ ")
+	}
+	if m.editMode && m.editKey == "new_directory" {
+		s += fmt.Sprintf("%s+ Add new directory: %s\n", cursor, cursorStyle.Render(m.editValue))
+	} else {
+		s += fmt.Sprintf("%s+ Add new directory\n", cursor)
+	}
+	s += fmt.Sprintf("    %s\n\n", descStyle.Render("Press Enter to add a new directory to watch"))
+
+	s += statusStyle.Render("Status: "+m.status) + "\n"
+
+	if m.editMode {
+		s += descStyle.Render("Type to enter directory path, Enter to save, Esc to cancel")
+	} else {
+		s += descStyle.Render("Use ↑/↓ or j/k to navigate, Enter to select, d to delete, Esc to go back")
+	}
+
+	return s
+}
+
+func (m SettingsModel) removeDirectory(index int) (tea.Model, tea.Cmd) {
+	if m.config == nil || index < 0 || index >= len(m.config.Watcher.Directories) {
+		return m, nil
+	}
+
+	removed := m.config.Watcher.Directories[index]
+	m.config.Watcher.Directories = append(
+		m.config.Watcher.Directories[:index],
+		m.config.Watcher.Directories[index+1:]...,
+	)
+
+	// Adjust cursor if needed
+	if m.cursor >= len(m.config.Watcher.Directories) && m.cursor > 0 {
+		m.cursor--
+	}
+
+	m.status = fmt.Sprintf("Removed directory: %s", removed)
+	return m, m.saveConfig()
 }

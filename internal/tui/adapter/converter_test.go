@@ -209,22 +209,22 @@ func TestGetJSONPath(t *testing.T) {
 	}{
 		{
 			excelPath:    "/path/to/file.xlsx",
-			expectedJSON: "/path/to/file.xlsx",
+			expectedJSON: "/path/to/file.json",
 			description:  "xlsx file",
 		},
 		{
 			excelPath:    "simple.xls",
-			expectedJSON: "simple.xls",
+			expectedJSON: "simple.json",
 			description:  "xls file without path",
 		},
 		{
 			excelPath:    "/complex/path/workbook.xlsm",
-			expectedJSON: "/complex/path/workbook.xlsm",
+			expectedJSON: "/complex/path/workbook.json",
 			description:  "xlsm file with complex path",
 		},
 		{
 			excelPath:    "file.with.dots.xlsx",
-			expectedJSON: "file.with.dots.xlsx",
+			expectedJSON: "file.with.dots.json",
 			description:  "file with multiple dots",
 		},
 	}

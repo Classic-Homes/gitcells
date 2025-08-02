@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -61,6 +62,10 @@ type LogsLoadedMsg struct {
 	Entries []LogEntry
 }
 type LogsClearedMsg struct{}
+
+type exportCompleteMsg struct {
+	err error
+}
 
 type ErrorLogModel struct {
 	viewport        viewport.Model
@@ -684,7 +689,18 @@ func (m *ErrorLogModel) cycleFilter() tea.Cmd {
 
 func (m ErrorLogModel) exportLogs() tea.Cmd {
 	return func() tea.Msg {
-		filename := fmt.Sprintf("gitcells_logs_%s.txt", time.Now().Format("20060102_150405"))
+		// Create logs in user's home directory under .gitcells/logs
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return exportCompleteMsg{err: err}
+		}
+
+		logsDir := filepath.Join(homeDir, ".gitcells", "logs")
+		if err := os.MkdirAll(logsDir, 0755); err != nil {
+			return exportCompleteMsg{err: err}
+		}
+
+		filename := filepath.Join(logsDir, fmt.Sprintf("gitcells_logs_%s.txt", time.Now().Format("20060102_150405")))
 		file, err := os.Create(filename)
 		if err != nil {
 			utils.LogErrorDefault(err, "Failed to create export file", map[string]interface{}{
