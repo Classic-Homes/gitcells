@@ -94,17 +94,16 @@ func (c *converter) extractEnhancedFormulaInfo(f *excelize.File, sheetName, cell
 		return "", "", nil, err
 	}
 
-	// TODO: Extract R1C1 formula if supported by excelize
-	// Currently excelize doesn't have direct R1C1 support
+	// R1C1 formula extraction not yet supported by excelize - See issue #4
 	formulaR1C1 := ""
 
 	// Check for array formula
 	var arrayFormula *models.ArrayFormula
 	if formula != "" && c.isArrayFormula(formula) {
-		// TODO: Detect array formula range - would need excelize enhancement
+		// Array formula range detection limited by excelize - See issue #5
 		arrayFormula = &models.ArrayFormula{
 			Formula: formula,
-			Range:   cellRef, // Placeholder - would need actual range detection
+			Range:   cellRef, // Placeholder - accurate range detection needs excelize enhancement
 			IsCSE:   true,    // Assume CSE for now
 		}
 	}

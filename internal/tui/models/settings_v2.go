@@ -633,8 +633,8 @@ func (m *SettingsModelV2) saveConfig() tea.Cmd {
 		if m.config == nil {
 			return configSavedMsg{err: fmt.Errorf("no config loaded")}
 		}
-		// Save config to file
-		err := fmt.Errorf("save not implemented") // TODO: implement config save
+		// Save config to .gitcells.yaml
+		err := m.config.Save(".gitcells.yaml")
 		return configSavedMsg{err: err}
 	}
 }

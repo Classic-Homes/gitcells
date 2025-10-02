@@ -450,7 +450,7 @@ func (m *UnifiedDashboardModel) loadDashboardData() tea.Cmd {
 func (m *UnifiedDashboardModel) toggleWatcher() tea.Cmd {
 	return func() tea.Msg {
 		// Toggle watcher state
-		// TODO: Implement actual watcher start/stop logic
+		// NOTE: Actual watcher start/stop logic not yet implemented - See issue #6
 		m.watcherState.IsRunning = !m.watcherState.IsRunning
 		return nil
 	}

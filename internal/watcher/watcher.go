@@ -219,8 +219,9 @@ func (fw *FileWatcher) shouldIgnorePath(path string) bool {
 		return true
 	}
 
-	// Check if path contains .git directory
-	if strings.Contains(path, "/.git/") || strings.Contains(path, "\\.git\\") {
+	// Check if path contains .git directory (normalize path separators for cross-platform)
+	cleanPath := filepath.ToSlash(path)
+	if strings.Contains(cleanPath, "/.git/") {
 		return true
 	}
 
@@ -234,10 +235,9 @@ func (fw *FileWatcher) shouldIgnorePath(path string) bool {
 			return true
 		}
 		// Check if pattern contains directory separators and match path components
-		if strings.Contains(pattern, "/") || strings.Contains(pattern, "\\") {
-			// Convert pattern to work with paths
-			cleanPattern := strings.ReplaceAll(pattern, "\\", "/")
-			cleanPath := strings.ReplaceAll(path, "\\", "/")
+		if strings.Contains(pattern, "/") || strings.Contains(pattern, string(filepath.Separator)) {
+			// Normalize both pattern and path to forward slashes for consistent comparison
+			cleanPattern := filepath.ToSlash(pattern)
 
 			// Check if path matches pattern or contains pattern as a component
 			if strings.Contains(cleanPath, cleanPattern) {
