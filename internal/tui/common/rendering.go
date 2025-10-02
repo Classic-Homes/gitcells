@@ -99,8 +99,8 @@ func RenderConfirmDialog(title, message string, width, height int, borderStyle l
 	content := fmt.Sprintf("%s\n\n%s\n\n[y] Yes  [n] No", title, message)
 
 	box := borderStyle.
-		Width(width - 4).
-		Height(height - 4).
+		Width(width-4).
+		Height(height-4).
 		Padding(1, 2).
 		Render(content)
 

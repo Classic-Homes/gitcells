@@ -13,11 +13,11 @@ func TestSetStringValue(t *testing.T) {
 	cfg := &config.Config{}
 
 	tests := []struct {
-		name        string
-		key         string
-		value       string
-		wantErr     bool
-		checkValue  func(*testing.T, *config.Config)
+		name       string
+		key        string
+		value      string
+		wantErr    bool
+		checkValue func(*testing.T, *config.Config)
 	}{
 		{
 			name:    "set git remote",
