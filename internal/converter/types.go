@@ -2,6 +2,7 @@ package converter
 
 import (
 	"fmt"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -97,18 +98,113 @@ func (c *converter) extractEnhancedFormulaInfo(f *excelize.File, sheetName, cell
 	// R1C1 formula extraction not yet supported by excelize - See issue #4
 	formulaR1C1 := ""
 
-	// Check for array formula
+	// Check for array formula with accurate range detection
 	var arrayFormula *models.ArrayFormula
-	if formula != "" && c.isArrayFormula(formula) {
-		// Array formula range detection limited by excelize - See issue #5
-		arrayFormula = &models.ArrayFormula{
-			Formula: formula,
-			Range:   cellRef, // Placeholder - accurate range detection needs excelize enhancement
-			IsCSE:   true,    // Assume CSE for now
+	if formula != "" {
+		arrayFormula, err = c.extractArrayFormulaInfo(f, sheetName, cellRef, formula)
+		if err != nil {
+			c.logger.Debugf("Failed to extract array formula info for %s: %v", cellRef, err)
 		}
 	}
 
 	return formula, formulaR1C1, arrayFormula, nil
+}
+
+// extractArrayFormulaInfo extracts array formula metadata by accessing worksheet XML
+func (c *converter) extractArrayFormulaInfo(f *excelize.File, sheetName, cellRef, formula string) (*models.ArrayFormula, error) {
+	// Use reflection to access the internal workSheetReader method
+	// This is necessary because excelize doesn't expose array formula metadata through public APIs
+	method := reflect.ValueOf(f).MethodByName("workSheetReader")
+	if !method.IsValid() {
+		c.logger.Debug("workSheetReader method not found, falling back to heuristic detection")
+		return c.fallbackArrayFormulaDetection(formula, cellRef)
+	}
+
+	// Call the unexported workSheetReader method
+	results := method.Call([]reflect.Value{reflect.ValueOf(sheetName)})
+	if len(results) != 2 {
+		return c.fallbackArrayFormulaDetection(formula, cellRef)
+	}
+
+	// Check for error
+	if !results[1].IsNil() {
+		err := results[1].Interface().(error)
+		c.logger.Debugf("Error calling workSheetReader: %v", err)
+		return c.fallbackArrayFormulaDetection(formula, cellRef)
+	}
+
+	// Get the worksheet pointer
+	ws := results[0].Interface()
+	if ws == nil {
+		return c.fallbackArrayFormulaDetection(formula, cellRef)
+	}
+
+	// Use reflection to access SheetData.Row
+	wsValue := reflect.ValueOf(ws).Elem()
+	sheetDataField := wsValue.FieldByName("SheetData")
+	if !sheetDataField.IsValid() {
+		return c.fallbackArrayFormulaDetection(formula, cellRef)
+	}
+
+	rowField := sheetDataField.FieldByName("Row")
+	if !rowField.IsValid() {
+		return c.fallbackArrayFormulaDetection(formula, cellRef)
+	}
+
+	// Iterate through rows and cells
+	for i := 0; i < rowField.Len(); i++ {
+		row := rowField.Index(i)
+		cField := row.FieldByName("C")
+		if !cField.IsValid() {
+			continue
+		}
+
+		for j := 0; j < cField.Len(); j++ {
+			cell := cField.Index(j)
+			rField := cell.FieldByName("R")
+			fField := cell.FieldByName("F")
+
+			if !rField.IsValid() || !fField.IsValid() {
+				continue
+			}
+
+			// Check if this is the cell we're looking for
+			if rField.String() == cellRef && !fField.IsNil() {
+				fValue := fField.Elem()
+				tField := fValue.FieldByName("T")
+				refField := fValue.FieldByName("Ref")
+
+				if tField.IsValid() && tField.String() == "array" {
+					// We found an array formula with range information
+					arrayRange := cellRef
+					if refField.IsValid() && refField.String() != "" {
+						arrayRange = refField.String()
+					}
+
+					return &models.ArrayFormula{
+						Formula: formula,
+						Range:   arrayRange,
+						IsCSE:   true, // Array formulas with T="array" are CSE-style
+					}, nil
+				}
+			}
+		}
+	}
+
+	// Not an array formula, return nil
+	return nil, nil
+}
+
+// fallbackArrayFormulaDetection uses heuristic detection when reflection fails
+func (c *converter) fallbackArrayFormulaDetection(formula, cellRef string) (*models.ArrayFormula, error) {
+	if c.isArrayFormula(formula) {
+		return &models.ArrayFormula{
+			Formula: formula,
+			Range:   cellRef, // Fallback to cell reference
+			IsCSE:   true,    // Assume CSE
+		}, nil
+	}
+	return nil, nil
 }
 
 // parseNumber converts a string to a number (float64) if possible
