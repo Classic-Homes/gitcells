@@ -66,20 +66,14 @@ func setupLogger() *logrus.Logger {
 }
 
 func newTUICommand(logger *logrus.Logger) *cobra.Command {
-	var useV2 bool
 	cmd := &cobra.Command{
 		Use:   "tui",
 		Short: "Launch interactive TUI mode",
 		Long:  `Launch GitCells in Terminal User Interface mode for interactive operations`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger.Info("Launching GitCells TUI...")
-			if useV2 {
-				logger.Info("Using condensed TUI v2...")
-				return tui.RunV2()
-			}
 			return tui.Run()
 		},
 	}
-	cmd.Flags().BoolVar(&useV2, "v2", true, "Use the condensed v2 TUI (default: true)")
 	return cmd
 }

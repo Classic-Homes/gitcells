@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Classic-Homes/gitcells/internal/converter"
+	"github.com/Classic-Homes/gitcells/internal/git"
 	"github.com/sirupsen/logrus"
 )
 
@@ -219,7 +220,11 @@ func IsUpToDate(excelPath, jsonPath string) bool {
 
 	// Check for chunk directory in .gitcells/data
 	cwd, _ := os.Getwd()
-	gitRoot := findGitRoot(cwd)
+	gitRoot, err := git.FindRepositoryRoot(cwd)
+	if err != nil {
+		// If not in a git repo, use current directory
+		gitRoot = cwd
+	}
 	relPath, _ := filepath.Rel(gitRoot, filepath.Dir(excelPath))
 	chunkDir := filepath.Join(gitRoot, ".gitcells", "data", relPath, filepath.Base(excelPath)+"_chunks")
 
@@ -231,24 +236,4 @@ func IsUpToDate(excelPath, jsonPath string) bool {
 	}
 
 	return metadataInfo.ModTime().After(excelInfo.ModTime())
-}
-
-// findGitRoot finds the git repository root, or returns the current directory
-func findGitRoot(startDir string) string {
-	dir := startDir
-	for {
-		// Check if .git directory exists
-		gitPath := filepath.Join(dir, ".git")
-		if _, err := os.Stat(gitPath); err == nil {
-			return dir
-		}
-
-		// Check if we've reached the root
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			// Return the original directory if no git root found
-			return startDir
-		}
-		dir = parent
-	}
 }

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Classic-Homes/gitcells/internal/constants"
+	"github.com/Classic-Homes/gitcells/internal/git"
 	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/Classic-Homes/gitcells/pkg/models"
 	"github.com/sirupsen/logrus"
@@ -136,7 +137,7 @@ func getFileStatus(excelPath string, logger *logrus.Logger) (FileStatus, error) 
 	status.ExcelSize = excelInfo.Size()
 
 	// Determine JSON path
-	gitRoot, err := findGitRoot(filepath.Dir(excelPath))
+	gitRoot, err := git.FindRepositoryRoot(filepath.Dir(excelPath))
 	if err != nil {
 		// If not in a git repo, use local .gitcells directory
 		gitRoot = "."
@@ -208,22 +209,6 @@ func readJSONMetadata(jsonPath string) (*models.DocumentMetadata, error) {
 	}
 
 	return &doc.Metadata, nil
-}
-
-func findGitRoot(startPath string) (string, error) {
-	path := startPath
-	for {
-		gitPath := filepath.Join(path, ".git")
-		if _, err := os.Stat(gitPath); err == nil {
-			return path, nil
-		}
-
-		parent := filepath.Dir(path)
-		if parent == path {
-			return "", utils.NewError(utils.ErrorTypeGit, "findGitRoot", "not a git repository")
-		}
-		path = parent
-	}
 }
 
 func displayStatus(statuses []FileStatus, detailed bool) {

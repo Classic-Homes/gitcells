@@ -74,7 +74,7 @@ func TestWatcherAdapter_GetStatus(t *testing.T) {
 		status := adapter.GetStatus()
 		assert.False(t, status.IsRunning)
 		assert.Zero(t, status.StartTime)
-		assert.Zero(t, status.FilesWatched)
+		assert.Zero(t, status.DirectoriesWatched)
 		assert.Empty(t, status.LastEvent)
 	})
 }
@@ -211,16 +211,16 @@ func TestWatcherEvent(t *testing.T) {
 func TestWatcherStatus(t *testing.T) {
 	t.Run("watcher status struct", func(t *testing.T) {
 		status := WatcherStatus{
-			IsRunning:     true,
-			StartTime:     time.Now(),
-			FilesWatched:  5,
-			LastEvent:     "test event",
-			LastEventTime: time.Now(),
-			Directories:   []string{"/test/dir"},
+			IsRunning:          true,
+			StartTime:          time.Now(),
+			DirectoriesWatched: 5,
+			LastEvent:          "test event",
+			LastEventTime:      time.Now(),
+			Directories:        []string{"/test/dir"},
 		}
 
 		assert.True(t, status.IsRunning)
-		assert.Equal(t, 5, status.FilesWatched)
+		assert.Equal(t, 5, status.DirectoriesWatched)
 		assert.Equal(t, "test event", status.LastEvent)
 		assert.Len(t, status.Directories, 1)
 	})

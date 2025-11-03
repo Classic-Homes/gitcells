@@ -2,9 +2,11 @@
 package config
 
 import (
+	"os"
 	"time"
 
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -150,45 +152,20 @@ func Load(configPath string) (*Config, error) {
 	return cfg, nil
 }
 
-// Save saves the configuration to a file
+// Save saves the configuration to a file using YAML marshaling.
+// This approach is simpler and more maintainable than manually setting
+// each field in viper, as new fields are automatically handled.
 func (c *Config) Save(configPath string) error {
-	v := viper.New()
-
-	// Set all values in viper
-	v.Set("version", c.Version)
-	v.Set("git.remote", c.Git.Remote)
-	v.Set("git.branch", c.Git.Branch)
-	v.Set("git.auto_push", c.Git.AutoPush)
-	v.Set("git.auto_pull", c.Git.AutoPull)
-	v.Set("git.user_name", c.Git.UserName)
-	v.Set("git.user_email", c.Git.UserEmail)
-	v.Set("git.commit_template", c.Git.CommitTemplate)
-	v.Set("watcher.directories", c.Watcher.Directories)
-	v.Set("watcher.ignore_patterns", c.Watcher.IgnorePatterns)
-	v.Set("watcher.debounce_delay", c.Watcher.DebounceDelay)
-	v.Set("watcher.file_extensions", c.Watcher.FileExtensions)
-	v.Set("converter.preserve_formulas", c.Converter.PreserveFormulas)
-	v.Set("converter.preserve_styles", c.Converter.PreserveStyles)
-	v.Set("converter.preserve_comments", c.Converter.PreserveComments)
-	v.Set("converter.compact_json", c.Converter.CompactJSON)
-	v.Set("converter.ignore_empty_cells", c.Converter.IgnoreEmptyCells)
-	v.Set("converter.max_cells_per_sheet", c.Converter.MaxCellsPerSheet)
-	v.Set("converter.chunking_strategy", c.Converter.ChunkingStrategy)
-	v.Set("features.enable_experimental_features", c.Features.EnableExperimentalFeatures)
-	v.Set("features.enable_beta_updates", c.Features.EnableBetaUpdates)
-	v.Set("features.enable_telemetry", c.Features.EnableTelemetry)
-	v.Set("updates.auto_check_updates", c.Updates.AutoCheckUpdates)
-	v.Set("updates.check_interval", c.Updates.CheckInterval)
-	v.Set("updates.include_prereleases", c.Updates.IncludePrereleases)
-	v.Set("updates.auto_download_updates", c.Updates.AutoDownloadUpdates)
-	v.Set("updates.notify_on_update", c.Updates.NotifyOnUpdate)
-
 	if configPath == "" {
 		configPath = ".gitcells.yaml"
 	}
 
-	v.SetConfigFile(configPath)
-	return v.WriteConfig()
+	data, err := yaml.Marshal(c)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(configPath, data, 0600)
 }
 
 // ConvertOptions defines options for conversion (will be moved to converter package)

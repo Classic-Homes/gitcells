@@ -89,3 +89,137 @@ func TestToConverterOptions(t *testing.T) {
 	assert.Equal(t, cfg.IgnoreEmptyCells, opts.IgnoreEmptyCells)
 	assert.Equal(t, cfg.MaxCellsPerSheet, opts.MaxCellsPerSheet)
 }
+
+func TestConfigSave(t *testing.T) {
+	t.Run("saves config to default path", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		origDir, err := os.Getwd()
+		require.NoError(t, err)
+		defer func() { _ = os.Chdir(origDir) }()
+
+		require.NoError(t, os.Chdir(tmpDir))
+
+		cfg := GetDefault()
+		cfg.Version = "2.0"
+		cfg.Git.Branch = "develop"
+		cfg.Converter.MaxCellsPerSheet = 5000
+
+		err = cfg.Save("")
+		require.NoError(t, err)
+
+		// Verify file exists
+		_, err = os.Stat(".gitcells.yaml")
+		require.NoError(t, err)
+
+		// Load and verify
+		loadedCfg, err := Load(".gitcells.yaml")
+		require.NoError(t, err)
+		assert.Equal(t, "2.0", loadedCfg.Version)
+		assert.Equal(t, "develop", loadedCfg.Git.Branch)
+		assert.Equal(t, 5000, loadedCfg.Converter.MaxCellsPerSheet)
+	})
+
+	t.Run("saves config to specified path", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configPath := filepath.Join(tmpDir, "custom-config.yaml")
+
+		cfg := GetDefault()
+		cfg.Version = "3.0"
+		cfg.Git.UserName = "Custom User"
+		cfg.Converter.PreserveFormulas = false
+
+		err := cfg.Save(configPath)
+		require.NoError(t, err)
+
+		// Verify file exists
+		_, err = os.Stat(configPath)
+		require.NoError(t, err)
+
+		// Load and verify
+		loadedCfg, err := Load(configPath)
+		require.NoError(t, err)
+		assert.Equal(t, "3.0", loadedCfg.Version)
+		assert.Equal(t, "Custom User", loadedCfg.Git.UserName)
+		assert.Equal(t, false, loadedCfg.Converter.PreserveFormulas)
+	})
+
+	t.Run("saves all config fields correctly", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		configPath := filepath.Join(tmpDir, "full-config.yaml")
+
+		cfg := &Config{
+			Version: "4.0",
+			Git: GitConfig{
+				Remote:         "origin",
+				Branch:         "feature-branch",
+				AutoPush:       true,
+				AutoPull:       false,
+				UserName:       "Full Test",
+				UserEmail:      "full@test.com",
+				CommitTemplate: "Custom: {action}",
+			},
+			Watcher: WatcherConfig{
+				Directories:    []string{"dir1", "dir2"},
+				IgnorePatterns: []string{"*.tmp", "~$*"},
+				DebounceDelay:  3 * time.Second,
+				FileExtensions: []string{".xlsx", ".xls"},
+			},
+			Converter: ConverterConfig{
+				PreserveFormulas: false,
+				PreserveStyles:   true,
+				PreserveComments: false,
+				CompactJSON:      true,
+				IgnoreEmptyCells: false,
+				MaxCellsPerSheet: 999,
+				ChunkingStrategy: "size-based",
+			},
+			Features: FeaturesConfig{
+				EnableExperimentalFeatures: true,
+				EnableBetaUpdates:          true,
+				EnableTelemetry:            false,
+			},
+			Updates: UpdatesConfig{
+				AutoCheckUpdates:    false,
+				CheckInterval:       12 * time.Hour,
+				IncludePrereleases:  true,
+				AutoDownloadUpdates: true,
+				NotifyOnUpdate:      false,
+			},
+		}
+
+		err := cfg.Save(configPath)
+		require.NoError(t, err)
+
+		// Load and verify all fields
+		loadedCfg, err := Load(configPath)
+		require.NoError(t, err)
+
+		assert.Equal(t, cfg.Version, loadedCfg.Version)
+		assert.Equal(t, cfg.Git.Remote, loadedCfg.Git.Remote)
+		assert.Equal(t, cfg.Git.Branch, loadedCfg.Git.Branch)
+		assert.Equal(t, cfg.Git.AutoPush, loadedCfg.Git.AutoPush)
+		assert.Equal(t, cfg.Git.AutoPull, loadedCfg.Git.AutoPull)
+		assert.Equal(t, cfg.Git.UserName, loadedCfg.Git.UserName)
+		assert.Equal(t, cfg.Git.UserEmail, loadedCfg.Git.UserEmail)
+		assert.Equal(t, cfg.Git.CommitTemplate, loadedCfg.Git.CommitTemplate)
+		assert.Equal(t, cfg.Watcher.Directories, loadedCfg.Watcher.Directories)
+		assert.Equal(t, cfg.Watcher.IgnorePatterns, loadedCfg.Watcher.IgnorePatterns)
+		assert.Equal(t, cfg.Watcher.DebounceDelay, loadedCfg.Watcher.DebounceDelay)
+		assert.Equal(t, cfg.Watcher.FileExtensions, loadedCfg.Watcher.FileExtensions)
+		assert.Equal(t, cfg.Converter.PreserveFormulas, loadedCfg.Converter.PreserveFormulas)
+		assert.Equal(t, cfg.Converter.PreserveStyles, loadedCfg.Converter.PreserveStyles)
+		assert.Equal(t, cfg.Converter.PreserveComments, loadedCfg.Converter.PreserveComments)
+		assert.Equal(t, cfg.Converter.CompactJSON, loadedCfg.Converter.CompactJSON)
+		assert.Equal(t, cfg.Converter.IgnoreEmptyCells, loadedCfg.Converter.IgnoreEmptyCells)
+		assert.Equal(t, cfg.Converter.MaxCellsPerSheet, loadedCfg.Converter.MaxCellsPerSheet)
+		assert.Equal(t, cfg.Converter.ChunkingStrategy, loadedCfg.Converter.ChunkingStrategy)
+		assert.Equal(t, cfg.Features.EnableExperimentalFeatures, loadedCfg.Features.EnableExperimentalFeatures)
+		assert.Equal(t, cfg.Features.EnableBetaUpdates, loadedCfg.Features.EnableBetaUpdates)
+		assert.Equal(t, cfg.Features.EnableTelemetry, loadedCfg.Features.EnableTelemetry)
+		assert.Equal(t, cfg.Updates.AutoCheckUpdates, loadedCfg.Updates.AutoCheckUpdates)
+		assert.Equal(t, cfg.Updates.CheckInterval, loadedCfg.Updates.CheckInterval)
+		assert.Equal(t, cfg.Updates.IncludePrereleases, loadedCfg.Updates.IncludePrereleases)
+		assert.Equal(t, cfg.Updates.AutoDownloadUpdates, loadedCfg.Updates.AutoDownloadUpdates)
+		assert.Equal(t, cfg.Updates.NotifyOnUpdate, loadedCfg.Updates.NotifyOnUpdate)
+	})
+}

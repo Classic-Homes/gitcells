@@ -3,594 +3,525 @@ package models
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Classic-Homes/gitcells/internal/config"
 	"github.com/Classic-Homes/gitcells/internal/tui/adapter"
-	"github.com/Classic-Homes/gitcells/internal/tui/components"
 	"github.com/Classic-Homes/gitcells/internal/tui/messages"
 	"github.com/Classic-Homes/gitcells/internal/tui/styles"
+
+	// "github.com/Classic-Homes/gitcells/internal/watcher"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-type DashboardModel struct {
-	width       int
-	height      int
+type DashboardTab int
+
+const (
+	TabOverview DashboardTab = iota
+	TabFiles
+	TabActivity
+)
+
+var tabNames = []string{"Overview", "Files", "Activity"}
+
+type UnifiedDashboardModel struct {
+	width  int
+	height int
+
+	// Adapters
 	config      *config.Config
 	gitAdapter  *adapter.GitAdapter
 	convAdapter *adapter.ConverterAdapter
+	// watcher     *watcher.Watcher
 
-	// Dashboard data
-	watching      []string
-	totalFiles    int
-	syncStatus    SyncStatus
-	operations    []FileOperation
-	recentCommits []CommitInfo
+	// State
+	activeTab    DashboardTab
+	syncStatus   SyncStatus
+	watcherState WatcherState
+	files        []FileInfo
+	activities   []Activity
 
 	// UI state
-	selectedTab  int
-	scrollOffset int
-	showHelp     bool
-
-	// Progress tracking
-	progressBars components.MultiProgress
-	lastUpdate   time.Time
+	scrollOffset    int
+	showQuickAction bool
+	quickActionType string
 }
 
 type SyncStatus struct {
-	Branch       string
-	IsSynced     bool
-	LastCommit   time.Time
+	IsSynced   bool
+	Branch     string
+	HasChanges bool
+}
+
+type WatcherState struct {
+	IsRunning     bool
+	StartTime     time.Time
+	FilesWatched  int
+	LastEvent     string
+	LastEventTime time.Time
+}
+
+type FileInfo struct {
+	Path         string
+	Size         int64
+	LastModified time.Time
+	IsTracked    bool
 	HasChanges   bool
-	RemoteAhead  int
-	RemoteBehind int
+	JSONPath     string
 }
 
-type FileOperation struct {
-	ID        string
-	Type      OperationType
-	FileName  string
-	Status    OperationStatus
-	Progress  int
-	StartTime time.Time
-	Error     error
-}
-
-type OperationType int
-
-const (
-	OpConvert OperationType = iota
-	OpSync
-	OpWatch
-)
-
-type OperationStatus int
-
-const (
-	StatusPending OperationStatus = iota
-	StatusInProgress
-	StatusCompleted
-	StatusFailed
-)
-
-type CommitInfo struct {
-	Hash    string
-	Message string
+type Activity struct {
 	Time    time.Time
-	Files   int
+	Type    string // "convert", "commit", "watch", "error"
+	Message string
+	Details string
 }
 
-func NewDashboardModel() tea.Model {
-	m := &DashboardModel{
-		operations:   []FileOperation{},
-		progressBars: components.NewMultiProgress(),
-		lastUpdate:   time.Now(),
-	}
+func NewDashboardModel() *UnifiedDashboardModel {
+	cfg, _ := config.Load("")
+	gitAdapter, _ := adapter.NewGitAdapter("")
+	convAdapter := adapter.NewConverterAdapter()
 
-	// Try to load configuration
-	if cfg, err := config.Load("."); err == nil {
-		m.config = cfg
-		m.watching = cfg.Watcher.Directories
+	return &UnifiedDashboardModel{
+		config:      cfg,
+		gitAdapter:  gitAdapter,
+		convAdapter: convAdapter,
+		activeTab:   TabOverview,
 	}
-
-	// Initialize adapters
-	if gitAdapter, err := adapter.NewGitAdapter("."); err == nil {
-		m.gitAdapter = gitAdapter
-	}
-	m.convAdapter = adapter.NewConverterAdapter()
-
-	return m
 }
 
-func (m DashboardModel) Init() tea.Cmd {
+func (m *UnifiedDashboardModel) Init() tea.Cmd {
 	return tea.Batch(
-		m.loadInitialData(),
-		dashboardTick(),
+		m.loadDashboardData(),
+		tea.Tick(time.Second*5, func(t time.Time) tea.Msg {
+			return tickMsg(t)
+		}),
 	)
 }
 
-func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmds []tea.Cmd
+type tickMsg time.Time
 
+func (m *UnifiedDashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-
-	case dashboardTickMsg:
-		// Update progress bars
-		for i := range m.operations {
-			if m.operations[i].Status == StatusInProgress {
-				m.operations[i].Progress += 10
-				if m.operations[i].Progress >= 100 {
-					m.operations[i].Progress = 100
-					m.operations[i].Status = StatusCompleted
-				}
-				m.progressBars.UpdateBar(m.operations[i].ID, m.operations[i].Progress)
-			}
-		}
-
-		// Refresh data every 5 seconds
-		if time.Since(m.lastUpdate) > 5*time.Second {
-			cmds = append(cmds, m.refreshData())
-			m.lastUpdate = time.Now()
-		}
-
-		cmds = append(cmds, dashboardTick())
+		return m, nil
 
 	case tea.KeyMsg:
+		// Global shortcuts
 		switch msg.String() {
-		case "ctrl+c", "q":
+		case "q", "ctrl+c":
+			if m.showQuickAction {
+				m.showQuickAction = false
+				return m, nil
+			}
 			return m, tea.Quit
+
 		case "esc":
+			if m.showQuickAction {
+				m.showQuickAction = false
+				return m, nil
+			}
 			return m, messages.RequestMainMenu()
+
 		case "tab":
-			m.selectedTab = (m.selectedTab + 1) % 3
-		case "?":
-			m.showHelp = !m.showHelp
-		case "r":
-			cmds = append(cmds, m.refreshData())
-		case "c":
-			cmds = append(cmds, m.startConversion())
+			m.activeTab = (m.activeTab + 1) % 3
+			return m, nil
+
+		case "shift+tab":
+			m.activeTab = (m.activeTab + 2) % 3
+			return m, nil
+
+		// Quick actions
 		case "w":
-			cmds = append(cmds, m.toggleWatcher())
-		case "ctrl+w":
-			return m, messages.RequestModeChange("watcher")
+			if !m.showQuickAction {
+				return m, m.toggleWatcher()
+			}
+
+		case "c":
+			if !m.showQuickAction {
+				m.showQuickAction = true
+				m.quickActionType = "convert"
+				return m, nil
+			}
+
+		case "d":
+			if !m.showQuickAction {
+				// Switch to diff viewer
+				return m, messages.RequestModeChange("diff")
+			}
+
+		case "s":
+			if !m.showQuickAction {
+				// Switch to settings
+				return m, messages.RequestModeChange("settings")
+			}
+
+		case "?", "h":
+			if !m.showQuickAction {
+				// Show help/logs
+				return m, messages.RequestModeChange("errorlog")
+			}
+
+		// Navigation within tabs
 		case "up", "k":
 			if m.scrollOffset > 0 {
 				m.scrollOffset--
 			}
+
 		case "down", "j":
 			m.scrollOffset++
+
+		case "enter":
+			// Handle selection based on current tab
+			return m, m.handleSelection()
 		}
 
-	case dataLoadedMsg:
-		m.applyLoadedData(msg)
-
-	case operationUpdateMsg:
-		m.updateOperation(msg)
+	case tickMsg:
+		// Auto-refresh data
+		return m, tea.Batch(
+			m.loadDashboardData(),
+			tea.Tick(time.Second*5, func(t time.Time) tea.Msg {
+				return tickMsg(t)
+			}),
+		)
 	}
 
-	return m, tea.Batch(cmds...)
+	return m, nil
 }
 
-func (m DashboardModel) View() string {
-	if m.showHelp {
-		return m.renderHelp()
+func (m *UnifiedDashboardModel) View() string {
+	// Set default dimensions if not set
+	if m.width == 0 {
+		m.width = 80
 	}
-
-	// Main container
-	containerStyle := lipgloss.NewStyle().
-		Padding(1, 2).
-		Width(m.width).
-		Height(m.height)
+	if m.height == 0 {
+		m.height = 24
+	}
 
 	// Header
 	header := m.renderHeader()
 
-	// Tab bar
-	tabs := m.renderTabs()
-
-	// Content based on selected tab
+	// Content area
 	var content string
-	switch m.selectedTab {
-	case 0:
+	switch m.activeTab {
+	case TabOverview:
 		content = m.renderOverview()
-	case 1:
-		content = m.renderOperations()
-	case 2:
-		content = m.renderCommits()
+	case TabFiles:
+		content = m.renderFiles()
+	case TabActivity:
+		content = m.renderActivity()
 	}
 
-	// Footer
-	footer := m.renderFooter()
+	// Quick action bar
+	actionBar := m.renderActionBar()
 
-	// Combine all sections
-	fullView := lipgloss.JoinVertical(
+	// Calculate heights
+	headerHeight := lipgloss.Height(header)
+	actionBarHeight := lipgloss.Height(actionBar)
+	contentHeight := m.height - headerHeight - actionBarHeight - 2
+
+	// Style content with fixed height
+	contentStyle := lipgloss.NewStyle().
+		Width(m.width).
+		Height(contentHeight).
+		Padding(0, 2)
+
+	styledContent := contentStyle.Render(content)
+
+	// Combine all parts
+	return lipgloss.JoinVertical(
 		lipgloss.Left,
 		header,
-		tabs,
-		content,
-		footer,
+		styledContent,
+		actionBar,
 	)
-
-	return containerStyle.Render(fullView)
 }
 
-func (m DashboardModel) renderHeader() string {
-	titleStyle := styles.TitleStyle.
-		MarginBottom(1)
+func (m *UnifiedDashboardModel) renderHeader() string {
+	// Title
+	title := styles.TitleStyle.Render("GitCells Dashboard")
 
-	statusIcon := "📊"
-	statusText := "Active"
-	statusColor := styles.Success
+	// Tabs
+	tabs := make([]string, 0, len(tabNames))
+	for i, name := range tabNames {
+		style := styles.TabStyle
+		if DashboardTab(i) == m.activeTab {
+			style = styles.ActiveTabStyle
+		}
+		tabs = append(tabs, style.Render(name))
+	}
+	tabBar := lipgloss.JoinHorizontal(lipgloss.Left, tabs...)
 
-	if m.totalFiles == 0 {
-		statusIcon = "⚠️"
-		statusText = "No Excel Files"
-		statusColor = styles.Warning
+	// Status indicators
+	var status []string
+
+	// Git sync status
+	syncIcon := "⚡"
+	if !m.syncStatus.IsSynced {
+		syncIcon = "⚠️"
+	}
+	status = append(status, fmt.Sprintf("%s %s", syncIcon, m.syncStatus.Branch))
+
+	// Watcher status
+	watchIcon := "👁"
+	if !m.watcherState.IsRunning {
+		watchIcon = "💤"
+	}
+	status = append(status, fmt.Sprintf("%s Watch", watchIcon))
+
+	statusBar := styles.StatusStyle.Render(strings.Join(status, " • "))
+
+	// Combine header elements
+	headerTop := lipgloss.JoinHorizontal(
+		lipgloss.Left,
+		title,
+		lipgloss.NewStyle().Width(m.width-lipgloss.Width(title)-lipgloss.Width(statusBar)).Render(" "),
+		statusBar,
+	)
+
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		headerTop,
+		tabBar,
+		styles.BorderStyle.Render(strings.Repeat("─", m.width)),
+	)
+}
+
+func (m *UnifiedDashboardModel) renderOverview() string {
+	content := make([]string, 0, 15) // Pre-allocate for typical overview
+
+	// Quick stats
+	content = append(content, styles.SubtitleStyle.Render("📊 Quick Stats"))
+
+	stats := []string{
+		fmt.Sprintf("Excel Files: %d tracked", len(m.files)),
+		fmt.Sprintf("Git Status: %s", m.syncStatus.getStatusText()),
+		fmt.Sprintf("Watcher: %s", m.watcherState.getStatusText()),
+		fmt.Sprintf("Last Activity: %s", m.getLastActivityTime()),
 	}
 
-	statusStyle := lipgloss.NewStyle().
-		Foreground(statusColor)
+	for _, stat := range stats {
+		content = append(content, "  "+stat)
+	}
 
-	title := titleStyle.Render("GitCells Dashboard")
-	status := statusStyle.Render(fmt.Sprintf("%s %s | Tracking: %d files", statusIcon, statusText, m.totalFiles))
+	content = append(content, "")
 
-	return lipgloss.JoinHorizontal(
-		lipgloss.Top,
-		title,
-		lipgloss.NewStyle().Width(m.width-40).Render(" "),
-		status,
-	)
+	// Recent changes
+	if m.syncStatus.HasChanges {
+		content = append(content, styles.SubtitleStyle.Render("🔄 Pending Changes"))
+		for i, file := range m.files {
+			if file.HasChanges && i < 5 {
+				content = append(content, fmt.Sprintf("  • %s", filepath.Base(file.Path)))
+			}
+		}
+		content = append(content, "")
+	}
+
+	// Quick actions hint
+	content = append(content, styles.SubtitleStyle.Render("⚡ Quick Actions"))
+	content = append(content, "  Press 'w' to toggle watcher")
+	content = append(content, "  Press 'c' to convert a file")
+	content = append(content, "  Press 'd' for diff viewer")
+
+	return strings.Join(content, "\n")
 }
 
-func (m DashboardModel) renderTabs() string {
-	tabs := []string{"Overview", "Operations", "Commits"}
+func (m *UnifiedDashboardModel) renderFiles() string {
+	var content []string
 
-	renderedTabs := make([]string, 0, len(tabs))
-	for i, tab := range tabs {
-		style := lipgloss.NewStyle().
-			Padding(0, 2).
-			Foreground(styles.Muted)
+	content = append(content, styles.SubtitleStyle.Render("📁 Tracked Files"))
+	content = append(content, "")
 
-		if i == m.selectedTab {
-			style = style.
-				Foreground(styles.Primary).
-				Bold(true).
-				BorderBottom(true).
-				BorderStyle(lipgloss.NormalBorder()).
-				BorderForeground(styles.Primary)
+	if len(m.files) == 0 {
+		content = append(content, styles.MutedStyle.Render("  No Excel files found in watched directories"))
+	} else {
+		// Table header
+		header := fmt.Sprintf("  %-40s %-15s %-20s %s", "File", "Size", "Modified", "Status")
+		content = append(content, styles.MutedStyle.Render(header))
+		content = append(content, styles.MutedStyle.Render(strings.Repeat("─", 90)))
+
+		// File list
+		start := m.scrollOffset
+		end := start + (m.height - 10) // Leave room for header/footer
+		if end > len(m.files) {
+			end = len(m.files)
 		}
 
-		renderedTabs = append(renderedTabs, style.Render(tab))
+		for i := start; i < end; i++ {
+			file := m.files[i]
+			status := "✓ Synced"
+			if file.HasChanges {
+				status = "● Modified"
+			}
+			if !file.IsTracked {
+				status = "○ Untracked"
+			}
+
+			line := fmt.Sprintf("  %-40s %-15s %-20s %s",
+				truncateStringUD(filepath.Base(file.Path), 40),
+				formatFileSize(file.Size),
+				file.LastModified.Format("Jan 2 15:04"),
+				status,
+			)
+			content = append(content, line)
+		}
 	}
 
-	tabBar := lipgloss.JoinHorizontal(lipgloss.Top, renderedTabs...)
+	return strings.Join(content, "\n")
+}
+
+func (m *UnifiedDashboardModel) renderActivity() string {
+	var content []string
+
+	content = append(content, styles.SubtitleStyle.Render("📋 Recent Activity"))
+	content = append(content, "")
+
+	if len(m.activities) == 0 {
+		content = append(content, styles.MutedStyle.Render("  No recent activity"))
+	} else {
+		for i, activity := range m.activities {
+			if i >= 20 { // Show last 20 activities
+				break
+			}
+
+			icon := m.getActivityIcon(activity.Type)
+			timeStr := activity.Time.Format("15:04:05")
+
+			line := fmt.Sprintf("  %s %s %s",
+				styles.MutedStyle.Render(timeStr),
+				icon,
+				activity.Message,
+			)
+			content = append(content, line)
+
+			if activity.Details != "" {
+				content = append(content, styles.MutedStyle.Render("       "+activity.Details))
+			}
+		}
+	}
+
+	return strings.Join(content, "\n")
+}
+
+func (m *UnifiedDashboardModel) renderActionBar() string {
+	// Quick actions
+	actions := []string{
+		"[w] Watch",
+		"[c] Convert",
+		"[d] Diff",
+		"[s] Settings",
+		"[?] Help",
+	}
+
+	if m.watcherState.IsRunning {
+		actions[0] = "[w] Stop Watch"
+	}
+
+	actionStr := strings.Join(actions, " • ")
+
+	// Navigation help
+	navHelp := "Tab: Switch tabs • ↑↓: Scroll • Esc: Menu • q: Quit"
+
+	// Combine with styling
+	actionBar := lipgloss.JoinHorizontal(
+		lipgloss.Left,
+		styles.ActionStyle.Render(actionStr),
+		lipgloss.NewStyle().Width(m.width-lipgloss.Width(actionStr)-lipgloss.Width(navHelp)-4).Render(" "),
+		styles.MutedStyle.Render(navHelp),
+	)
 
 	return lipgloss.NewStyle().
-		MarginBottom(1).
-		BorderBottom(true).
+		BorderTop(true).
 		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(styles.Muted).
-		Width(m.width - 4).
-		Render(tabBar)
-}
-
-func (m DashboardModel) renderOverview() string {
-	// Stats boxes
-	statsStyle := styles.BoxStyle.
-		Width(30).
-		Height(5).
-		MarginRight(2)
-
-	watchingBox := statsStyle.Render(
-		styles.SubtitleStyle.Render("Watching") + "\n" +
-			fmt.Sprintf("%d directories\n", len(m.watching)) +
-			fmt.Sprintf("%d Excel files", m.totalFiles),
-	)
-
-	syncBox := statsStyle.Render(
-		styles.SubtitleStyle.Render("Auto-Sync") + "\n" +
-			fmt.Sprintf("Status: %s\n", func() string {
-				if m.config != nil && len(m.config.Watcher.Directories) > 0 {
-					return "Active"
-				}
-				return "Not configured"
-			}()) +
-			fmt.Sprintf("Debounce: %s", func() string {
-				if m.config != nil && m.config.Watcher.DebounceDelay > 0 {
-					return m.config.Watcher.DebounceDelay.String()
-				}
-				return "1s"
-			}()),
-	)
-
-	conversionStats, _ := m.convAdapter.GetConversionStats(".")
-	convBox := statsStyle.Render(
-		styles.SubtitleStyle.Render("Excel Files") + "\n" +
-			fmt.Sprintf("Total: %d\n", m.totalFiles) +
-			fmt.Sprintf("JSON pairs: %d", conversionStats.ConvertedFiles),
-	)
-
-	statsRow := lipgloss.JoinHorizontal(lipgloss.Top, watchingBox, syncBox, convBox)
-
-	// Recent activity
-	activityStyle := styles.BoxStyle.
-		Width(m.width - 8).
-		MarginTop(2)
-
-	activityContent := styles.SubtitleStyle.Render("Recent Activity") + "\n\n"
-
-	for i, op := range m.operations {
-		if i >= 5 {
-			break
-		}
-
-		icon := m.getOperationIcon(op)
-		status := m.getOperationStatus(op)
-		duration := formatDuration(time.Since(op.StartTime))
-
-		activityContent += fmt.Sprintf("%s %s - %s (%s)\n", icon, op.FileName, status, duration)
-	}
-
-	activityBox := activityStyle.Render(activityContent)
-
-	return lipgloss.JoinVertical(lipgloss.Left, statsRow, activityBox)
-}
-
-func (m DashboardModel) renderOperations() string {
-	if len(m.operations) == 0 {
-		return styles.MutedStyle.Render("No operations in progress")
-	}
-
-	// Show progress bars for active operations
-	content := ""
-	for _, op := range m.operations {
-		if op.Status == StatusInProgress {
-			content += m.renderOperation(op) + "\n\n"
-		}
-	}
-
-	// Show completed operations
-	content += styles.SubtitleStyle.Render("Completed Operations") + "\n\n"
-	for _, op := range m.operations {
-		if op.Status == StatusCompleted || op.Status == StatusFailed {
-			content += m.renderOperation(op) + "\n"
-		}
-	}
-
-	return content
-}
-
-func (m DashboardModel) renderOperation(op FileOperation) string {
-	icon := m.getOperationIcon(op)
-
-	if op.Status == StatusInProgress {
-		progressBar := components.NewProgressBar(100)
-		progressBar.SetLabel(fmt.Sprintf("%s %s", icon, op.FileName))
-		progressBar.SetProgress(op.Progress)
-		progressBar.SetWidth(60)
-		return progressBar.View()
-	}
-
-	status := m.getOperationStatus(op)
-	duration := formatDuration(time.Since(op.StartTime))
-
-	style := lipgloss.NewStyle()
-	if op.Status == StatusCompleted {
-		style = style.Foreground(styles.Success)
-	} else if op.Status == StatusFailed {
-		style = style.Foreground(styles.Error)
-	}
-
-	return style.Render(fmt.Sprintf("%s %s - %s (%s)", icon, op.FileName, status, duration))
-}
-
-func (m DashboardModel) renderCommits() string {
-	if len(m.recentCommits) == 0 {
-		return styles.MutedStyle.Render("No recent commits")
-	}
-
-	content := styles.SubtitleStyle.Render("Recent Commits") + "\n\n"
-
-	for _, commit := range m.recentCommits {
-		timeAgo := formatDuration(time.Since(commit.Time))
-		content += fmt.Sprintf("• %s\n", styles.MutedStyle.Render(commit.Hash[:7]))
-		content += fmt.Sprintf("  %s\n", commit.Message)
-		content += fmt.Sprintf("  %s (%d files)\n\n",
-			styles.MutedStyle.Render(timeAgo+" ago"),
-			commit.Files,
-		)
-	}
-
-	return content
-}
-
-func (m DashboardModel) renderFooter() string {
-	helpText := "[Tab] Switch tabs • [r] Refresh • [c] Convert • [w] Toggle Watch • [Ctrl+W] Watcher • [?] Help • [q] Quit"
-	return styles.HelpStyle.
-		MarginTop(1).
-		Render(helpText)
-}
-
-func (m DashboardModel) renderHelp() string {
-	helpBox := styles.BoxStyle.
-		Width(60).
-		Render(
-			styles.TitleStyle.Render("GitCells Dashboard Help") + "\n\n" +
-				"Navigation:\n" +
-				"  Tab        - Switch between tabs\n" +
-				"  ↑/↓ or j/k - Scroll content\n" +
-				"  q          - Quit dashboard\n\n" +
-				"Actions:\n" +
-				"  r - Refresh data\n" +
-				"  c - Start conversion of pending files\n" +
-				"  w - Toggle automatic file watching\n\n" +
-				"Press ? to close this help",
-		)
-
-	return styles.Center(m.width, m.height, helpBox)
+		BorderForeground(lipgloss.Color("241")).
+		Width(m.width).
+		Padding(0, 2).
+		Render(actionBar)
 }
 
 // Helper methods
-func (m DashboardModel) getOperationIcon(op FileOperation) string {
-	switch op.Type {
-	case OpConvert:
+
+func (m *UnifiedDashboardModel) loadDashboardData() tea.Cmd {
+	return func() tea.Msg {
+		// Load data from adapters
+		// This would be implemented to actually fetch data
+		return nil
+	}
+}
+
+func (m *UnifiedDashboardModel) toggleWatcher() tea.Cmd {
+	return func() tea.Msg {
+		// Toggle watcher state
+		// TODO: Implement actual watcher start/stop logic
+		m.watcherState.IsRunning = !m.watcherState.IsRunning
+		return nil
+	}
+}
+
+func (m *UnifiedDashboardModel) handleSelection() tea.Cmd {
+	// Handle enter key based on current tab and selection
+	return nil
+}
+
+func (m *UnifiedDashboardModel) getActivityIcon(activityType string) string {
+	switch activityType {
+	case "convert":
 		return "🔄"
-	case OpSync:
-		return "🔄"
-	case OpWatch:
-		return "👁️"
+	case "commit":
+		return "📝"
+	case "watch":
+		return "👁"
+	case "error":
+		return "❌"
 	default:
 		return "•"
 	}
 }
 
-func (m DashboardModel) getOperationStatus(op FileOperation) string {
-	switch op.Status {
-	case StatusPending:
-		return "Pending"
-	case StatusInProgress:
-		return fmt.Sprintf("In Progress (%d%%)", op.Progress)
-	case StatusCompleted:
-		return "Completed"
-	case StatusFailed:
-		if op.Error != nil {
-			return fmt.Sprintf("Failed: %s", op.Error.Error())
-		}
-		return "Failed"
-	default:
-		return "Unknown"
+func (m *UnifiedDashboardModel) getLastActivityTime() string {
+	if len(m.activities) > 0 {
+		return m.activities[0].Time.Format("15:04")
 	}
+	return "No activity"
 }
 
-// Command methods
-func (m *DashboardModel) loadInitialData() tea.Cmd {
-	return func() tea.Msg {
-		// Load initial data
-		data := dataLoadedMsg{}
-
-		// Count Excel files
-		if m.config != nil {
-			for _, dir := range m.config.Watcher.Directories {
-				for _, ext := range m.config.Watcher.FileExtensions {
-					pattern := filepath.Join(dir, "*"+ext)
-					if files, err := filepath.Glob(pattern); err == nil {
-						data.totalFiles += len(files)
-					}
-				}
-			}
-		}
-
-		// Get git status
-		if m.gitAdapter != nil {
-			if clean, err := m.gitAdapter.IsClean(); err == nil {
-				data.hasChanges = !clean
-				if m.gitAdapter.InGitRepository() {
-					data.branch = "git repository"
-				}
-			}
-		}
-
-		return data
+func (s SyncStatus) getStatusText() string {
+	if s.IsSynced {
+		return "✓ Synced with remote"
 	}
-}
-
-func (m *DashboardModel) refreshData() tea.Cmd {
-	return m.loadInitialData()
-}
-
-func (m *DashboardModel) startConversion() tea.Cmd {
-	return func() tea.Msg {
-		// Find pending conversions
-		pending, _ := m.convAdapter.GetPendingConversions(".", "*.xlsx")
-
-		for _, file := range pending {
-			op := FileOperation{
-				ID:        fmt.Sprintf("conv-%d", time.Now().UnixNano()),
-				Type:      OpConvert,
-				FileName:  filepath.Base(file),
-				Status:    StatusInProgress,
-				Progress:  0,
-				StartTime: time.Now(),
-			}
-
-			// In a real implementation, this would start the actual conversion
-			return operationUpdateMsg{operation: op}
-		}
-
-		return nil
+	if s.HasChanges {
+		return "● Local changes pending"
 	}
+	return "⚠️ Out of sync"
 }
 
-func (m *DashboardModel) toggleWatcher() tea.Cmd {
-	return func() tea.Msg {
-		op := FileOperation{
-			ID:        fmt.Sprintf("watch-%d", time.Now().UnixNano()),
-			Type:      OpWatch,
-			FileName:  "File watching",
-			Status:    StatusInProgress,
-			Progress:  0,
-			StartTime: time.Now(),
-		}
-
-		// In a real implementation, this would toggle the file watcher
-		return operationUpdateMsg{operation: op}
+func (w WatcherState) getStatusText() string {
+	if w.IsRunning {
+		return fmt.Sprintf("Running (%d files)", w.FilesWatched)
 	}
+	return "Stopped"
 }
 
-func (m *DashboardModel) applyLoadedData(msg dataLoadedMsg) {
-	m.totalFiles = msg.totalFiles
-	m.syncStatus.Branch = msg.branch
-	m.syncStatus.HasChanges = msg.hasChanges
-	m.syncStatus.IsSynced = !msg.hasChanges
-	m.syncStatus.LastCommit = time.Now().Add(-2 * time.Minute) // Mock data
-}
-
-func (m *DashboardModel) updateOperation(msg operationUpdateMsg) {
-	// Add or update operation
-	found := false
-	for i, op := range m.operations {
-		if op.ID == msg.operation.ID {
-			m.operations[i] = msg.operation
-			found = true
-			break
-		}
+func truncateStringUD(s string, max int) string {
+	if len(s) <= max {
+		return s
 	}
+	return s[:max-3] + "..."
+}
 
-	if !found {
-		m.operations = append(m.operations, msg.operation)
-		if msg.operation.Status == StatusInProgress {
-			m.progressBars.AddBar(msg.operation.ID, msg.operation.FileName, 100)
-		}
+func formatFileSize(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
 	}
-}
-
-// Message types
-type dataLoadedMsg struct {
-	totalFiles int
-	branch     string
-	hasChanges bool
-}
-
-type operationUpdateMsg struct {
-	operation FileOperation
-}
-
-// Message types for dashboard
-type dashboardTickMsg time.Time
-
-func dashboardTick() tea.Cmd {
-	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
-		return dashboardTickMsg(t)
-	})
-}
-
-func formatDuration(d time.Duration) string {
-	if d < time.Minute {
-		return fmt.Sprintf("%d sec", int(d.Seconds()))
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
 	}
-	return fmt.Sprintf("%d min", int(d.Minutes()))
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }

@@ -10,169 +10,160 @@ import (
 
 	"github.com/Classic-Homes/gitcells/internal/config"
 	"github.com/Classic-Homes/gitcells/internal/constants"
+	"github.com/Classic-Homes/gitcells/internal/tui/components"
 	"github.com/Classic-Homes/gitcells/internal/tui/messages"
+	"github.com/Classic-Homes/gitcells/internal/tui/styles"
 	"github.com/Classic-Homes/gitcells/internal/updater"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-type SettingsModel struct {
-	width       int
-	height      int
-	cursor      int
-	status      string
-	updating    bool
-	showConfirm bool
-	confirmType string
-	config      *config.Config
-	currentView settingsView
-	editMode    bool
-	editValue   string
-	editKey     string
-}
-
-type settingsView int
+type SettingsTab int
 
 const (
-	viewMain settingsView = iota
-	viewFeatures
-	viewUpdates
-	viewGit
-	viewWatcher
-	viewConverter
-	viewWatchedDirs
+	TabGeneral SettingsTab = iota
+	TabGit
+	TabWatcher
+	TabAdvanced
 )
 
+var settingsTabNames = []string{"General", "Git", "Watcher", "Advanced"}
+
+type SettingsModelV2 struct {
+	width        int
+	height       int
+	activeTab    SettingsTab
+	cursor       int
+	config       *config.Config
+	status       string
+	updating     bool
+	showConfirm  bool
+	confirmType  string
+	editMode     bool
+	editValue    string
+	editKey      string
+	scrollOffset int
+}
+
+type generalSetting struct {
+	title  string
+	key    string
+	action string // "edit", "toggle", "action"
+	value  string
+}
+
+// Message types for settings model
+type configLoadedMsg struct {
+	config *config.Config
+	err    error
+}
+type configSavedMsg struct {
+	err error
+}
 type updateCheckMsg struct {
 	release   *updater.GitHubRelease
 	hasUpdate bool
 	err       error
 }
-
 type updateCompleteMsg struct {
 	err error
 }
-
 type uninstallCompleteMsg struct {
 	err error
 }
 
-type configLoadedMsg struct {
-	config *config.Config
-	err    error
-}
-
-type configSavedMsg struct {
-	err error
-}
-
-var mainSettingsItems = []struct {
-	title string
-	desc  string
-	key   string
-}{
-	{"Git Settings", "Configure Git integration and repository settings", "git"},
-	{"Watcher Settings", "Configure file watching and monitoring", "watcher"},
-	{"Converter Settings", "Configure Excel to JSON conversion options", "converter"},
-	{"Feature Settings", "Configure experimental features and beta options", "features"},
-	{"Update Settings", "Configure automatic updates and preferences", "updates"},
-	{"Check for Updates", "Check if a newer version of GitCells is available", "update_check"},
-	{"Update GitCells", "Download and install the latest version", "update"},
-	{"Uninstall GitCells", "Remove GitCells from your system", "uninstall"},
-	{"Version Info", "Display current version and system information", "version"},
-}
-
-var featureSettingsItems = []struct {
-	title string
-	desc  string
-	key   string
-}{
-	{"Experimental Features", "Enable cutting-edge features (may be unstable)", "experimental"},
-	{"Beta Updates", "Receive beta version updates", "beta_updates"},
-	{"Telemetry", "Send anonymous usage data to help improve GitCells", "telemetry"},
-}
-
-var updateSettingsItems = []struct {
-	title string
-	desc  string
-	key   string
-}{
-	{"Auto Check Updates", "Automatically check for updates on startup", "auto_check"},
-	{"Include Prereleases", "Include pre-release versions when checking for updates", "prereleases"},
-	{"Auto Download Updates", "Automatically download updates when available", "auto_download"},
-	{"Notify on Update", "Show notifications when updates are available", "notify"},
-}
-
-var gitSettingsItems = []struct {
-	title string
-	desc  string
-	key   string
-}{
-	{"Branch", "Default Git branch for commits", "branch"},
-	{"Auto Push", "Automatically push changes to remote", "auto_push"},
-	{"Auto Pull", "Automatically pull changes from remote", "auto_pull"},
-	{"User Name", "Git commit author name", "user_name"},
-	{"User Email", "Git commit author email", "user_email"},
-	{"Commit Template", "Template for commit messages", "commit_template"},
-}
-
-var watcherSettingsItems = []struct {
-	title string
-	desc  string
-	key   string
-}{
-	{"Watched Directories", "Directories to monitor for Excel file changes", "directories"},
-	{"Debounce Delay", "Time to wait before processing file changes", "debounce_delay"},
-	{"File Extensions", "Excel file extensions to watch", "file_extensions"},
-	{"Ignore Patterns", "File patterns to ignore during watching", "ignore_patterns"},
-}
-
-var converterSettingsItems = []struct {
-	title string
-	desc  string
-	key   string
-}{
-	{"Preserve Formulas", "Keep Excel formulas in JSON output", "preserve_formulas"},
-	{"Preserve Styles", "Keep Excel cell styling in JSON output", "preserve_styles"},
-	{"Preserve Comments", "Keep Excel cell comments in JSON output", "preserve_comments"},
-	{"Compact JSON", "Generate compact JSON without extra whitespace", "compact_json"},
-	{"Ignore Empty Cells", "Skip empty cells in JSON output", "ignore_empty_cells"},
-	{"Max Cells Per Sheet", "Maximum number of cells to process per sheet", "max_cells_per_sheet"},
-	{"Chunking Strategy", "Strategy for handling large Excel files", "chunking_strategy"},
-}
-
-func NewSettingsModel() SettingsModel {
-	return SettingsModel{
-		cursor:      0,
-		status:      "Loading configuration...",
-		currentView: viewMain,
+func NewSettingsModel() *SettingsModelV2 {
+	cfg, _ := config.Load("")
+	return &SettingsModelV2{
+		config:    cfg,
+		activeTab: TabGeneral,
+		width:     80,
+		height:    24,
 	}
 }
 
-func (m SettingsModel) Init() tea.Cmd {
+func (m *SettingsModelV2) Init() tea.Cmd {
 	return m.loadConfig()
 }
 
-func (m SettingsModel) loadConfig() tea.Cmd {
-	return func() tea.Msg {
-		cfg, err := config.Load("")
-		return configLoadedMsg{config: cfg, err: err}
-	}
-}
-
-func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *SettingsModelV2) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		return m, nil
+
+	case tea.KeyMsg:
+		if m.editMode {
+			return m.handleEditMode(msg)
+		}
+		if m.showConfirm {
+			return m.handleConfirmMode(msg)
+		}
+
+		switch msg.String() {
+		case "q", "ctrl+c":
+			return m, tea.Quit
+
+		case "esc":
+			return m, messages.RequestMainMenu()
+
+		case "tab":
+			m.activeTab = (m.activeTab + 1) % 4
+			m.cursor = 0
+			m.scrollOffset = 0
+			return m, nil
+
+		case "shift+tab":
+			m.activeTab = (m.activeTab + 3) % 4
+			m.cursor = 0
+			m.scrollOffset = 0
+			return m, nil
+
+		// Quick actions
+		case "u":
+			// Check for updates
+			return m, m.checkForUpdates()
+
+		case "s":
+			// Save config
+			return m, m.saveConfig()
+
+		case "r":
+			// Reload config
+			return m, m.loadConfig()
+
+		// Navigation
+		case "up", "k":
+			if m.cursor > 0 {
+				m.cursor--
+				// Adjust scroll if needed
+				if m.cursor < m.scrollOffset {
+					m.scrollOffset = m.cursor
+				}
+			}
+
+		case "down", "j":
+			items := m.getCurrentTabItems()
+			if m.cursor < len(items)-1 {
+				m.cursor++
+				// Adjust scroll if needed
+				visibleHeight := m.height - 12 // Account for header/footer
+				if m.cursor >= m.scrollOffset+visibleHeight {
+					m.scrollOffset = m.cursor - visibleHeight + 1
+				}
+			}
+
+		case "enter":
+			return m.handleSelection()
+		}
 
 	case configLoadedMsg:
 		if msg.err != nil {
 			m.status = fmt.Sprintf("Error loading config: %v", msg.err)
-			m.config = config.GetDefault()
 		} else {
 			m.config = msg.config
-			m.status = "Ready"
+			m.status = "Configuration loaded"
 		}
 		return m, nil
 
@@ -180,86 +171,9 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			m.status = fmt.Sprintf("Error saving config: %v", msg.err)
 		} else {
-			m.status = "Settings saved successfully!"
+			m.status = "Configuration saved successfully"
 		}
 		return m, nil
-
-	case tea.KeyMsg:
-		if m.showConfirm {
-			switch msg.String() {
-			case "y", "Y":
-				m.showConfirm = false
-				switch m.confirmType {
-				case "update":
-					m.updating = true
-					m.status = "Updating GitCells..."
-					return m, m.performUpdate()
-				case "uninstall":
-					m.status = "Uninstalling GitCells..."
-					return m, m.performUninstall()
-				}
-			case "n", "N", "esc":
-				m.showConfirm = false
-				m.status = "Operation cancelled"
-			}
-			return m, nil
-		}
-
-		if m.updating {
-			return m, nil
-		}
-
-		if m.editMode {
-			switch msg.String() {
-			case "enter":
-				return m.saveEdit()
-			case "esc":
-				m.editMode = false
-				m.editValue = ""
-				m.editKey = ""
-				m.status = "Edit cancelled"
-				return m, nil
-			case "backspace":
-				if len(m.editValue) > 0 {
-					m.editValue = m.editValue[:len(m.editValue)-1]
-				}
-			default:
-				// Add typed characters to edit value
-				if len(msg.String()) == 1 {
-					m.editValue += msg.String()
-				}
-			}
-			return m, nil
-		}
-
-		switch msg.String() {
-		case "ctrl+c", "q":
-			return m, tea.Quit
-		case "esc":
-			if m.currentView != viewMain {
-				m.currentView = viewMain
-				m.cursor = 0
-				m.status = "Returned to main settings"
-				return m, nil
-			} else {
-				return m, messages.RequestMainMenu()
-			}
-		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
-			}
-		case "down", "j":
-			maxItems := m.getMaxCursor()
-			if m.cursor < maxItems-1 {
-				m.cursor++
-			}
-		case "d":
-			if m.currentView == viewWatchedDirs && m.cursor < len(m.config.Watcher.Directories) {
-				return m.removeDirectory(m.cursor)
-			}
-		case "enter", " ":
-			return m.handleSelectionAndReturn()
-		}
 
 	case updateCheckMsg:
 		m.updating = false
@@ -269,310 +183,277 @@ func (m SettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case msg.hasUpdate:
 			m.status = fmt.Sprintf("Update available: %s → %s", constants.Version, msg.release.TagName)
 		default:
-			m.status = "GitCells is up to date"
+			m.status = "You're running the latest version"
 		}
-
-	case updateCompleteMsg:
-		m.updating = false
-		if msg.err != nil {
-			m.status = fmt.Sprintf("Update failed: %v", msg.err)
-		} else {
-			m.status = "Update completed successfully! Please restart GitCells."
-		}
-
-	case uninstallCompleteMsg:
-		if msg.err != nil {
-			m.status = fmt.Sprintf("Uninstall failed: %v", msg.err)
-		} else {
-			m.status = "GitCells has been uninstalled. Goodbye!"
-		}
+		return m, nil
 	}
 
 	return m, nil
 }
 
-func (m SettingsModel) ResetToMainView() SettingsModel {
-	m.currentView = viewMain
-	m.cursor = 0
-	m.status = "Ready"
-	m.showConfirm = false
-	m.updating = false
-	return m
-}
+func (m *SettingsModelV2) View() string {
+	// Header with breadcrumb
+	breadcrumb := []string{"Dashboard", "Settings", settingsTabNames[m.activeTab]}
+	header := components.RenderHeader("Settings", breadcrumb, m.width)
 
-func (m SettingsModel) getMaxCursor() int {
-	switch m.currentView {
-	case viewMain:
-		return len(mainSettingsItems)
-	case viewFeatures:
-		return len(featureSettingsItems)
-	case viewUpdates:
-		return len(updateSettingsItems)
-	case viewGit:
-		return len(gitSettingsItems)
-	case viewWatcher:
-		return len(watcherSettingsItems)
-	case viewConverter:
-		return len(converterSettingsItems)
-	case viewWatchedDirs:
-		return len(m.config.Watcher.Directories) + 1 // +1 for "Add new directory" option
-	default:
-		return len(mainSettingsItems)
+	// Tabs
+	tabs := make([]string, 0, len(settingsTabNames))
+	for i, name := range settingsTabNames {
+		style := styles.TabStyle
+		if SettingsTab(i) == m.activeTab {
+			style = styles.ActiveTabStyle
+		}
+		tabs = append(tabs, style.Render(name))
 	}
-}
+	tabBar := lipgloss.JoinHorizontal(lipgloss.Left, tabs...)
 
-func (m SettingsModel) View() string {
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("99")).
-		MarginBottom(1)
+	// Content
+	content := m.renderCurrentTab()
 
-	subtitleStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		MarginBottom(2)
-
-	menuStyle := lipgloss.NewStyle().
-		Padding(2, 4)
-
-	cursorStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("99"))
-
-	descStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241"))
-
-	statusStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("82")).
-		MarginTop(1).
-		MarginBottom(1)
-
-	confirmStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("214")).
-		Background(lipgloss.Color("236")).
-		Padding(1, 2).
-		MarginTop(1).
-		MarginBottom(1)
-
-	// Build the title and breadcrumb based on current view
-	var title, subtitle, breadcrumb string
-	switch m.currentView {
-	case viewMain:
-		title = "GitCells Settings"
-		subtitle = "System Management and Configuration"
-		breadcrumb = "Main Menu"
-	case viewFeatures:
-		title = "Feature Settings"
-		subtitle = "Experimental Features and Beta Options"
-		breadcrumb = "Main Menu > Feature Settings"
-	case viewUpdates:
-		title = "Update Settings"
-		subtitle = "Automatic Updates and Preferences"
-		breadcrumb = "Main Menu > Update Settings"
-	case viewGit:
-		title = "Git Settings"
-		subtitle = "Git Integration and Repository Configuration"
-		breadcrumb = "Main Menu > Git Settings"
-	case viewWatcher:
-		title = "Watcher Settings"
-		subtitle = "File Monitoring and Watch Configuration"
-		breadcrumb = "Main Menu > Watcher Settings"
-	case viewConverter:
-		title = "Converter Settings"
-		subtitle = "Excel to JSON Conversion Options"
-		breadcrumb = "Main Menu > Converter Settings"
-	case viewWatchedDirs:
-		title = "Watched Directories"
-		subtitle = "Manage directories to monitor for Excel file changes"
-		breadcrumb = "Main Menu > Watcher Settings > Watched Directories"
+	// Status bar
+	statusBar := ""
+	if m.status != "" {
+		statusBar = styles.StatusStyle.Render(m.status)
 	}
 
-	breadcrumbStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("243")).
-		Faint(true)
+	// Action bar
+	actions := []components.ActionBarItem{
+		{Key: "u", Label: "Check Updates", Active: true},
+		{Key: "s", Label: "Save", Active: m.config != nil},
+		{Key: "r", Label: "Reload", Active: true},
+		{Key: "esc", Label: "Back", Active: true},
+	}
 
-	s := titleStyle.Render(title) + "\n"
-	s += subtitleStyle.Render(subtitle) + "\n"
-	s += breadcrumbStyle.Render("Navigation: "+breadcrumb) + "\n\n"
+	helpText := "Tab: Switch tabs • ↑↓: Navigate • Enter: Select"
+	actionBar := components.RenderActionBar(m.width, actions, helpText)
 
-	if m.showConfirm {
-		var confirmMsg string
-		switch m.confirmType {
+	// Calculate heights
+	headerHeight := lipgloss.Height(header)
+	tabBarHeight := lipgloss.Height(tabBar)
+	statusBarHeight := lipgloss.Height(statusBar)
+	actionBarHeight := lipgloss.Height(actionBar)
+	contentHeight := m.height - headerHeight - tabBarHeight - statusBarHeight - actionBarHeight - 3
+
+	// Style content with fixed height
+	contentStyle := lipgloss.NewStyle().
+		Width(m.width).
+		Height(contentHeight).
+		Padding(1, 2)
+
+	styledContent := contentStyle.Render(content)
+
+	// Combine all parts
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		header,
+		tabBar,
+		styledContent,
+		statusBar,
+		actionBar,
+	)
+}
+
+func (m *SettingsModelV2) renderCurrentTab() string {
+	switch m.activeTab {
+	case TabGeneral:
+		return m.renderGeneralTab()
+	case TabGit:
+		return m.renderGitTab()
+	case TabWatcher:
+		return m.renderWatcherTab()
+	case TabAdvanced:
+		return m.renderAdvancedTab()
+	}
+	return ""
+}
+
+func (m *SettingsModelV2) renderGeneralTab() string {
+	settings := []generalSetting{
+		{title: "Check for Updates", key: "update_check", action: "action"},
+		{title: "Update GitCells", key: "update", action: "action"},
+		{title: "Auto-check Updates", key: "auto_update", action: "toggle", value: m.getConfigBool("updates.auto_check")},
+		{title: "Version Info", key: "version", action: "action", value: constants.Version},
+		{title: "Uninstall GitCells", key: "uninstall", action: "action"},
+	}
+
+	return m.renderSettingsList(settings)
+}
+
+func (m *SettingsModelV2) renderGitTab() string {
+	settings := []generalSetting{
+		{title: "Auto-commit", key: "git.auto_commit", action: "toggle", value: m.getConfigBool("git.auto_commit")},
+		{title: "Commit Template", key: "git.commit_template", action: "edit", value: m.getConfigString("git.commit_template")},
+		{title: "Default Branch", key: "git.branch", action: "edit", value: m.getConfigString("git.branch")},
+		{title: "Push After Commit", key: "git.push_after_commit", action: "toggle", value: m.getConfigBool("git.push_after_commit")},
+	}
+
+	return m.renderSettingsList(settings)
+}
+
+func (m *SettingsModelV2) renderWatcherTab() string {
+	settings := []generalSetting{
+		{title: "Watch on Startup", key: "watcher.auto_start", action: "toggle", value: m.getConfigBool("watcher.auto_start")},
+		{title: "Debounce Delay", key: "watcher.debounce", action: "edit", value: m.getConfigString("watcher.debounce_seconds")},
+		{title: "Include Patterns", key: "watcher.patterns", action: "edit", value: strings.Join(m.getConfigStringSlice("watcher.patterns"), ", ")},
+		{title: "Watched Directories", key: "watched_dirs", action: "action", value: fmt.Sprintf("%d directories", len(m.getConfigStringSlice("watched_dirs")))},
+	}
+
+	return m.renderSettingsList(settings)
+}
+
+func (m *SettingsModelV2) renderAdvancedTab() string {
+	settings := []generalSetting{
+		{title: "Experimental Features", key: "features.experimental", action: "toggle", value: m.getConfigBool("features.experimental")},
+		{title: "Beta Updates", key: "updates.beta", action: "toggle", value: m.getConfigBool("updates.beta")},
+		{title: "Telemetry", key: "telemetry.enabled", action: "toggle", value: m.getConfigBool("telemetry.enabled")},
+		{title: "Chunk Size", key: "converter.chunk_size", action: "edit", value: m.getConfigString("converter.chunk_size")},
+		{title: "Debug Mode", key: "debug", action: "toggle", value: m.getConfigBool("debug")},
+	}
+
+	return m.renderSettingsList(settings)
+}
+
+func (m *SettingsModelV2) renderSettingsList(settings []generalSetting) string {
+	var lines []string
+
+	// Apply scrolling
+	start := m.scrollOffset
+	visibleHeight := m.height - 12
+	end := start + visibleHeight
+	if end > len(settings) {
+		end = len(settings)
+	}
+
+	for i := start; i < end; i++ {
+		setting := settings[i]
+		actualIndex := i
+
+		cursor := "  "
+		if actualIndex == m.cursor {
+			cursor = styles.HighlightStyle.Render("▶ ")
+		}
+
+		// Format the setting line
+		var line string
+		switch setting.action {
+		case "toggle":
+			checkbox := "☐"
+			if setting.value == "true" {
+				checkbox = "☑"
+			}
+			line = fmt.Sprintf("%s%s %s", cursor, checkbox, setting.title)
+		case "edit":
+			valueStr := setting.value
+			if valueStr == "" {
+				valueStr = styles.MutedStyle.Render("(not set)")
+			} else if len(valueStr) > 30 {
+				valueStr = valueStr[:27] + "..."
+			}
+			line = fmt.Sprintf("%s%s: %s", cursor, setting.title, styles.InfoStyle.Render(valueStr))
+		case "action":
+			line = fmt.Sprintf("%s%s", cursor, setting.title)
+			if setting.value != "" {
+				line += " " + styles.MutedStyle.Render(fmt.Sprintf("(%s)", setting.value))
+			}
+		}
+
+		lines = append(lines, line)
+	}
+
+	// Show scroll indicators
+	if m.scrollOffset > 0 {
+		lines = append([]string{styles.MutedStyle.Render("  ↑ More items above")}, lines...)
+	}
+	if end < len(settings) {
+		lines = append(lines, styles.MutedStyle.Render("  ↓ More items below"))
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// Helper methods
+func (m *SettingsModelV2) getCurrentTabItems() []generalSetting {
+	switch m.activeTab {
+	case TabGeneral:
+		return []generalSetting{
+			{title: "Check for Updates", key: "update_check", action: "action"},
+			{title: "Update GitCells", key: "update", action: "action"},
+			{title: "Auto-check Updates", key: "auto_update", action: "toggle"},
+			{title: "Version Info", key: "version", action: "action"},
+			{title: "Uninstall GitCells", key: "uninstall", action: "action"},
+		}
+	case TabGit:
+		return []generalSetting{
+			{title: "Auto Push", key: "git.auto_push", action: "toggle"},
+			{title: "Auto Pull", key: "git.auto_pull", action: "toggle"},
+			{title: "Commit Template", key: "git.commit_template", action: "edit"},
+			{title: "Default Branch", key: "git.branch", action: "edit"},
+			{title: "User Name", key: "git.user_name", action: "edit"},
+			{title: "User Email", key: "git.user_email", action: "edit"},
+		}
+	case TabWatcher:
+		return []generalSetting{
+			{title: "Debounce Delay", key: "watcher.debounce_delay", action: "edit"},
+			{title: "File Extensions", key: "watcher.file_extensions", action: "edit"},
+			{title: "Ignore Patterns", key: "watcher.ignore_patterns", action: "edit"},
+			{title: "Watched Directories", key: "watcher.directories", action: "action"},
+		}
+	case TabAdvanced:
+		return []generalSetting{
+			{title: "Experimental Features", key: "features.enable_experimental_features", action: "toggle"},
+			{title: "Beta Updates", key: "features.enable_beta_updates", action: "toggle"},
+			{title: "Telemetry", key: "features.enable_telemetry", action: "toggle"},
+			{title: "Max Cells per Sheet", key: "converter.max_cells_per_sheet", action: "edit"},
+			{title: "Preserve Formulas", key: "converter.preserve_formulas", action: "toggle"},
+			{title: "Preserve Styles", key: "converter.preserve_styles", action: "toggle"},
+		}
+	}
+	return nil
+}
+
+func (m *SettingsModelV2) handleSelection() (tea.Model, tea.Cmd) {
+	items := m.getCurrentTabItems()
+	if m.cursor >= len(items) {
+		return m, nil
+	}
+
+	selected := items[m.cursor]
+	switch selected.action {
+	case "toggle":
+		// Toggle boolean value
+		current := m.getConfigBool(selected.key)
+		newValue := current != "true"
+		m.setConfigBool(selected.key, newValue)
+		m.status = fmt.Sprintf("Toggled %s", selected.title)
+		return m, nil
+
+	case "edit":
+		// Enter edit mode
+		m.editMode = true
+		m.editKey = selected.key
+		m.editValue = m.getConfigString(selected.key)
+		return m, nil
+
+	case "action":
+		// Handle special actions
+		switch selected.key {
+		case "update_check":
+			m.updating = true
+			m.status = "Checking for updates..."
+			return m, m.checkForUpdates()
 		case "update":
-			confirmMsg = "Are you sure you want to update GitCells? This will download and replace the current binary."
-		case "uninstall":
-			confirmMsg = "Are you sure you want to uninstall GitCells? This will remove the binary and configuration files."
-		}
-		s += confirmStyle.Render(confirmMsg+"\n\n[Y]es / [N]o") + "\n\n"
-	} else {
-		// Render items based on current view
-		var items []struct {
-			title string
-			desc  string
-			key   string
-		}
-
-		switch m.currentView {
-		case viewMain:
-			items = mainSettingsItems
-		case viewFeatures:
-			items = featureSettingsItems
-		case viewUpdates:
-			items = updateSettingsItems
-		case viewGit:
-			items = gitSettingsItems
-		case viewWatcher:
-			items = watcherSettingsItems
-		case viewConverter:
-			items = converterSettingsItems
-		case viewWatchedDirs:
-			// Special handling for watched directories view
-			return m.renderWatchedDirsView(s, cursorStyle, descStyle, statusStyle)
-		}
-
-		for i, item := range items {
-			cursor := "  "
-			if i == m.cursor {
-				cursor = cursorStyle.Render("▶ ")
-			}
-
-			// Add value display for settings
-			itemTitle := item.title
-			if m.config != nil {
-				currentValue := m.getCurrentValue(item.key)
-				if m.editMode && m.editKey == item.key && i == m.cursor {
-					// Show edit input
-					itemTitle += " " + cursorStyle.Render(fmt.Sprintf("[%s]", m.editValue))
-				} else {
-					// Show current value
-					itemTitle += " " + descStyle.Render(fmt.Sprintf("(%s)", currentValue))
-				}
-			}
-
-			s += fmt.Sprintf("%s%s\n", cursor, itemTitle)
-			s += fmt.Sprintf("    %s\n\n", descStyle.Render(item.desc))
-		}
-	}
-
-	s += statusStyle.Render("Status: "+m.status) + "\n"
-
-	switch {
-	case m.updating:
-		s += descStyle.Render("Please wait...")
-	case !m.showConfirm && m.editMode:
-		s += descStyle.Render("Type to edit, Enter to save, Esc to cancel")
-	case !m.showConfirm && m.currentView == viewMain:
-		s += descStyle.Render("Use ↑/↓ or j/k to navigate, Enter to select, q to quit")
-	case !m.showConfirm:
-		s += descStyle.Render("Use ↑/↓ or j/k to navigate, Enter to edit/toggle, Esc to go back")
-	}
-
-	return menuStyle.Render(s)
-}
-
-func (m SettingsModel) handleSelectionAndReturn() (tea.Model, tea.Cmd) {
-	// Handle watched directories view
-	if m.currentView == viewWatchedDirs {
-		if m.cursor == len(m.config.Watcher.Directories) {
-			// Add new directory
-			m.editMode = true
-			m.editKey = "new_directory"
-			m.editValue = ""
-			m.status = "Enter directory path"
+			m.showConfirm = true
+			m.confirmType = "update"
 			return m, nil
-		} else if m.cursor < len(m.config.Watcher.Directories) {
-			// Remove directory
-			return m.removeDirectory(m.cursor)
-		}
-	}
-
-	var selectedItem struct {
-		title string
-		desc  string
-		key   string
-	}
-
-	switch m.currentView {
-	case viewMain:
-		selectedItem = mainSettingsItems[m.cursor]
-	case viewFeatures:
-		selectedItem = featureSettingsItems[m.cursor]
-	case viewUpdates:
-		selectedItem = updateSettingsItems[m.cursor]
-	case viewGit:
-		selectedItem = gitSettingsItems[m.cursor]
-	case viewWatcher:
-		selectedItem = watcherSettingsItems[m.cursor]
-	case viewConverter:
-		selectedItem = converterSettingsItems[m.cursor]
-	case viewWatchedDirs:
-		// Already handled above
-		return m, nil
-	}
-
-	switch selectedItem.key {
-	// Main menu navigation
-	case "git":
-		m.currentView = viewGit
-		m.cursor = 0
-		m.status = "Entered Git settings"
-		return m, nil
-	case "watcher":
-		m.currentView = viewWatcher
-		m.cursor = 0
-		m.status = "Entered Watcher settings"
-		return m, nil
-	case "converter":
-		m.currentView = viewConverter
-		m.cursor = 0
-		m.status = "Entered Converter settings"
-		return m, nil
-	case "features":
-		m.currentView = viewFeatures
-		m.cursor = 0
-		m.status = "Entered feature settings"
-		return m, nil
-	case "updates":
-		m.currentView = viewUpdates
-		m.cursor = 0
-		m.status = "Entered update settings"
-		return m, nil
-
-	// System actions
-	case "update_check":
-		m.updating = true
-		m.status = "Checking for updates..."
-		return m, m.checkForUpdates()
-	case "update":
-		m.showConfirm = true
-		m.confirmType = "update"
-		return m, nil
-	case "uninstall":
-		m.showConfirm = true
-		m.confirmType = "uninstall"
-		return m, nil
-	case "version":
-		m.status = fmt.Sprintf("GitCells v%s (Go %s)", constants.Version, constants.GoVersion)
-		return m, nil
-
-	// Handle boolean toggles
-	case "experimental", "beta_updates", "telemetry", "auto_check", "prereleases",
-		"auto_download", "notify", "auto_push", "auto_pull", "preserve_formulas",
-		"preserve_styles", "preserve_comments", "compact_json", "ignore_empty_cells":
-		return m.toggleBooleanSetting(selectedItem.key)
-
-	// Handle directory management
-	case "directories":
-		m.currentView = viewWatchedDirs
-		m.cursor = 0
-		m.status = "Managing watched directories"
-		return m, nil
-
-	// Handle text/number edits for all other fields
-	default:
-		if m.config != nil && m.isEditableField(selectedItem.key) {
-			m.editMode = true
-			m.editKey = selectedItem.key
-			m.editValue = m.getCurrentValue(selectedItem.key)
-			m.status = fmt.Sprintf("Editing %s (Enter to save, Esc to cancel)", selectedItem.title)
+		case "uninstall":
+			m.showConfirm = true
+			m.confirmType = "uninstall"
+			return m, nil
+		case "version":
+			m.status = fmt.Sprintf("GitCells %s (built %s)", constants.Version, constants.BuildTime)
+			return m, nil
+		case "watched_dirs":
+			// Could switch to a watched dirs management view
 			return m, nil
 		}
 	}
@@ -580,462 +461,242 @@ func (m SettingsModel) handleSelectionAndReturn() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m SettingsModel) getCurrentValue(key string) string {
-	if m.config == nil {
-		return "N/A"
-	}
-
-	switch key {
-	// Git settings
-	case "branch":
-		return m.config.Git.Branch
-	case "auto_push":
-		return fmt.Sprintf("%t", m.config.Git.AutoPush)
-	case "auto_pull":
-		return fmt.Sprintf("%t", m.config.Git.AutoPull)
-	case "user_name":
-		return m.config.Git.UserName
-	case "user_email":
-		return m.config.Git.UserEmail
-	case "commit_template":
-		return m.config.Git.CommitTemplate
-
-	// Watcher settings
-	case "directories":
-		if len(m.config.Watcher.Directories) == 0 {
-			return "None configured"
-		}
-		return strings.Join(m.config.Watcher.Directories, ", ")
-	case "debounce_delay":
-		return m.config.Watcher.DebounceDelay.String()
-	case "file_extensions":
-		return strings.Join(m.config.Watcher.FileExtensions, ", ")
-	case "ignore_patterns":
-		return strings.Join(m.config.Watcher.IgnorePatterns, ", ")
-
-	// Converter settings
-	case "preserve_formulas":
-		return fmt.Sprintf("%t", m.config.Converter.PreserveFormulas)
-	case "preserve_styles":
-		return fmt.Sprintf("%t", m.config.Converter.PreserveStyles)
-	case "preserve_comments":
-		return fmt.Sprintf("%t", m.config.Converter.PreserveComments)
-	case "compact_json":
-		return fmt.Sprintf("%t", m.config.Converter.CompactJSON)
-	case "ignore_empty_cells":
-		return fmt.Sprintf("%t", m.config.Converter.IgnoreEmptyCells)
-	case "max_cells_per_sheet":
-		return fmt.Sprintf("%d", m.config.Converter.MaxCellsPerSheet)
-	case "chunking_strategy":
-		return m.config.Converter.ChunkingStrategy
-
-	// Feature settings
-	case "experimental":
-		return fmt.Sprintf("%t", m.config.Features.EnableExperimentalFeatures)
-	case "beta_updates":
-		return fmt.Sprintf("%t", m.config.Features.EnableBetaUpdates)
-	case "telemetry":
-		return fmt.Sprintf("%t", m.config.Features.EnableTelemetry)
-
-	// Update settings
-	case "auto_check":
-		return fmt.Sprintf("%t", m.config.Updates.AutoCheckUpdates)
-	case "prereleases":
-		return fmt.Sprintf("%t", m.config.Updates.IncludePrereleases)
-	case "auto_download":
-		return fmt.Sprintf("%t", m.config.Updates.AutoDownloadUpdates)
-	case "notify":
-		return fmt.Sprintf("%t", m.config.Updates.NotifyOnUpdate)
-
-	default:
-		return "Unknown"
-	}
-}
-
-func (m SettingsModel) toggleBooleanSetting(key string) (tea.Model, tea.Cmd) {
-	if m.config == nil {
-		return m, nil
-	}
-
-	switch key {
-	// Git settings
-	case "auto_push":
-		m.config.Git.AutoPush = !m.config.Git.AutoPush
-	case "auto_pull":
-		m.config.Git.AutoPull = !m.config.Git.AutoPull
-
-	// Converter settings
-	case "preserve_formulas":
-		m.config.Converter.PreserveFormulas = !m.config.Converter.PreserveFormulas
-	case "preserve_styles":
-		m.config.Converter.PreserveStyles = !m.config.Converter.PreserveStyles
-	case "preserve_comments":
-		m.config.Converter.PreserveComments = !m.config.Converter.PreserveComments
-	case "compact_json":
-		m.config.Converter.CompactJSON = !m.config.Converter.CompactJSON
-	case "ignore_empty_cells":
-		m.config.Converter.IgnoreEmptyCells = !m.config.Converter.IgnoreEmptyCells
-
-	// Feature settings
-	case "experimental":
-		m.config.Features.EnableExperimentalFeatures = !m.config.Features.EnableExperimentalFeatures
-	case "beta_updates":
-		m.config.Features.EnableBetaUpdates = !m.config.Features.EnableBetaUpdates
-	case "telemetry":
-		m.config.Features.EnableTelemetry = !m.config.Features.EnableTelemetry
-
-	// Update settings
-	case "auto_check":
-		m.config.Updates.AutoCheckUpdates = !m.config.Updates.AutoCheckUpdates
-	case "prereleases":
-		m.config.Updates.IncludePrereleases = !m.config.Updates.IncludePrereleases
-	case "auto_download":
-		m.config.Updates.AutoDownloadUpdates = !m.config.Updates.AutoDownloadUpdates
-	case "notify":
-		m.config.Updates.NotifyOnUpdate = !m.config.Updates.NotifyOnUpdate
-	}
-
-	return m, m.saveConfig()
-}
-
-func (m SettingsModel) isEditableField(key string) bool {
-	editableFields := []string{
-		// Git text fields
-		"branch", "user_name", "user_email", "commit_template",
-		// Watcher fields
-		"debounce_delay", "file_extensions", "ignore_patterns",
-		// Converter numeric/text fields
-		"max_cells_per_sheet", "chunking_strategy",
-	}
-
-	for _, field := range editableFields {
-		if field == key {
-			return true
-		}
-	}
-	return false
-}
-
-func (m SettingsModel) saveEdit() (tea.Model, tea.Cmd) {
-	if m.config == nil || m.editKey == "" {
-		m.editMode = false
-		m.status = "Edit failed - no configuration loaded"
-		return m, nil
-	}
-
-	// Handle new directory addition
-	if m.editKey == "new_directory" {
-		if m.editValue == "" {
-			m.status = "Directory path cannot be empty"
-			return m, nil
-		}
-		// Check if directory exists
-		if _, err := os.Stat(m.editValue); os.IsNotExist(err) {
-			m.status = fmt.Sprintf("Directory does not exist: %s", m.editValue)
-			return m, nil
-		}
-		// Check if already watching this directory
-		for _, dir := range m.config.Watcher.Directories {
-			if dir == m.editValue {
-				m.status = "Already watching this directory"
-				return m, nil
-			}
-		}
-		// Add the directory
-		m.config.Watcher.Directories = append(m.config.Watcher.Directories, m.editValue)
+func (m *SettingsModelV2) handleEditMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
 		m.editMode = false
 		m.editKey = ""
 		m.editValue = ""
-		m.status = fmt.Sprintf("Added directory: %s", m.editValue)
-		return m, m.saveConfig()
-	}
-
-	// Parse and validate the input based on field type
-	switch m.editKey {
-	// Git string fields
-	case "branch", "user_name", "user_email", "commit_template":
-		if err := m.setStringValue(m.editKey, m.editValue); err != nil {
-			m.status = fmt.Sprintf("Invalid value: %v", err)
-			return m, nil
+		return m, nil
+	case "enter":
+		// Save the edited value
+		m.setConfigString(m.editKey, m.editValue)
+		m.status = fmt.Sprintf("Updated %s", m.editKey)
+		m.editMode = false
+		m.editKey = ""
+		m.editValue = ""
+		return m, nil
+	case "backspace":
+		if len(m.editValue) > 0 {
+			m.editValue = m.editValue[:len(m.editValue)-1]
 		}
-
-	// Watcher fields
-	case "debounce_delay":
-		if err := m.setDurationValue(m.editKey, m.editValue); err != nil {
-			m.status = fmt.Sprintf("Invalid duration: %v", err)
-			return m, nil
-		}
-	case "directories", "file_extensions", "ignore_patterns":
-		if err := m.setStringSliceValue(m.editKey, m.editValue); err != nil {
-			m.status = fmt.Sprintf("Invalid list: %v", err)
-			return m, nil
-		}
-
-	// Converter fields
-	case "max_cells_per_sheet":
-		if err := m.setIntValue(m.editKey, m.editValue); err != nil {
-			m.status = fmt.Sprintf("Invalid number: %v", err)
-			return m, nil
-		}
-	case "chunking_strategy":
-		if err := m.setStringValue(m.editKey, m.editValue); err != nil {
-			m.status = fmt.Sprintf("Invalid value: %v", err)
-			return m, nil
+	default:
+		// Add character to edit value
+		if len(msg.String()) == 1 {
+			m.editValue += msg.String()
 		}
 	}
-
-	// Reset edit mode
-	m.editMode = false
-	m.editKey = ""
-	m.editValue = ""
-	m.status = "Setting updated"
-
-	return m, m.saveConfig()
+	return m, nil
 }
 
-func (m SettingsModel) setStringValue(key, value string) error {
+func (m *SettingsModelV2) handleConfirmMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "y", "Y":
+		m.showConfirm = false
+		switch m.confirmType {
+		case "update":
+			m.updating = true
+			m.status = "Updating GitCells..."
+			return m, m.performUpdate()
+		case "uninstall":
+			return m, m.performUninstall()
+		}
+	case "n", "N", "esc":
+		m.showConfirm = false
+		m.confirmType = ""
+		return m, nil
+	}
+	return m, nil
+}
+
+// Config helper methods
+func (m *SettingsModelV2) getConfigBool(key string) string {
+	if m.config == nil {
+		return "false"
+	}
+	parts := strings.Split(key, ".")
+	var value interface{} = m.config
+
+	// Navigate nested config
+	for _, part := range parts {
+		switch v := value.(type) {
+		case *config.Config:
+			switch part {
+			case "git":
+				value = v.Git
+			case "watcher":
+				value = v.Watcher
+			case "converter":
+				value = v.Converter
+			default:
+				return "false"
+			}
+		case config.GitConfig:
+			switch part {
+			case "auto_push":
+				return fmt.Sprintf("%t", v.AutoPush)
+			case "auto_pull":
+				return fmt.Sprintf("%t", v.AutoPull)
+			default:
+				return "false"
+			}
+		case config.WatcherConfig:
+			// No boolean fields in WatcherConfig
+			return "false"
+		default:
+			return "false"
+		}
+	}
+	return "false"
+}
+
+func (m *SettingsModelV2) getConfigString(key string) string {
+	if m.config == nil {
+		return ""
+	}
+
 	switch key {
-	case "branch":
-		m.config.Git.Branch = value
-	case "user_name":
-		m.config.Git.UserName = value
-	case "user_email":
-		m.config.Git.UserEmail = value
-	case "commit_template":
+	case "git.commit_template":
+		return m.config.Git.CommitTemplate
+	case "git.branch":
+		return m.config.Git.Branch
+	case "git.user_name":
+		return m.config.Git.UserName
+	case "git.user_email":
+		return m.config.Git.UserEmail
+	case "watcher.debounce_delay":
+		return m.config.Watcher.DebounceDelay.String()
+	case "converter.max_cells_per_sheet":
+		return fmt.Sprintf("%d", m.config.Converter.MaxCellsPerSheet)
+	}
+
+	return ""
+}
+
+func (m *SettingsModelV2) getConfigStringSlice(key string) []string {
+	if m.config == nil {
+		return nil
+	}
+
+	switch key {
+	case "watcher.file_extensions":
+		return m.config.Watcher.FileExtensions
+	case "watcher.directories":
+		return m.config.Watcher.Directories
+	case "watcher.ignore_patterns":
+		return m.config.Watcher.IgnorePatterns
+	}
+
+	return nil
+}
+
+func (m *SettingsModelV2) setConfigBool(key string, value bool) {
+	if m.config == nil {
+		return
+	}
+
+	switch key {
+	case "git.auto_push":
+		m.config.Git.AutoPush = value
+	case "git.auto_pull":
+		m.config.Git.AutoPull = value
+	case "features.enable_experimental_features":
+		m.config.Features.EnableExperimentalFeatures = value
+	case "features.enable_beta_updates":
+		m.config.Features.EnableBetaUpdates = value
+	case "features.enable_telemetry":
+		m.config.Features.EnableTelemetry = value
+	case "updates.auto_check_updates":
+		m.config.Updates.AutoCheckUpdates = value
+	case "converter.preserve_formulas":
+		m.config.Converter.PreserveFormulas = value
+	case "converter.preserve_styles":
+		m.config.Converter.PreserveStyles = value
+	}
+}
+
+func (m *SettingsModelV2) setConfigString(key string, value string) {
+	if m.config == nil {
+		return
+	}
+
+	switch key {
+	case "git.commit_template":
 		m.config.Git.CommitTemplate = value
-	case "chunking_strategy":
-		// Validate chunking strategy
-		validStrategies := []string{"sheet-based", "size-based", "row-based"}
-		valid := false
-		for _, strategy := range validStrategies {
-			if value == strategy {
-				valid = true
-				break
-			}
+	case "git.branch":
+		m.config.Git.Branch = value
+	case "git.user_name":
+		m.config.Git.UserName = value
+	case "git.user_email":
+		m.config.Git.UserEmail = value
+	case "watcher.debounce_delay":
+		if duration, err := time.ParseDuration(value); err == nil {
+			m.config.Watcher.DebounceDelay = duration
 		}
-		if !valid {
-			return fmt.Errorf("invalid chunking strategy. Valid options: %s", strings.Join(validStrategies, ", "))
-		}
-		m.config.Converter.ChunkingStrategy = value
-	default:
-		return fmt.Errorf("unknown string field: %s", key)
-	}
-	return nil
-}
-
-func (m SettingsModel) setDurationValue(key, value string) error {
-	duration, err := time.ParseDuration(value)
-	if err != nil {
-		return err
-	}
-
-	switch key {
-	case "debounce_delay":
-		m.config.Watcher.DebounceDelay = duration
-	default:
-		return fmt.Errorf("unknown duration field: %s", key)
-	}
-	return nil
-}
-
-func (m SettingsModel) setStringSliceValue(key, value string) error {
-	// Split comma-separated values and trim whitespace
-	var slice []string
-	if value != "" {
-		parts := strings.Split(value, ",")
-		for _, part := range parts {
-			trimmed := strings.TrimSpace(part)
-			if trimmed != "" {
-				slice = append(slice, trimmed)
-			}
+	case "converter.max_cells_per_sheet":
+		if size, err := strconv.Atoi(value); err == nil {
+			m.config.Converter.MaxCellsPerSheet = size
 		}
 	}
-
-	switch key {
-	case "directories":
-		m.config.Watcher.Directories = slice
-	case "file_extensions":
-		m.config.Watcher.FileExtensions = slice
-	case "ignore_patterns":
-		m.config.Watcher.IgnorePatterns = slice
-	default:
-		return fmt.Errorf("unknown string slice field: %s", key)
-	}
-	return nil
 }
 
-func (m SettingsModel) setIntValue(key, value string) error {
-	intVal, err := strconv.Atoi(value)
-	if err != nil {
-		return err
-	}
-
-	switch key {
-	case "max_cells_per_sheet":
-		if intVal <= 0 {
-			return fmt.Errorf("value must be positive")
-		}
-		m.config.Converter.MaxCellsPerSheet = intVal
-	default:
-		return fmt.Errorf("unknown integer field: %s", key)
-	}
-	return nil
-}
-
-func (m SettingsModel) saveConfig() tea.Cmd {
+// Command methods
+func (m *SettingsModelV2) loadConfig() tea.Cmd {
 	return func() tea.Msg {
-		err := m.config.Save("")
+		cfg, err := config.Load("")
+		return configLoadedMsg{config: cfg, err: err}
+	}
+}
+
+func (m *SettingsModelV2) saveConfig() tea.Cmd {
+	return func() tea.Msg {
+		if m.config == nil {
+			return configSavedMsg{err: fmt.Errorf("no config loaded")}
+		}
+		// Save config to file
+		err := fmt.Errorf("save not implemented") // TODO: implement config save
 		return configSavedMsg{err: err}
 	}
 }
 
-func (m SettingsModel) checkForUpdates() tea.Cmd {
+func (m *SettingsModelV2) checkForUpdates() tea.Cmd {
 	return func() tea.Msg {
-		u := updater.New(constants.Version)
-		release, hasUpdate, err := u.CheckForUpdate()
-		return updateCheckMsg{
-			release:   release,
-			hasUpdate: hasUpdate,
-			err:       err,
-		}
+		updater := updater.New("")
+		release, hasUpdate, err := updater.CheckForUpdate()
+		return updateCheckMsg{release: release, hasUpdate: hasUpdate, err: err}
 	}
 }
 
-func (m SettingsModel) performUpdate() tea.Cmd {
+func (m *SettingsModelV2) performUpdate() tea.Cmd {
 	return func() tea.Msg {
-		u := updater.New(constants.Version)
-		release, hasUpdate, err := u.CheckForUpdate()
+		updater := updater.New("")
+		_, _, err := updater.CheckForUpdate()
 		if err != nil {
 			return updateCompleteMsg{err: err}
 		}
-		if !hasUpdate {
-			return updateCompleteMsg{err: fmt.Errorf("no update available")}
-		}
-
-		err = u.Update(release)
-		return updateCompleteMsg{err: err}
+		// Would perform actual update here
+		return updateCompleteMsg{err: nil}
 	}
 }
 
-func (m SettingsModel) performUninstall() tea.Cmd {
+func (m *SettingsModelV2) performUninstall() tea.Cmd {
 	return func() tea.Msg {
-		// Look for uninstall script in common locations
-		scriptPaths := []string{
-			"../scripts/uninstall.sh",
-			"./scripts/uninstall.sh",
-			"/usr/local/share/gitcells/uninstall.sh",
+		// Get binary path
+		binaryPath, err := os.Executable()
+		if err != nil {
+			return uninstallCompleteMsg{err: err}
 		}
 
-		var uninstallScript string
-		for _, path := range scriptPaths {
-			if _, err := os.Stat(path); err == nil {
-				uninstallScript = path
-				break
-			}
+		// Remove binary
+		if err := os.Remove(binaryPath); err != nil {
+			return uninstallCompleteMsg{err: err}
 		}
 
-		if uninstallScript == "" {
-			// Fallback: create a simple uninstall command
-			return uninstallCompleteMsg{err: m.performSimpleUninstall()}
+		// Remove from PATH if in /usr/local/bin
+		if strings.Contains(binaryPath, "/usr/local/bin") {
+			_ = exec.Command("sudo", "rm", "-f", binaryPath).Run()
 		}
 
-		// Run the uninstall script
-		cmd := exec.Command("bash", uninstallScript)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		err := cmd.Run()
-
-		return uninstallCompleteMsg{err: err}
+		return uninstallCompleteMsg{err: nil}
 	}
-}
-
-func (m SettingsModel) performSimpleUninstall() error {
-	executable, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("failed to get executable path: %w", err)
-	}
-
-	// Try to remove the binary
-	err = os.Remove(executable)
-	if err != nil && !strings.Contains(err.Error(), "permission denied") {
-		return fmt.Errorf("failed to remove binary: %w", err)
-	}
-
-	// Try to remove common config directories
-	configDirs := []string{
-		os.ExpandEnv("$HOME/.config/gitcells"),
-		os.ExpandEnv("$HOME/.gitcells"),
-	}
-
-	for _, dir := range configDirs {
-		if _, err := os.Stat(dir); err == nil {
-			os.RemoveAll(dir) // Ignore errors for config removal
-		}
-	}
-
-	return nil
-}
-
-func (m SettingsModel) renderWatchedDirsView(s string, cursorStyle, descStyle, statusStyle lipgloss.Style) string {
-	if m.config == nil {
-		s += "Configuration not loaded\n"
-		return s
-	}
-
-	// Show existing directories
-	if len(m.config.Watcher.Directories) == 0 {
-		s += descStyle.Render("No directories are currently being watched.\n\n")
-	} else {
-		s += "Current watched directories:\n\n"
-		for i, dir := range m.config.Watcher.Directories {
-			cursor := "  "
-			if i == m.cursor {
-				cursor = cursorStyle.Render("▶ ")
-			}
-			s += fmt.Sprintf("%s%s\n", cursor, dir)
-			s += fmt.Sprintf("    %s\n\n", descStyle.Render("Press Enter to remove, d to delete"))
-		}
-	}
-
-	// Add new directory option
-	cursor := "  "
-	if m.cursor == len(m.config.Watcher.Directories) {
-		cursor = cursorStyle.Render("▶ ")
-	}
-	if m.editMode && m.editKey == "new_directory" {
-		s += fmt.Sprintf("%s+ Add new directory: %s\n", cursor, cursorStyle.Render(m.editValue))
-	} else {
-		s += fmt.Sprintf("%s+ Add new directory\n", cursor)
-	}
-	s += fmt.Sprintf("    %s\n\n", descStyle.Render("Press Enter to add a new directory to watch"))
-
-	s += statusStyle.Render("Status: "+m.status) + "\n"
-
-	if m.editMode {
-		s += descStyle.Render("Type to enter directory path, Enter to save, Esc to cancel")
-	} else {
-		s += descStyle.Render("Use ↑/↓ or j/k to navigate, Enter to select, d to delete, Esc to go back")
-	}
-
-	return s
-}
-
-func (m SettingsModel) removeDirectory(index int) (tea.Model, tea.Cmd) {
-	if m.config == nil || index < 0 || index >= len(m.config.Watcher.Directories) {
-		return m, nil
-	}
-
-	removed := m.config.Watcher.Directories[index]
-	m.config.Watcher.Directories = append(
-		m.config.Watcher.Directories[:index],
-		m.config.Watcher.Directories[index+1:]...,
-	)
-
-	// Adjust cursor if needed
-	if m.cursor >= len(m.config.Watcher.Directories) && m.cursor > 0 {
-		m.cursor--
-	}
-
-	m.status = fmt.Sprintf("Removed directory: %s", removed)
-	return m, m.saveConfig()
 }

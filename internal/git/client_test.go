@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/go-git/go-git/v5"
@@ -261,6 +262,110 @@ func TestConfig(t *testing.T) {
 		assert.Equal(t, "John Doe", config.UserName)
 		assert.Equal(t, "john@example.com", config.UserEmail)
 		assert.Equal(t, "GitCells: ${files}", config.CommitTemplate)
+	})
+}
+
+func TestFindRepositoryRoot(t *testing.T) {
+	t.Run("finds root directory", func(t *testing.T) {
+		tempDir := t.TempDir()
+		gitDir := filepath.Join(tempDir, ".git")
+		require.NoError(t, os.Mkdir(gitDir, 0755))
+
+		root, err := FindRepositoryRoot(tempDir)
+		assert.NoError(t, err)
+		assert.Equal(t, tempDir, root)
+	})
+
+	t.Run("finds root from subdirectory", func(t *testing.T) {
+		tempDir := t.TempDir()
+		gitDir := filepath.Join(tempDir, ".git")
+		require.NoError(t, os.Mkdir(gitDir, 0755))
+
+		subDir := filepath.Join(tempDir, "sub", "dir", "deep")
+		require.NoError(t, os.MkdirAll(subDir, 0755))
+
+		root, err := FindRepositoryRoot(subDir)
+		assert.NoError(t, err)
+		assert.Equal(t, tempDir, root)
+	})
+
+	t.Run("non-git directory returns error", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		_, err := FindRepositoryRoot(tempDir)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "not a git repository")
+	})
+
+	t.Run("ignores .git file (submodule)", func(t *testing.T) {
+		tempDir := t.TempDir()
+		gitFile := filepath.Join(tempDir, ".git")
+		// Create a .git file instead of directory (as in submodules)
+		require.NoError(t, os.WriteFile(gitFile, []byte("gitdir: ../.git/modules/sub"), 0600))
+
+		_, err := FindRepositoryRoot(tempDir)
+		assert.Error(t, err)
+	})
+
+	t.Run("handles relative paths", func(t *testing.T) {
+		tempDir := t.TempDir()
+		gitDir := filepath.Join(tempDir, ".git")
+		require.NoError(t, os.Mkdir(gitDir, 0755))
+
+		// Change to temp dir and use relative path
+		origDir, err := os.Getwd()
+		require.NoError(t, err)
+		defer func() { _ = os.Chdir(origDir) }()
+
+		require.NoError(t, os.Chdir(tempDir))
+
+		root, err := FindRepositoryRoot(".")
+		assert.NoError(t, err)
+		// Result should be absolute path
+		assert.True(t, filepath.IsAbs(root))
+
+		// Resolve symlinks for comparison (macOS /tmp -> /private/tmp)
+		expectedPath, _ := filepath.EvalSymlinks(tempDir)
+		actualPath, _ := filepath.EvalSymlinks(root)
+		assert.Equal(t, expectedPath, actualPath)
+	})
+}
+
+func TestFindRepositoryRootCached(t *testing.T) {
+	// Clear cache before test
+	gitRootCache = sync.Map{}
+
+	t.Run("caches successful lookups", func(t *testing.T) {
+		tempDir := t.TempDir()
+		gitDir := filepath.Join(tempDir, ".git")
+		require.NoError(t, os.Mkdir(gitDir, 0755))
+
+		// First call - should cache
+		root1, err := FindRepositoryRootCached(tempDir)
+		assert.NoError(t, err)
+		assert.Equal(t, tempDir, root1)
+
+		// Second call - should use cache
+		root2, err := FindRepositoryRootCached(tempDir)
+		assert.NoError(t, err)
+		assert.Equal(t, root1, root2)
+
+		// Verify it's actually in cache
+		cached, ok := gitRootCache.Load(tempDir)
+		assert.True(t, ok)
+		assert.Equal(t, tempDir, cached.(string))
+	})
+
+	t.Run("does not cache errors", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		// First call - should fail
+		_, err := FindRepositoryRootCached(tempDir)
+		assert.Error(t, err)
+
+		// Should not be in cache
+		_, ok := gitRootCache.Load(tempDir)
+		assert.False(t, ok)
 	})
 }
 

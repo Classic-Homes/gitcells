@@ -383,7 +383,9 @@ func TestDashboardModel_CommandMethods(t *testing.T) {
 		opMsg, ok := msg.(operationUpdateMsg)
 		assert.True(t, ok)
 		assert.Equal(t, OpWatch, opMsg.operation.Type)
-		assert.Equal(t, "File watching", opMsg.operation.FileName)
+		// Watcher adapter is not initialized in test, so should return error
+		assert.Equal(t, "Watcher not available", opMsg.operation.FileName)
+		assert.Equal(t, StatusFailed, opMsg.operation.Status)
 	})
 }
 

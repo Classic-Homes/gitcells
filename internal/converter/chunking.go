@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Classic-Homes/gitcells/internal/constants"
+	"github.com/Classic-Homes/gitcells/internal/git"
 	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/Classic-Homes/gitcells/pkg/models"
 )
@@ -62,7 +63,11 @@ func (s *SheetBasedChunking) WriteChunks(doc *models.ExcelDocument, basePath str
 	excelFile = strings.TrimSuffix(excelFile, ".json")
 
 	// Find the git root or use current directory
-	gitRoot := s.findGitRoot(excelDir)
+	gitRoot, err := git.FindRepositoryRoot(excelDir)
+	if err != nil {
+		// If not in a git repo, use the excel directory
+		gitRoot = excelDir
+	}
 
 	// Calculate relative path from git root to excel file
 	relPath, err := filepath.Rel(gitRoot, excelDir)
@@ -157,7 +162,11 @@ func (s *SheetBasedChunking) ReadChunks(basePath string) (*models.ExcelDocument,
 		excelFile = strings.TrimSuffix(excelFile, ".json")
 		excelFile = strings.TrimSuffix(excelFile, ".xlsx")
 
-		gitRoot := s.findGitRoot(excelDir)
+		gitRoot, err := git.FindRepositoryRoot(excelDir)
+		if err != nil {
+			// If not in a git repo, use the excel directory
+			gitRoot = excelDir
+		}
 		relPath, err := filepath.Rel(gitRoot, excelDir)
 		if err != nil {
 			relPath = ""
@@ -237,7 +246,11 @@ func (s *SheetBasedChunking) GetChunkPaths(basePath string) ([]string, error) {
 		excelFile = strings.TrimSuffix(excelFile, ".json")
 		excelFile = strings.TrimSuffix(excelFile, ".xlsx")
 
-		gitRoot := s.findGitRoot(excelDir)
+		gitRoot, err := git.FindRepositoryRoot(excelDir)
+		if err != nil {
+			// If not in a git repo, use the excel directory
+			gitRoot = excelDir
+		}
 		relPath, err := filepath.Rel(gitRoot, excelDir)
 		if err != nil {
 			relPath = ""
@@ -322,26 +335,6 @@ func (s *SheetBasedChunking) getRelativeChunkFiles(baseDir string, fullPaths []s
 		relativePaths = append(relativePaths, relPath)
 	}
 	return relativePaths
-}
-
-// findGitRoot finds the git repository root, or returns the current directory
-func (s *SheetBasedChunking) findGitRoot(startDir string) string {
-	dir := startDir
-	for {
-		// Check if .git directory exists
-		gitPath := filepath.Join(dir, ".git")
-		if _, err := os.Stat(gitPath); err == nil {
-			return dir
-		}
-
-		// Check if we've reached the root
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			// Return the original directory if no git root found
-			return startDir
-		}
-		dir = parent
-	}
 }
 
 // Future-proofing for hybrid chunking strategy

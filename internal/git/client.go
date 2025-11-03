@@ -4,7 +4,9 @@ package git
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/Classic-Homes/gitcells/internal/utils"
@@ -115,4 +117,50 @@ func (c *Client) IsClean() (bool, error) {
 // InGitRepository returns true if the current directory is in a git repository
 func (c *Client) InGitRepository() bool {
 	return c != nil && c.repo != nil
+}
+
+// gitRootCache caches git root lookups for performance
+var gitRootCache sync.Map
+
+// FindRepositoryRoot finds the root directory of the Git repository
+// containing the given path. If no Git repository is found, returns
+// an error.
+func FindRepositoryRoot(startPath string) (string, error) {
+	absPath, err := filepath.Abs(startPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve absolute path: %w", err)
+	}
+
+	dir := absPath
+	for {
+		gitPath := filepath.Join(dir, ".git")
+		info, err := os.Stat(gitPath)
+		if err == nil {
+			// Check if it's a directory (not a .git file from submodules)
+			if info.IsDir() {
+				return dir, nil
+			}
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Reached filesystem root
+			return "", utils.NewError(utils.ErrorTypeGit, "findRepositoryRoot", "not a git repository (or any parent)")
+		}
+		dir = parent
+	}
+}
+
+// FindRepositoryRootCached finds the git repository root with caching for performance.
+// This is useful when repeatedly checking the same paths.
+func FindRepositoryRootCached(startPath string) (string, error) {
+	if cached, ok := gitRootCache.Load(startPath); ok {
+		return cached.(string), nil
+	}
+
+	root, err := FindRepositoryRoot(startPath)
+	if err == nil {
+		gitRootCache.Store(startPath, root)
+	}
+	return root, err
 }

@@ -135,7 +135,7 @@ func newSyncCommand(logger *logrus.Logger) *cobra.Command {
 
 			// Optionally commit to git
 			if commit && len(convertedFiles) > 0 {
-				gitRoot, err := findGitRoot(dir)
+				gitRoot, err := git.FindRepositoryRoot(dir)
 				if err != nil {
 					logger.Debug("Not in a git repository, skipping commit")
 					return nil

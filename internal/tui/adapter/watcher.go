@@ -21,11 +21,11 @@ type WatcherAdapter struct {
 	gitClient *git.Client
 
 	// State tracking
-	isRunning     bool
-	startTime     time.Time
-	filesWatched  int
-	lastEvent     string
-	lastEventTime time.Time
+	isRunning          bool
+	startTime          time.Time
+	directoriesWatched int
+	lastEvent          string
+	lastEventTime      time.Time
 
 	// Event callback for TUI updates
 	onEvent func(WatcherEvent)
@@ -42,12 +42,12 @@ type WatcherEvent struct {
 
 // WatcherStatus represents the current status of the watcher
 type WatcherStatus struct {
-	IsRunning     bool
-	StartTime     time.Time
-	FilesWatched  int
-	LastEvent     string
-	LastEventTime time.Time
-	Directories   []string
+	IsRunning          bool
+	StartTime          time.Time
+	DirectoriesWatched int
+	LastEvent          string
+	LastEventTime      time.Time
+	Directories        []string
 }
 
 // NewWatcherAdapter creates a new watcher adapter
@@ -184,13 +184,13 @@ func (wa *WatcherAdapter) Start() error {
 
 	wa.isRunning = true
 	wa.startTime = time.Now()
-	wa.filesWatched = len(fw.GetWatchedDirectories())
+	wa.directoriesWatched = len(fw.GetWatchedDirectories())
 
 	// Notify TUI
 	if wa.onEvent != nil {
 		wa.onEvent(WatcherEvent{
 			Type:      "started",
-			Message:   fmt.Sprintf("Watcher started, monitoring %d directories", wa.filesWatched),
+			Message:   fmt.Sprintf("Watcher started, monitoring %d directories", wa.directoriesWatched),
 			Timestamp: wa.startTime,
 		})
 	}
@@ -229,16 +229,16 @@ func (wa *WatcherAdapter) Stop() error {
 // GetStatus returns the current watcher status
 func (wa *WatcherAdapter) GetStatus() WatcherStatus {
 	status := WatcherStatus{
-		IsRunning:     wa.isRunning,
-		StartTime:     wa.startTime,
-		FilesWatched:  wa.filesWatched,
-		LastEvent:     wa.lastEvent,
-		LastEventTime: wa.lastEventTime,
+		IsRunning:          wa.isRunning,
+		StartTime:          wa.startTime,
+		DirectoriesWatched: wa.directoriesWatched,
+		LastEvent:          wa.lastEvent,
+		LastEventTime:      wa.lastEventTime,
 	}
 
 	if wa.watcher != nil {
 		status.Directories = wa.watcher.GetWatchedDirectories()
-		status.FilesWatched = len(status.Directories)
+		status.DirectoriesWatched = len(status.Directories)
 	}
 
 	return status
