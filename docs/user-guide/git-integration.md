@@ -456,7 +456,6 @@ ssh-keygen -t rsa -b 4096
 
 ## Next Steps
 
-- Explore the [Terminal UI](tui.md) for visual Git status
 - Learn about [Troubleshooting](troubleshooting.md) Git issues
 - Read about [JSON Format](../reference/json-format.md) for understanding conflicts
 - Check [Command Reference](../reference/commands.md) for Git-related commands

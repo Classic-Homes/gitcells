@@ -13,6 +13,12 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
+var (
+	// excelOpenTimeout is the budget for retrying a locked Excel file.
+	// Overridable in tests.
+	excelOpenTimeout = DefaultExcelOpenTimeout
+)
+
 func (c *converter) ExcelToJSON(filePath string, options ConvertOptions) (*models.ExcelDocument, error) {
 	// Calculate file checksum
 	checksum, err := c.calculateChecksum(filePath)
@@ -20,8 +26,10 @@ func (c *converter) ExcelToJSON(filePath string, options ConvertOptions) (*model
 		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "ExcelToJSON", filePath, "failed to calculate checksum")
 	}
 
-	// Open Excel file
-	f, err := excelize.OpenFile(filePath)
+	// Open Excel file with retry. Excel on Windows holds the file open
+	// through its atomic-save rename; without retry, the watcher can lose
+	// the conversion if it fires before the rename completes.
+	f, err := openExcelWithRetry(filePath, excelOpenTimeout)
 	if err != nil {
 		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "ExcelToJSON", filePath, "failed to open Excel file")
 	}
@@ -114,9 +122,18 @@ func (c *converter) processSheet(f *excelize.File, sheetName string, index int, 
 		return nil, err
 	}
 
+	// Build a per-sheet comment index once, instead of re-fetching and
+	// linearly scanning for every cell. On a dense sheet with thousands
+	// of cells, the old code was O(cells × comments). This is O(cells + comments).
+	var commentByCell map[string]models.Comment
+	if options.PreserveComments {
+		commentByCell = buildCommentIndex(f, sheetName, c.logger)
+	}
+
 	cellCount := 0
 	processedRows := 0
 	totalRows := len(rows)
+	var cellRefErrors, formulaErrors int
 
 	for rowIndex, row := range rows {
 		// Report progress every 100 rows to avoid performance impact
@@ -130,11 +147,24 @@ func (c *converter) processSheet(f *excelize.File, sheetName string, index int, 
 				break
 			}
 
-			cellRef, _ := excelize.CoordinatesToCellName(colIndex+1, rowIndex+1)
+			cellRef, refErr := excelize.CoordinatesToCellName(colIndex+1, rowIndex+1)
+			if refErr != nil {
+				// Coordinate→ref is library-internal; a failure here means
+				// excelize changed its validation. Skip the cell rather
+				// than produce a malformed map key, and surface the count
+				// at end-of-sheet so it's not lost in the noise.
+				cellRefErrors++
+				continue
+			}
 
 			var formula string
 			if options.PreserveFormulas {
-				formula, _ = f.GetCellFormula(sheetName, cellRef)
+				f2, fErr := f.GetCellFormula(sheetName, cellRef)
+				if fErr != nil {
+					formulaErrors++
+				} else {
+					formula = f2
+				}
 			}
 
 			// Skip empty cells if option is set, BUT NOT if cell has a formula
@@ -163,24 +193,31 @@ func (c *converter) processSheet(f *excelize.File, sheetName string, index int, 
 				cell.Style = c.extractFullCellStyle(f, sheetName, cellRef)
 			}
 
-			// Get comment if requested
 			if options.PreserveComments {
-				comments, _ := f.GetComments(sheetName)
-				for _, comment := range comments {
-					if comment.Cell == cellRef {
-						cell.Comment = &models.Comment{
-							Author: comment.Author,
-							Text:   comment.Text,
-						}
-						break
-					}
+				if cmt, ok := commentByCell[cellRef]; ok {
+					c := cmt
+					cell.Comment = &c
 				}
+			}
+
+			// Hyperlinks: extract target. Type (External vs Location) is
+			// not recoverable from excelize's API, so we classify at write
+			// time by inspecting the target string.
+			if hasLink, target, hErr := f.GetCellHyperLink(sheetName, cellRef); hErr == nil && hasLink {
+				cell.Hyperlink = target
 			}
 
 			sheet.Cells[cellRef] = cell
 			cellCount++
 		}
 		processedRows++
+	}
+
+	if cellRefErrors > 0 {
+		c.logger.Warnf("Sheet %s: skipped %d cells due to coordinate conversion errors", sheetName, cellRefErrors)
+	}
+	if formulaErrors > 0 {
+		c.logger.Warnf("Sheet %s: %d cells had formula-read errors (formulas stored as empty)", sheetName, formulaErrors)
 	}
 
 	c.logger.WithFields(map[string]interface{}{
@@ -215,8 +252,30 @@ func (c *converter) processSheet(f *excelize.File, sheetName string, index int, 
 	return sheet, nil
 }
 
+// buildCommentIndex returns a cell-ref → Comment map for the sheet, or
+// an empty map if comments can't be read. Logged as Warnf when read
+// fails — comments are not critical to round-trip and shouldn't fail
+// the whole conversion.
+func buildCommentIndex(f *excelize.File, sheetName string, logger interface {
+	Warnf(format string, args ...interface{})
+}) map[string]models.Comment {
+	idx := make(map[string]models.Comment)
+	comments, err := f.GetComments(sheetName)
+	if err != nil {
+		logger.Warnf("Failed to read comments on sheet %s: %v", sheetName, err)
+		return idx
+	}
+	for _, cmt := range comments {
+		idx[cmt.Cell] = models.Comment{
+			Author: cmt.Author,
+			Text:   cmt.Text,
+		}
+	}
+	return idx
+}
+
 func (c *converter) calculateChecksum(filePath string) (string, error) {
-	file, err := os.Open(filePath) // #nosec G304 - file path is user input
+	file, err := openFileWithRetry(filePath, excelOpenTimeout)
 	if err != nil {
 		return "", err
 	}

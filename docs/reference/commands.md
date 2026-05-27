@@ -14,7 +14,6 @@ gitcells [global options] command [command options] [arguments...]
 
 - `--config string` - Specify configuration file path (default: `.gitcells.yaml`)
 - `--verbose` - Enable verbose logging
-- `--tui` - Launch Terminal User Interface
 - `--help, -h` - Show help
 - `--version, -v` - Show version information
 
@@ -30,7 +29,6 @@ gitcells [global options] command [command options] [arguments...]
 | `diff` | Show differences between file versions |
 | `update` | Update GitCells to the latest version |
 | `version` | Display version information |
-| `tui` | Launch Terminal User Interface |
 
 ## init
 
@@ -50,7 +48,6 @@ Creates a `.gitcells.yaml` configuration file and optionally initializes a Git r
 
 - `--force` - Overwrite existing configuration
 - `--git` - Initialize Git repository (default: true)
-- `--tui` - Use TUI setup wizard
 
 ### Examples
 
@@ -66,9 +63,6 @@ gitcells init --force
 
 # Skip Git initialization
 gitcells init --git=false
-
-# Use interactive setup wizard
-gitcells init --tui
 ```
 
 ### Output
@@ -398,38 +392,6 @@ gitcells version --check-update --prerelease
 GitCells version 0.3.0 (built 2024-01-15)
 ✅ You are running the latest version
 ```
-
-## tui
-
-Launch the Terminal User Interface.
-
-### Synopsis
-
-```bash
-gitcells tui
-```
-
-### Description
-
-Opens an interactive terminal interface for managing GitCells operations.
-
-### Examples
-
-```bash
-# Launch TUI
-gitcells tui
-
-# Launch TUI with custom config
-gitcells --config custom.yaml tui
-```
-
-### TUI Features
-
-- Setup wizard
-- Status dashboard
-- Error log viewer
-- Settings management
-- Interactive configuration
 
 ## Environment Variables
 

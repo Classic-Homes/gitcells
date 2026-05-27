@@ -327,4 +327,3 @@ watcher:
 
 - Learn about [File Watching](watching.md) to monitor Excel files
 - Explore [Git Integration](git-integration.md) for version control
-- Use the [Terminal UI](tui.md) for easier configuration

@@ -208,14 +208,15 @@ func TestExtractProperties(t *testing.T) {
 	logger := logrus.New()
 	conv := &converter{logger: logger}
 
-	// Test with mock document properties
+	// Test with mock document properties. Company is intentionally not
+	// modeled (excelize can't write it back through DocProperties), so
+	// the field is absent from our DocumentProperties.
 	props := &excelize.DocProperties{
 		Title:       "Test Document",
 		Subject:     "Testing",
 		Creator:     "Test Author",
 		Keywords:    "test,excel",
 		Description: "A test document",
-		Category:    "Test Company",
 	}
 
 	extracted := conv.extractProperties(props)
@@ -225,7 +226,6 @@ func TestExtractProperties(t *testing.T) {
 	assert.Equal(t, "Test Author", extracted.Author)
 	assert.Equal(t, "test,excel", extracted.Keywords)
 	assert.Equal(t, "A test document", extracted.Description)
-	assert.Equal(t, "Test Company", extracted.Company)
 }
 
 func TestProcessSheet_ErrorHandling(t *testing.T) {

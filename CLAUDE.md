@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-GitCells is a production-ready Go application that bridges Excel and Git by converting Excel files to human-readable JSON for version control. The project includes a full CLI, interactive TUI, automatic file watching, smart chunking for large files, and self-updating capabilities.
+GitCells is a Go CLI that bridges Excel and Git by converting Excel files to human-readable JSON for version control. Scope is deliberately small: the core Excel→JSON→Git pipeline must work perfectly on Windows, macOS, and Linux. Features: CLI surface (`init`, `convert`, `watch`, `sync`, `status`, `diff`, `update`, `version`), cross-platform file watching with atomic-save handling, smart per-sheet chunking for clean Git diffs.
 
 ## Build and Development Commands
 
@@ -44,7 +44,6 @@ docker-compose up docs            # Alternative docs server
 make clean
 
 # GitCells runtime commands
-gitcells tui                      # Launch interactive TUI
 gitcells init                     # Initialize in current directory
 gitcells watch                    # Watch for Excel file changes
 gitcells convert file.xlsx        # Convert Excel to JSON
@@ -85,13 +84,6 @@ The architecture follows Go best practices with clear separation of concerns:
     - `defaults.go`: Default configuration values
   - **updater/**: Self-update functionality
     - `updater.go`: GitHub releases integration
-  - **tui/**: Terminal User Interface
-    - `app.go`: Main TUI application
-    - `models/`: TUI models (dashboard, settings, setup, error_log)
-    - `components/`: Reusable UI components
-    - `views/`: Screen views
-    - `styles/`: Theme and styling
-    - `adapter/`: Business logic adapters
   - **utils/**: Utility functions
     - `errors.go`: Error handling utilities
     - `logging.go`: Logging configuration
@@ -111,9 +103,6 @@ The architecture follows Go best practices with clear separation of concerns:
 - **github.com/fsnotify/fsnotify**: File system watching
 - **github.com/spf13/cobra**: CLI framework
 - **github.com/spf13/viper**: Configuration management
-- **github.com/charmbracelet/bubbletea**: Terminal UI framework
-- **github.com/charmbracelet/bubbles**: TUI components
-- **github.com/charmbracelet/lipgloss**: Terminal styling
 - **github.com/sirupsen/logrus**: Structured logging
 - **github.com/stretchr/testify**: Testing assertions
 - **github.com/Masterminds/semver/v3**: Semantic version comparison
@@ -225,12 +214,17 @@ For manual releases outside the automated process:
 
 ## Current Status
 
-The project is fully implemented with:
-- Complete CLI with all planned commands
-- Interactive TUI for user-friendly operations  
-- Excel ↔ JSON conversion with chunking
-- File watching with debouncing
-- Git integration
-- Self-update system
-- Comprehensive documentation
-- Cross-platform support
+The project is implemented with:
+- CLI commands: init, convert, watch, sync, status, diff, update, version
+- Excel ↔ JSON conversion with per-sheet chunking and atomic staging-dir installs
+- File watching with debouncing, Windows lock-retry on open
+- Git integration via go-git
+- Self-update check (no in-place self-replace; package-manager / release page install)
+- Cross-platform CI matrix (Linux / macOS / Windows)
+
+## Path Portability
+
+Chunk metadata (`.gitcells_chunks.json`) stores chunk file paths as
+forward slashes regardless of the writing OS. The reader applies
+`filepath.FromSlash` before `filepath.Join` so chunk trees authored on
+one OS read back correctly on another. Do not break this contract.

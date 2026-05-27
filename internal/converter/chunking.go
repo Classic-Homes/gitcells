@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/Classic-Homes/gitcells/internal/constants"
 	"github.com/Classic-Homes/gitcells/internal/git"
@@ -84,126 +85,156 @@ func NewSheetBasedChunking(logger Logger) ChunkingStrategy {
 	}
 }
 
+// WriteChunks writes the document to disk atomically. All chunks are
+// staged into a sibling temp directory, each file fsync'd, and then the
+// staging directory is swapped into place via os.Rename. If anything
+// fails before the swap, the previous chunk dir (if any) is left intact;
+// a crash mid-write leaves orphan staging dirs that can be safely removed.
 func (s *SheetBasedChunking) WriteChunks(doc *models.ExcelDocument, basePath string, options ConvertOptions) ([]string, error) {
-	// Determine the root directory and relative path for the Excel file
 	excelDir := filepath.Dir(basePath)
 	excelFile := filepath.Base(basePath)
-
-	// Remove .json extension if present
+	// Strip both .xlsx and .json so the chunk dir name matches what
+	// resolveChunkDir computes on read. Mismatch here used to make
+	// writer produce "sample.xlsx_chunks" while reader looked for
+	// "sample_chunks", silently breaking round-trip via basePath.
 	excelFile = strings.TrimSuffix(excelFile, ".json")
+	excelFile = strings.TrimSuffix(excelFile, ".xlsx")
 
-	// Find the git root or use current directory
 	gitRoot, err := git.FindRepositoryRoot(excelDir)
 	if err != nil {
-		// If not in a git repo, use the excel directory
 		gitRoot = excelDir
 	}
 
-	// Calculate relative path from git root to excel file
 	relPath, err := filepath.Rel(gitRoot, excelDir)
 	if err != nil {
 		relPath = ""
 	}
 
-	// Create the .gitcells/data directory structure mirroring the source structure
 	chunkDir := filepath.Join(gitRoot, constants.GitCellsDataDir, relPath, excelFile+constants.ChunksDirSuffix)
-	if err := os.MkdirAll(chunkDir, constants.DirPermissions); err != nil {
-		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "WriteChunks", chunkDir, "failed to create chunk directory")
+	parentDir := filepath.Dir(chunkDir)
+	if err := os.MkdirAll(parentDir, constants.DirPermissions); err != nil {
+		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "WriteChunks", parentDir, "failed to create chunk parent directory")
 	}
 
-	chunkFiles := make([]string, 0, len(doc.Sheets)+1)
+	stagingDir := chunkDir + ".tmp." + uniqueSuffix()
+	if err := os.MkdirAll(stagingDir, constants.DirPermissions); err != nil {
+		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "WriteChunks", stagingDir, "failed to create staging directory")
+	}
 
-	// Write main metadata file
-	mainFile := filepath.Join(chunkDir, constants.WorkbookFileName)
+	committed := false
+	defer func() {
+		if !committed {
+			if rmErr := os.RemoveAll(stagingDir); rmErr != nil {
+				s.logger.Warnf("Failed to clean up staging dir %s: %v", stagingDir, rmErr)
+			}
+		}
+	}()
+
+	stagedFiles := make([]string, 0, len(doc.Sheets)+1)
+
+	mainStaged := filepath.Join(stagingDir, constants.WorkbookFileName)
 	mainDoc := &models.ExcelDocument{
 		Version:      doc.Version,
 		Metadata:     doc.Metadata,
 		DefinedNames: doc.DefinedNames,
 		Properties:   doc.Properties,
-		Sheets:       []models.Sheet{}, // Empty sheets, just metadata
+		Sheets:       []models.Sheet{},
 	}
-
-	// Add sheet references to main doc
 	for _, sheet := range doc.Sheets {
-		// Include only essential sheet metadata
-		sheetRef := models.Sheet{
+		mainDoc.Sheets = append(mainDoc.Sheets, models.Sheet{
 			Name:   sheet.Name,
 			Index:  sheet.Index,
 			Hidden: sheet.Hidden,
-		}
-		mainDoc.Sheets = append(mainDoc.Sheets, sheetRef)
+		})
 	}
-
-	// Write main file
-	if err := s.writeJSONFile(mainFile, mainDoc, options.CompactJSON); err != nil {
-		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "WriteChunks", mainFile, "failed to write main file")
+	if err := s.writeJSONFile(mainStaged, mainDoc, options.CompactJSON); err != nil {
+		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "WriteChunks", mainStaged, "failed to write main file")
 	}
-	chunkFiles = append(chunkFiles, mainFile)
+	stagedFiles = append(stagedFiles, mainStaged)
 
-	// Write individual sheet files
 	for _, sheet := range doc.Sheets {
-		sheetFile := filepath.Join(chunkDir, s.sheetChunkFilename(sheet.Name))
-
-		// Create a document with just this sheet
+		sheetFile := filepath.Join(stagingDir, s.sheetChunkFilename(sheet.Name))
 		sheetDoc := &SheetChunk{
 			Version:          doc.Version,
 			WorkbookChecksum: doc.Metadata.Checksum,
 			Sheet:            sheet,
 		}
-
 		if err := s.writeJSONFile(sheetFile, sheetDoc, options.CompactJSON); err != nil {
 			return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "WriteChunks", sheetFile, fmt.Sprintf("failed to write sheet %s", sheet.Name))
 		}
-		chunkFiles = append(chunkFiles, sheetFile)
-
-		s.logger.Debugf("Wrote sheet chunk: %s (%d cells)", sheetFile, len(sheet.Cells))
+		stagedFiles = append(stagedFiles, sheetFile)
+		s.logger.Debugf("Staged sheet chunk: %s (%d cells)", sheetFile, len(sheet.Cells))
 	}
 
-	// Write chunk metadata
-	metadataFile := filepath.Join(chunkDir, constants.ChunkMetadataFile)
+	metadataFile := filepath.Join(stagingDir, constants.ChunkMetadataFile)
 	metadata := &ChunkMetadata{
 		Version:     "1.0",
 		Strategy:    "sheet-based",
 		MainFile:    constants.WorkbookFileName,
-		ChunkFiles:  s.getRelativeChunkFiles(chunkDir, chunkFiles),
+		ChunkFiles:  s.getRelativeChunkFiles(stagingDir, stagedFiles),
 		TotalSheets: len(doc.Sheets),
 		Created:     doc.Metadata.Created.Format("2006-01-02T15:04:05Z07:00"),
 	}
-
 	if err := s.writeJSONFile(metadataFile, metadata, false); err != nil {
 		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "WriteChunks", metadataFile, "failed to write chunk metadata")
 	}
 
-	s.logger.Infof("Successfully wrote %d chunk files to %s", len(chunkFiles), chunkDir)
-	return chunkFiles, nil
+	if err := atomicReplaceDir(stagingDir, chunkDir, s.logger); err != nil {
+		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "WriteChunks", chunkDir, "failed to install chunk directory")
+	}
+	committed = true
+
+	finalFiles := make([]string, 0, len(stagedFiles))
+	for _, p := range stagedFiles {
+		rel, err := filepath.Rel(stagingDir, p)
+		if err != nil {
+			rel = filepath.Base(p)
+		}
+		finalFiles = append(finalFiles, filepath.Join(chunkDir, rel))
+	}
+
+	s.logger.Infof("Successfully wrote %d chunk files to %s", len(finalFiles), chunkDir)
+	return finalFiles, nil
+}
+
+// uniqueSuffix returns a short string guaranteed unique within a single
+// process across rapid calls. Used for staging-dir naming.
+func uniqueSuffix() string {
+	return fmt.Sprintf("%d.%d", os.Getpid(), time.Now().UnixNano())
+}
+
+// atomicReplaceDir installs src as dst. If dst doesn't exist, this is a
+// single rename. If dst exists, the existing directory is renamed aside
+// first, then src is renamed into place; on success the backup is
+// removed (best-effort), on failure the backup is restored.
+//
+// os.Rename over an existing directory fails on Windows, so the
+// rename-aside dance is required for cross-platform correctness.
+func atomicReplaceDir(src, dst string, logger Logger) error {
+	if _, err := os.Stat(dst); os.IsNotExist(err) {
+		return os.Rename(src, dst)
+	} else if err != nil {
+		return err
+	}
+
+	backup := dst + ".old." + uniqueSuffix()
+	if err := os.Rename(dst, backup); err != nil {
+		return fmt.Errorf("rename existing chunks aside: %w", err)
+	}
+	if err := os.Rename(src, dst); err != nil {
+		if restoreErr := os.Rename(backup, dst); restoreErr != nil {
+			return fmt.Errorf("install new chunks (%v); restore backup also failed (%v)", err, restoreErr)
+		}
+		return fmt.Errorf("install new chunks: %w", err)
+	}
+	if rmErr := os.RemoveAll(backup); rmErr != nil {
+		logger.Warnf("Failed to remove backup chunk dir %s: %v", backup, rmErr)
+	}
+	return nil
 }
 
 func (s *SheetBasedChunking) ReadChunks(basePath string) (*models.ExcelDocument, error) {
-	// Determine where chunks are stored based on the input path
-	var chunkDir string
-
-	// If basePath is already a chunk directory, use it directly
-	if strings.Contains(basePath, constants.GitCellsDataDir+string(filepath.Separator)) && strings.HasSuffix(basePath, constants.ChunksDirSuffix) {
-		chunkDir = basePath
-	} else {
-		// Otherwise, calculate the chunk directory location
-		excelDir := filepath.Dir(basePath)
-		excelFile := filepath.Base(basePath)
-		excelFile = strings.TrimSuffix(excelFile, ".json")
-		excelFile = strings.TrimSuffix(excelFile, ".xlsx")
-
-		gitRoot, err := git.FindRepositoryRoot(excelDir)
-		if err != nil {
-			// If not in a git repo, use the excel directory
-			gitRoot = excelDir
-		}
-		relPath, err := filepath.Rel(gitRoot, excelDir)
-		if err != nil {
-			relPath = ""
-		}
-
-		chunkDir = filepath.Join(gitRoot, constants.GitCellsDataDir, relPath, excelFile+constants.ChunksDirSuffix)
-	}
+	chunkDir := resolveChunkDir(basePath)
 
 	// Read chunk metadata
 	metadataFile := filepath.Join(chunkDir, constants.ChunkMetadataFile)
@@ -232,7 +263,7 @@ func (s *SheetBasedChunking) ReadChunks(basePath string) (*models.ExcelDocument,
 			continue // Skip main file
 		}
 
-		sheetFile := filepath.Join(chunkDir, chunkFile)
+		sheetFile := filepath.Join(chunkDir, filepath.FromSlash(chunkFile))
 		var sheetChunk SheetChunk
 		if err := readJSONFileBounded(sheetFile, &sheetChunk); err != nil {
 			s.logger.Warnf("Failed to load sheet file %s: %v", sheetFile, err)
@@ -248,49 +279,59 @@ func (s *SheetBasedChunking) ReadChunks(basePath string) (*models.ExcelDocument,
 }
 
 func (s *SheetBasedChunking) GetChunkPaths(basePath string) ([]string, error) {
-	// Determine where chunks are stored
-	var chunkDir string
+	chunkDir := resolveChunkDir(basePath)
 
-	if strings.Contains(basePath, constants.GitCellsDataDir+string(filepath.Separator)) && strings.HasSuffix(basePath, constants.ChunksDirSuffix) {
-		chunkDir = basePath
-	} else {
-		excelDir := filepath.Dir(basePath)
-		excelFile := filepath.Base(basePath)
-		excelFile = strings.TrimSuffix(excelFile, ".json")
-		excelFile = strings.TrimSuffix(excelFile, ".xlsx")
-
-		gitRoot, err := git.FindRepositoryRoot(excelDir)
-		if err != nil {
-			// If not in a git repo, use the excel directory
-			gitRoot = excelDir
-		}
-		relPath, err := filepath.Rel(gitRoot, excelDir)
-		if err != nil {
-			relPath = ""
-		}
-
-		chunkDir = filepath.Join(gitRoot, constants.GitCellsDataDir, relPath, excelFile+constants.ChunksDirSuffix)
-	}
-
-	// Check if chunk directory exists
 	if _, err := os.Stat(chunkDir); os.IsNotExist(err) {
 		return nil, utils.NewError(utils.ErrorTypeFileSystem, "GetChunkPaths", fmt.Sprintf("chunk directory does not exist: %s", chunkDir))
 	}
 
-	// Read chunk metadata
 	metadataFile := filepath.Join(chunkDir, constants.ChunkMetadataFile)
 	var metadata ChunkMetadata
 	if err := readJSONFileBounded(metadataFile, &metadata); err != nil {
 		return nil, utils.WrapFileError(err, utils.ErrorTypeConverter, "GetChunkPaths", metadataFile, "failed to read chunk metadata")
 	}
 
-	// Build full paths
 	paths := make([]string, 0, len(metadata.ChunkFiles))
 	for _, chunkFile := range metadata.ChunkFiles {
-		paths = append(paths, filepath.Join(chunkDir, chunkFile))
+		paths = append(paths, filepath.Join(chunkDir, filepath.FromSlash(chunkFile)))
 	}
 
 	return paths, nil
+}
+
+// resolveChunkDir returns the on-disk chunk directory for a basePath.
+// basePath may point at either:
+//   - an existing chunk directory (ends in _chunks/ and contains the
+//     metadata file), in which case it is returned as-is, or
+//   - the source .xlsx file, in which case the chunk dir is computed
+//     relative to the enclosing git root (or the excel dir if not in
+//     a repo).
+//
+// The structural check (suffix + metadata stat) replaces a brittle
+// substring match on .gitcells/data, which would not match on Windows
+// where paths use backslashes.
+func resolveChunkDir(basePath string) string {
+	if strings.HasSuffix(basePath, constants.ChunksDirSuffix) {
+		if _, err := os.Stat(filepath.Join(basePath, constants.ChunkMetadataFile)); err == nil {
+			return basePath
+		}
+	}
+
+	excelDir := filepath.Dir(basePath)
+	excelFile := filepath.Base(basePath)
+	excelFile = strings.TrimSuffix(excelFile, ".json")
+	excelFile = strings.TrimSuffix(excelFile, ".xlsx")
+
+	gitRoot, err := git.FindRepositoryRoot(excelDir)
+	if err != nil {
+		gitRoot = excelDir
+	}
+	relPath, err := filepath.Rel(gitRoot, excelDir)
+	if err != nil {
+		relPath = ""
+	}
+
+	return filepath.Join(gitRoot, constants.GitCellsDataDir, relPath, excelFile+constants.ChunksDirSuffix)
 }
 
 // SheetChunk represents a single sheet in a separate file
@@ -302,6 +343,12 @@ type SheetChunk struct {
 
 // Helper methods
 
+// writeJSONFile marshals data to JSON and writes it to path with an
+// explicit fsync. The caller is responsible for placing path in a
+// staging directory; this function does not rename or move anything.
+// Fsync matters because a power loss between write and rename would
+// otherwise leave a zero-length file even if the rename appears to
+// have succeeded (the directory entry is durable but the file content isn't).
 func (s *SheetBasedChunking) writeJSONFile(path string, data interface{}, compact bool) error {
 	var jsonData []byte
 	var err error
@@ -316,7 +363,19 @@ func (s *SheetBasedChunking) writeJSONFile(path string, data interface{}, compac
 		return utils.WrapFileError(err, utils.ErrorTypeConverter, "writeJSONFile", path, "failed to marshal JSON")
 	}
 
-	return os.WriteFile(path, jsonData, constants.FilePermissions)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, constants.FilePermissions) // #nosec G304 - path under our staging dir
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(jsonData); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 // filenameReplacer strips filesystem-hostile chars to underscores. Same set
@@ -349,11 +408,17 @@ func (s *SheetBasedChunking) sheetChunkFilename(sheetName string) string {
 	return fmt.Sprintf("sheet_%s_%s.json", sanitized, hex.EncodeToString(sum[:])[:6])
 }
 
+// getRelativeChunkFiles returns paths relative to baseDir, normalized to
+// forward slashes so the metadata.json is identical regardless of which
+// OS wrote it. The reader applies filepath.FromSlash to convert back.
 func (s *SheetBasedChunking) getRelativeChunkFiles(baseDir string, fullPaths []string) []string {
 	relativePaths := make([]string, 0, len(fullPaths))
 	for _, fullPath := range fullPaths {
-		relPath, _ := filepath.Rel(baseDir, fullPath)
-		relativePaths = append(relativePaths, relPath)
+		relPath, err := filepath.Rel(baseDir, fullPath)
+		if err != nil {
+			relPath = filepath.Base(fullPath)
+		}
+		relativePaths = append(relativePaths, filepath.ToSlash(relPath))
 	}
 	return relativePaths
 }

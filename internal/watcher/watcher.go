@@ -37,6 +37,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -45,6 +46,21 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
 )
+
+// DefaultShutdownGrace is how long Stop will wait for in-flight conversions
+// to finish before force-cancelling. Excel files routinely take >2s to
+// convert; 30s is a conservative ceiling that still bounds shutdown.
+const DefaultShutdownGrace = 30 * time.Second
+
+// WatcherError carries a failure surfaced from the event-handling pipeline.
+// Consumers should drain Errors() in a separate goroutine; the channel is
+// buffered but not unbounded.
+type WatcherError struct {
+	Path      string
+	EventType EventType
+	Err       error
+	Timestamp time.Time
+}
 
 type FileWatcher struct {
 	watcher      *fsnotify.Watcher
@@ -55,6 +71,8 @@ type FileWatcher struct {
 	logger       *logrus.Logger
 	ctx          context.Context
 	cancel       context.CancelFunc
+	errors       chan WatcherError
+	stopOnce     sync.Once
 }
 
 type EventHandler func(event FileEvent) error
@@ -108,9 +126,21 @@ func NewFileWatcher(config *Config, handler EventHandler, logger *logrus.Logger)
 		logger:       logger,
 		ctx:          ctx,
 		cancel:       cancel,
+		errors:       make(chan WatcherError, 64),
 	}
 
+	fw.debouncer.SetPanicLogger(func(r interface{}, stack []byte) {
+		logger.Errorf("panic in debounced handler: %v\n%s", r, stack)
+	})
+
 	return fw, nil
+}
+
+// Errors returns a channel of failures surfaced from the event pipeline.
+// Consumers must drain it; the channel is buffered (64) and additional
+// failures past that point will be logged but dropped from the channel.
+func (fw *FileWatcher) Errors() <-chan WatcherError {
+	return fw.errors
 }
 
 func (fw *FileWatcher) Start() error {
@@ -119,16 +149,29 @@ func (fw *FileWatcher) Start() error {
 	return nil
 }
 
-func (fw *FileWatcher) Stop() error {
-	// Cancel pending debounced callbacks first. Otherwise an in-flight
-	// time.AfterFunc may fire after Close() and call the event handler against
-	// a torn-down dashboard / closed fsnotify channels.
-	fw.debouncer.CancelAll()
-	fw.cancel()
-	err := fw.watcher.Close()
-	fw.logger.Info("File watcher stopped")
-	if err != nil {
-		return utils.WrapError(err, utils.ErrorTypeWatcher, "Stop", "failed to close watcher")
+// Stop closes the watcher gracefully. It waits up to grace for any
+// in-flight debounced conversions to complete, then force-cancels the
+// rest. Dropped paths are logged at warning level. Pass 0 for an
+// immediate stop (used by tests).
+func (fw *FileWatcher) Stop(grace time.Duration) error {
+	var (
+		dropped  []string
+		closeErr error
+	)
+	fw.stopOnce.Do(func() {
+		dropped = fw.debouncer.Drain(grace)
+		fw.cancel()
+		closeErr = fw.watcher.Close()
+		close(fw.errors)
+		fw.logger.Info("File watcher stopped")
+	})
+
+	for _, path := range dropped {
+		fw.logger.Warnf("Shutdown grace expired before processing: %s", path)
+	}
+
+	if closeErr != nil {
+		return utils.WrapError(closeErr, utils.ErrorTypeWatcher, "Stop", "failed to close watcher")
 	}
 	return nil
 }
@@ -177,6 +220,12 @@ func (fw *FileWatcher) RemoveDirectory(path string) error {
 }
 
 func (fw *FileWatcher) processEvents() {
+	defer func() {
+		if r := recover(); r != nil {
+			fw.logger.Errorf("panic in processEvents: %v\n%s", r, debug.Stack())
+		}
+	}()
+
 	for {
 		select {
 		case <-fw.ctx.Done():
@@ -188,9 +237,11 @@ func (fw *FileWatcher) processEvents() {
 			}
 
 			if fw.shouldProcessFile(event.Name) {
-				fw.debouncer.Debounce(event.Name, func() {
+				op := event.Op
+				path := event.Name
+				fw.debouncer.Debounce(path, func() {
 					fileEvent := FileEvent{
-						Path:      event.Name,
+						Path:      path,
 						Timestamp: time.Now(),
 					}
 
@@ -204,11 +255,11 @@ func (fw *FileWatcher) processEvents() {
 					// was created or modified — treat as Modify (Create is just
 					// a special-case Modify from a converter's perspective).
 					// If gone, it was deleted or renamed away.
-					info, statErr := os.Stat(event.Name)
+					info, statErr := os.Stat(path)
 					switch {
 					case statErr == nil && info.IsDir():
 						// New directory appeared inside a watched tree.
-						_ = fw.AddDirectory(event.Name)
+						_ = fw.AddDirectory(path)
 						return
 					case statErr == nil:
 						fileEvent.Type = EventTypeModify
@@ -217,19 +268,19 @@ func (fw *FileWatcher) processEvents() {
 						// a remove/rename. A spurious Stat miss on a write
 						// (rare, but possible mid-rename on Windows) should
 						// not nuke chunks.
-						if event.Op&(fsnotify.Remove|fsnotify.Rename) == 0 {
+						if op&(fsnotify.Remove|fsnotify.Rename) == 0 {
 							return
 						}
 						fileEvent.Type = EventTypeDelete
 					default:
-						fw.logger.Debugf("Skipping event for %s: stat error: %v", event.Name, statErr)
+						fw.logger.Debugf("Skipping event for %s: stat error: %v", path, statErr)
 						return
 					}
 
 					fw.logger.Debugf("Processing file event: %s %s", fileEvent.Type, fileEvent.Path)
 
 					if err := fw.eventHandler(fileEvent); err != nil {
-						fw.logger.Errorf("Event handler error for %s: %v", fileEvent.Path, err)
+						fw.surfaceError(fileEvent.Path, fileEvent.Type, err)
 					}
 				})
 			}
@@ -240,6 +291,28 @@ func (fw *FileWatcher) processEvents() {
 			}
 			fw.logger.Errorf("Watcher error: %v", err)
 		}
+	}
+}
+
+// surfaceError publishes a failure to the Errors channel and always
+// logs it. If the channel is full (consumer fell behind), the error
+// is logged but dropped from the channel to keep the watcher
+// non-blocking. The channel is closed only by Stop, so a closed-channel
+// send after Stop is prevented by the ctx.Done check.
+func (fw *FileWatcher) surfaceError(path string, eventType EventType, err error) {
+	fw.logger.Errorf("Event handler error for %s: %v", path, err)
+	we := WatcherError{
+		Path:      path,
+		EventType: eventType,
+		Err:       err,
+		Timestamp: time.Now(),
+	}
+	select {
+	case <-fw.ctx.Done():
+		return
+	case fw.errors <- we:
+	default:
+		fw.logger.Warnf("Errors channel full; dropped error for %s", path)
 	}
 }
 
@@ -275,30 +348,27 @@ func (fw *FileWatcher) shouldIgnorePath(path string) bool {
 		return true
 	}
 
-	// Check if path contains .git directory (normalize path separators for cross-platform)
+	// Normalize once so pattern matching is identical on Windows and Unix.
+	// fsnotify hands us backslashes on Windows; config patterns are
+	// conventionally forward-slash style.
 	cleanPath := filepath.ToSlash(path)
+
 	if strings.Contains(cleanPath, "/.git/") {
 		return true
 	}
 
-	// Check against ignore patterns
 	for _, pattern := range fw.config.IgnorePatterns {
-		if matched, _ := filepath.Match(pattern, base); matched {
+		cleanPattern := filepath.ToSlash(pattern)
+		if matched, _ := filepath.Match(cleanPattern, base); matched {
 			return true
 		}
-		// Also check the full path
-		if matched, _ := filepath.Match(pattern, path); matched {
+		if matched, _ := filepath.Match(cleanPattern, cleanPath); matched {
 			return true
 		}
-		// Check if pattern contains directory separators and match path components
-		if strings.Contains(pattern, "/") || strings.Contains(pattern, string(filepath.Separator)) {
-			// Normalize both pattern and path to forward slashes for consistent comparison
-			cleanPattern := filepath.ToSlash(pattern)
-
-			// Check if path matches pattern or contains pattern as a component
-			if strings.Contains(cleanPath, cleanPattern) {
-				return true
-			}
+		// Substring fall-through for patterns that name a directory
+		// component rather than a glob (e.g. "build/" or "vendor").
+		if strings.ContainsAny(cleanPattern, "/") && strings.Contains(cleanPath, cleanPattern) {
+			return true
 		}
 	}
 

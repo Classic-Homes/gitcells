@@ -45,7 +45,6 @@ nav:
       - File Watching: user-guide/watching.md
       - Converting Files: user-guide/converting.md
       - Git Integration: user-guide/git-integration.md
-      - Terminal UI: user-guide/tui.md
       - Troubleshooting: user-guide/troubleshooting.md
   - Reference:
       - Commands: reference/commands.md

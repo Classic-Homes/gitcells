@@ -8,7 +8,7 @@ GitCells follows a modular architecture with clear separation of concerns:
 
 ```mermaid
 graph TB
-    CLI["<b>CLI Layer</b><br/>Cobra Commands<br/>TUI Interface<br/>User Interaction"]
+    CLI["<b>CLI Layer</b><br/>Cobra Commands<br/>User Interaction"]
     
     subgraph core ["<b>Core Services</b>"]
         direction LR
@@ -24,7 +24,7 @@ graph TB
         Cache["<b>Cache</b><br/>Performance Layer"]
     end
     
-    Libs["<b>External Libraries</b><br/>excelize, go-git, fsnotify<br/>cobra, viper, bubbletea"]
+    Libs["<b>External Libraries</b><br/>excelize, go-git, fsnotify<br/>cobra, viper"]
     
     CLI -.-> core
     core -.-> data
@@ -59,7 +59,6 @@ gitcells/
 │   ├── git/            # Git operations
 │   ├── config/         # Configuration management
 │   ├── cache/          # Caching layer
-│   ├── tui/            # Terminal UI components
 │   ├── updater/        # Self-update functionality
 │   └── utils/          # Shared utilities
 ├── pkg/                # Public packages
@@ -79,7 +78,6 @@ The CLI layer uses Cobra for command-line parsing and provides:
 - Input validation
 - Output formatting
 - Error handling and user feedback
-- Integration with TUI mode
 
 **Design Decisions:**
 - Each command in a separate file for maintainability
@@ -166,23 +164,6 @@ Handles configuration loading and validation.
 - Strongly typed configuration structs
 - Fail-fast validation
 - Sensible defaults
-
-### Terminal UI (internal/tui)
-
-Interactive terminal interface using Bubble Tea.
-
-**Key Components:**
-- Main application model
-- Setup wizard flow
-- Status dashboard
-- Error log viewer
-- Settings management
-
-**Architecture:**
-- Model-View-Update (MVU) pattern
-- Component-based UI structure
-- Message passing for state updates
-- Keyboard navigation support
 
 ### Data Models (pkg/models)
 

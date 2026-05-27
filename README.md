@@ -43,7 +43,6 @@ If your workbook depends on those, GitCells commits the cells and skips the rest
 - **Smart Chunking**: Splits workbooks per-sheet for clean Git diffs; sheet-name collisions are disambiguated with a content hash
 - **File Watching**: Monitors directories with cross-platform-aware debouncing — handles Excel's atomic save sequence (write-temp / rename-over / unlink) on Windows, macOS, and Linux
 - **Git Integration**: Auto-commits converted JSON; concurrent saves are serialized to prevent `index.lock` corruption
-- **Minimal TUI**: Single-screen dashboard with watcher start/stop, sync status, files list, activity log
 - **Diff Generation**: Text or JSON diffs between Excel files
 - **Update Check**: `gitcells version --check-update` reports new releases — install via your package manager or the release page (no in-place self-replace)
 - **Cross-Platform**: Windows, macOS, Linux all CI-tested per commit
@@ -207,20 +206,9 @@ converter:
 
 - `--config`: Specify config file path (default: `.gitcells.yaml`)
 - `--verbose`: Enable verbose logging
-- `--tui`: Launch the dashboard TUI
 - `--help`: Show help information
 
 ### Commands
-
-#### `gitcells tui`
-
-Launch the dashboard TUI. Single screen showing sync status, tracked files, recent activity, and a watcher start/stop toggle.
-
-```bash
-gitcells tui
-```
-
-Keys: `w` toggle watcher, `r` refresh, `tab` switch tab, `q` quit.
 
 #### `gitcells init`
 
@@ -660,7 +648,7 @@ GitCells is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
 GitCells is built with a modular architecture:
 
-- **CLI Layer**: Cobra-based command interface with TUI support
+- **CLI Layer**: Cobra-based command interface
 - **Converter Engine**: Handles Excel ↔ JSON transformations with chunking
 - **Git Integration**: Automated version control operations
 - **File Watcher**: FSNotify-based monitoring with intelligent debouncing

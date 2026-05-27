@@ -5,9 +5,12 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"syscall"
+	"time"
 
 	"github.com/Classic-Homes/gitcells/internal/config"
+	"github.com/Classic-Homes/gitcells/internal/constants"
 	"github.com/Classic-Homes/gitcells/internal/converter"
 	"github.com/Classic-Homes/gitcells/internal/git"
 	"github.com/Classic-Homes/gitcells/internal/utils"
@@ -113,19 +116,58 @@ func newWatchCommand(logger *logrus.Logger) *cobra.Command {
 				return utils.WrapError(err, utils.ErrorTypeWatcher, "watch", "failed to start file watcher")
 			}
 
+			// Drain failures from the watcher onto a durable log file. Without
+			// this, a git commit failure or a corrupted source file goes silent
+			// and the user thinks everything is fine.
+			failureWg := &sync.WaitGroup{}
+			failureWg.Add(1)
+			go func() {
+				defer failureWg.Done()
+				logPath := filepath.Join(constants.GitCellsDir, "failures.log")
+				for we := range fw.Errors() {
+					line := fmt.Sprintf("%s\t%s\t%s\t%v\n",
+						we.Timestamp.UTC().Format(time.RFC3339),
+						we.EventType.String(),
+						we.Path,
+						we.Err,
+					)
+					if appendErr := appendFailureLog(logPath, line); appendErr != nil {
+						logger.Warnf("Failed to write failures.log: %v", appendErr)
+					}
+				}
+			}()
+
 			logger.Info("Watching for changes... Press Ctrl+C to stop")
 
 			// Wait for interrupt signal
 			sigChan := make(chan os.Signal, 1)
 			signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+			defer signal.Stop(sigChan)
 			<-sigChan
 
-			logger.Info("Shutting down...")
-			return fw.Stop()
+			logger.Info("Shutting down (draining in-flight conversions)...")
+			stopErr := fw.Stop(watcher.DefaultShutdownGrace)
+			failureWg.Wait()
+			return stopErr
 		},
 	}
 
 	cmd.Flags().Bool("auto-commit", true, "automatically commit changes to git")
 
 	return cmd
+}
+
+// appendFailureLog appends a single line to the failures log, creating
+// the parent directory if needed. Each line is timestamp \t event \t path \t error.
+func appendFailureLog(path, line string) error {
+	if err := os.MkdirAll(filepath.Dir(path), constants.DirPermissions); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, constants.FilePermissions) // #nosec G304 - fixed path under .gitcells/
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.WriteString(line)
+	return err
 }

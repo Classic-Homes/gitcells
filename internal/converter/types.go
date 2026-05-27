@@ -16,6 +16,21 @@ import (
 // but treated as ordinary CellTypeFormula — GitCells deliberately does
 // not preserve the array-spill range (the previous reflection-based
 // implementation was fragile against excelize upgrades).
+// excelErrorValues is the set of Excel error markers — when a cell's
+// displayed value is one of these strings (and it's not a formula
+// result we want to recompute), it's an error literal that should
+// round-trip as CellTypeError instead of being misclassified as text.
+var excelErrorValues = map[string]struct{}{
+	"#REF!":         {},
+	"#N/A":          {},
+	"#VALUE!":       {},
+	"#DIV/0!":       {},
+	"#NAME?":        {},
+	"#NUM!":         {},
+	"#NULL!":        {},
+	"#GETTING_DATA": {},
+}
+
 func (c *converter) detectCellType(value interface{}, formula string) models.CellType {
 	if value == nil && formula == "" {
 		return models.CellTypeString
@@ -27,6 +42,9 @@ func (c *converter) detectCellType(value interface{}, formula string) models.Cel
 
 	switch v := value.(type) {
 	case string:
+		if _, isErr := excelErrorValues[v]; isErr {
+			return models.CellTypeError
+		}
 		if _, err := strconv.ParseFloat(v, 64); err == nil {
 			return models.CellTypeNumber
 		}
@@ -65,7 +83,6 @@ func (c *converter) extractProperties(props interface{}) models.DocumentProperti
 			Title:       docProps.Title,
 			Subject:     docProps.Subject,
 			Author:      docProps.Creator,
-			Company:     docProps.Category,
 			Keywords:    docProps.Keywords,
 			Description: docProps.Description,
 		}

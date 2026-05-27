@@ -31,7 +31,7 @@ func TestNewFileWatcher(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, fw)
 
-	err = fw.Stop()
+	err = fw.Stop(0)
 	assert.NoError(t, err)
 }
 
@@ -48,7 +48,7 @@ func TestFileWatcher_AddDirectory(t *testing.T) {
 
 	fw, err := NewFileWatcher(config, handler, logger)
 	require.NoError(t, err)
-	defer func() { _ = fw.Stop() }()
+	defer func() { _ = fw.Stop(0) }()
 
 	// Create a temporary directory
 	tempDir := t.TempDir()
@@ -78,7 +78,7 @@ func TestFileWatcher_ShouldProcessFile(t *testing.T) {
 	logger := logrus.New()
 	fw, err := NewFileWatcher(config, handler, logger)
 	require.NoError(t, err)
-	defer func() { _ = fw.Stop() }()
+	defer func() { _ = fw.Stop(0) }()
 
 	tests := []struct {
 		name     string
@@ -141,7 +141,7 @@ func TestFileWatcher_ShouldIgnorePath(t *testing.T) {
 	logger := logrus.New()
 	fw, err := NewFileWatcher(config, handler, logger)
 	require.NoError(t, err)
-	defer func() { _ = fw.Stop() }()
+	defer func() { _ = fw.Stop(0) }()
 
 	tests := []struct {
 		name     string
@@ -200,7 +200,7 @@ func TestFileWatcher_Integration(t *testing.T) {
 
 	fw, err := NewFileWatcher(config, handler, logger)
 	require.NoError(t, err)
-	defer func() { _ = fw.Stop() }()
+	defer func() { _ = fw.Stop(0) }()
 
 	// Create a temporary directory
 	tempDir := t.TempDir()
@@ -278,11 +278,11 @@ func TestFileWatcher_ContextCancellation(t *testing.T) {
 	require.NoError(t, err)
 
 	// Stop should work without errors
-	err = fw.Stop()
+	err = fw.Stop(0)
 	assert.NoError(t, err)
 
 	// Second stop should also work
-	err = fw.Stop()
+	err = fw.Stop(0)
 	assert.NoError(t, err)
 }
 
@@ -307,7 +307,7 @@ func TestFileWatcher_HandlerError(t *testing.T) {
 
 	fw, err := NewFileWatcher(config, errorHandler, logger)
 	require.NoError(t, err)
-	defer func() { _ = fw.Stop() }()
+	defer func() { _ = fw.Stop(0) }()
 
 	tempDir := t.TempDir()
 	err = fw.AddDirectory(tempDir)
@@ -326,6 +326,6 @@ func TestFileWatcher_HandlerError(t *testing.T) {
 
 	// The watcher should continue running even if handler returns error
 	// This is hard to test directly, but we can verify the watcher is still responsive
-	err = fw.Stop()
+	err = fw.Stop(0)
 	assert.NoError(t, err)
 }

@@ -153,6 +153,49 @@ func TestSheetBasedChunking(t *testing.T) {
 		b := c.sheetChunkFilename("A_B")
 		assert.NotEqual(t, a, b, "collision: %q vs %q both → %s", "A B", "A_B", a)
 	})
+
+	t.Run("AtomicReplaceLeavesNoStagingDirs", func(t *testing.T) {
+		// Re-writing a chunk dir must replace it atomically. After two
+		// successive WriteChunks, only the final chunk dir should remain in
+		// .gitcells/data — no leftover .tmp.* or .old.* siblings.
+		tempDir := t.TempDir()
+		require.NoError(t, os.Mkdir(filepath.Join(tempDir, ".git"), constants.DirPermissions))
+		basePath := filepath.Join(tempDir, "atomic.json")
+		opts := ConvertOptions{}
+
+		_, err := chunker.WriteChunks(doc, basePath, opts)
+		require.NoError(t, err)
+		_, err = chunker.WriteChunks(doc, basePath, opts)
+		require.NoError(t, err)
+
+		dataDir := filepath.Join(tempDir, ".gitcells", "data")
+		entries, err := os.ReadDir(dataDir)
+		require.NoError(t, err)
+		for _, e := range entries {
+			assert.NotContains(t, e.Name(), ".tmp.", "leftover staging dir: %s", e.Name())
+			assert.NotContains(t, e.Name(), ".old.", "leftover backup dir: %s", e.Name())
+		}
+	})
+
+	t.Run("MetadataPathsAreForwardSlash", func(t *testing.T) {
+		// Chunk metadata must store forward-slash paths so a repo written
+		// on Windows can be opened on macOS/Linux without churn.
+		tempDir := t.TempDir()
+		require.NoError(t, os.Mkdir(filepath.Join(tempDir, ".git"), constants.DirPermissions))
+		basePath := filepath.Join(tempDir, "portable.json")
+		opts := ConvertOptions{}
+		_, err := chunker.WriteChunks(doc, basePath, opts)
+		require.NoError(t, err)
+
+		metadataPath := filepath.Join(tempDir, ".gitcells", "data", "portable_chunks", ".gitcells_chunks.json")
+		raw, err := os.ReadFile(metadataPath) // #nosec G304 - test file path
+		require.NoError(t, err)
+		var meta ChunkMetadata
+		require.NoError(t, json.Unmarshal(raw, &meta))
+		for _, p := range meta.ChunkFiles {
+			assert.NotContains(t, p, "\\", "metadata path must use forward slashes: %s", p)
+		}
+	})
 }
 
 func TestChunkMetadata(t *testing.T) {

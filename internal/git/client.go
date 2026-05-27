@@ -12,6 +12,7 @@ import (
 
 	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/sirupsen/logrus"
 )
@@ -59,7 +60,8 @@ func NewClient(repoPath string, config *Config, logger *logrus.Logger) (*Client,
 }
 
 // AutoCommit commits converted JSON files with a simple message.
-// Safe for concurrent callers; serialized via c.mu.
+// Safe for concurrent callers; serialized via c.mu. Transient errors
+// (index lock, "resource busy") get one retry with a short backoff.
 func (c *Client) AutoCommit(files []string, message string) error {
 	if c == nil {
 		// No git repository - skip commit
@@ -81,7 +83,10 @@ func (c *Client) AutoCommit(files []string, message string) error {
 			c.logger.Warnf("Skipping file outside worktree: %s", file)
 			continue
 		}
-		if _, err := c.worktree.Add(relPath); err != nil {
+		if err := retryTransient(func() error {
+			_, addErr := c.worktree.Add(relPath)
+			return addErr
+		}); err != nil {
 			return utils.WrapFileError(err, utils.ErrorTypeGit, "stageFile", file, "failed to stage file")
 		}
 	}
@@ -101,21 +106,52 @@ func (c *Client) AutoCommit(files []string, message string) error {
 		message = fmt.Sprintf("GitCells: Update JSON representations (%d files)", len(files))
 	}
 
-	// Create commit
-	commit, err := c.worktree.Commit(message, &git.CommitOptions{
-		Author: &object.Signature{
-			Name:  c.config.UserName,
-			Email: c.config.UserEmail,
-			When:  time.Now(),
-		},
+	var commit plumbing.Hash
+	commitErr := retryTransient(func() error {
+		h, err := c.worktree.Commit(message, &git.CommitOptions{
+			Author: &object.Signature{
+				Name:  c.config.UserName,
+				Email: c.config.UserEmail,
+				When:  time.Now(),
+			},
+		})
+		if err != nil {
+			return err
+		}
+		commit = h
+		return nil
 	})
-
-	if err != nil {
-		return utils.WrapError(err, utils.ErrorTypeGit, "createCommit", "failed to create git commit")
+	if commitErr != nil {
+		return utils.WrapError(commitErr, utils.ErrorTypeGit, "createCommit", "failed to create git commit")
 	}
 
 	c.logger.Infof("Committed JSON updates: %s", commit.String()[:8])
 	return nil
+}
+
+// retryTransient runs op once, and on a transient-looking failure runs
+// it a second time after a 200ms pause. "Transient" here means anything
+// that suggests a temporary lock or fs contention — index.lock, EBUSY,
+// etc. Non-transient errors return immediately.
+func retryTransient(op func() error) error {
+	err := op()
+	if err == nil || !isTransientGitError(err) {
+		return err
+	}
+	time.Sleep(200 * time.Millisecond)
+	return op()
+}
+
+func isTransientGitError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "index.lock") ||
+		strings.Contains(msg, "resource temporarily unavailable") ||
+		strings.Contains(msg, "resource busy") ||
+		strings.Contains(msg, "file is in use") ||
+		strings.Contains(msg, "sharing violation")
 }
 
 // IsClean returns true if the working directory is clean

@@ -98,22 +98,35 @@ func (c *converter) JSONToExcel(doc *models.ExcelDocument, outputPath string, op
 
 			// Set hyperlink if exists
 			if cell.Hyperlink != "" {
-				err = f.SetCellHyperLink(sheet.Name, cellRef, cell.Hyperlink, "External")
+				linkType := classifyHyperlink(cell.Hyperlink)
+				err = f.SetCellHyperLink(sheet.Name, cellRef, cell.Hyperlink, linkType)
 				if err != nil {
-					c.logger.Warnf("Failed to set hyperlink for cell %s: %v", cellRef, err)
+					c.logger.Warnf("Failed to set %s hyperlink for cell %s: %v", linkType, cellRef, err)
 				}
 			}
 		}
 
-		// Apply merged cells
+		// Apply merged cells. Validate both endpoints before calling
+		// MergeCell — excelize swallows malformed ranges silently and a
+		// stored range like "A1:B2:C3" would otherwise produce a partial
+		// merge with no warning.
 		for _, mergedCell := range sheet.MergedCells {
 			parts := strings.Split(mergedCell.Range, ":")
 			const expectedRangeParts = 2
-			if len(parts) == expectedRangeParts {
-				err = f.MergeCell(sheet.Name, parts[0], parts[1])
-				if err != nil {
-					c.logger.Warnf("Failed to merge cells %s: %v", mergedCell.Range, err)
-				}
+			if len(parts) != expectedRangeParts {
+				c.logger.Warnf("Skipping malformed merged-cell range on sheet %s: %q", sheet.Name, mergedCell.Range)
+				continue
+			}
+			if _, _, err := excelize.CellNameToCoordinates(parts[0]); err != nil {
+				c.logger.Warnf("Skipping merged-cell range with invalid start %q on sheet %s: %v", parts[0], sheet.Name, err)
+				continue
+			}
+			if _, _, err := excelize.CellNameToCoordinates(parts[1]); err != nil {
+				c.logger.Warnf("Skipping merged-cell range with invalid end %q on sheet %s: %v", parts[1], sheet.Name, err)
+				continue
+			}
+			if err := f.MergeCell(sheet.Name, parts[0], parts[1]); err != nil {
+				c.logger.Warnf("Failed to merge cells %s on sheet %s: %v", mergedCell.Range, sheet.Name, err)
 			}
 		}
 
@@ -270,9 +283,18 @@ func (c *converter) convertCellStyleToExcelizeStyle(cellStyle *models.CellStyle)
 		}
 	}
 
-	// Convert Number Format
+	// Convert Number Format. If the stored format is one of the well-known
+	// built-in IDs we use the integer code; otherwise we pass it through
+	// as a custom format so the original string survives the round trip.
+	// Without this, formats like "[$-409]m/d/yy h:mm AM/PM;@" silently
+	// degraded to "General".
 	if cellStyle.NumberFormat != "" {
-		style.NumFmt = convertNumberFormat(cellStyle.NumberFormat)
+		if id, ok := builtinNumberFormatID(cellStyle.NumberFormat); ok {
+			style.NumFmt = id
+		} else {
+			fmtCopy := cellStyle.NumberFormat
+			style.CustomNumFmt = &fmtCopy
+		}
 	}
 
 	return style
@@ -356,68 +378,63 @@ func convertFillPattern(pattern string) int {
 	}
 }
 
-// convertNumberFormat converts our number format to excelize number format ID
-func convertNumberFormat(format string) int {
-	// Common number formats with their Excel IDs
-	switch format {
-	case "General":
-		return 0
-	case "0":
-		return 1
-	case "0.00":
-		return 2
-	case "#,##0":
-		return 3
-	case "#,##0.00":
-		return 4
-	case "0%":
-		return 9
-	case "0.00%":
-		return 10
-	case "0.00E+00":
-		return 11
-	case "# ?/?":
-		return 12
-	case "# ??/??":
-		return 13
-	case "mm-dd-yy":
-		return 14
-	case "d-mmm-yy":
-		return 15
-	case "d-mmm":
-		return 16
-	case "mmm-yy":
-		return 17
-	case "h:mm AM/PM":
-		return 18
-	case "h:mm:ss AM/PM":
-		return 19
-	case "h:mm":
-		return 20
-	case "h:mm:ss":
-		return 21
-	case "m/d/yy h:mm":
-		return 22
-	case "#,##0 ;(#,##0)":
-		return 37
-	case "#,##0 ;[Red](#,##0)":
-		return 38
-	case "#,##0.00;(#,##0.00)":
-		return 39
-	case "#,##0.00;[Red](#,##0.00)":
-		return 40
-	case "mm:ss":
-		return 45
-	case "[h]:mm:ss":
-		return 46
-	case "mmss.0":
-		return 47
-	case "##0.0E+0":
-		return 48
-	case "@":
-		return 49
-	default:
-		// For custom formats, return a default number format
-		return 0 // General
+// builtinNumberFormatIDs maps Excel's built-in number-format strings to
+// their stable numeric IDs. Formats not in this table are custom and
+// must be passed through via Style.CustomNumFmt so they round-trip.
+var builtinNumberFormatIDs = map[string]int{
+	"General":                  0,
+	"0":                        1,
+	"0.00":                     2,
+	"#,##0":                    3,
+	"#,##0.00":                 4,
+	"0%":                       9,
+	"0.00%":                    10,
+	"0.00E+00":                 11,
+	"# ?/?":                    12,
+	"# ??/??":                  13,
+	"mm-dd-yy":                 14,
+	"d-mmm-yy":                 15,
+	"d-mmm":                    16,
+	"mmm-yy":                   17,
+	"h:mm AM/PM":               18,
+	"h:mm:ss AM/PM":            19,
+	"h:mm":                     20,
+	"h:mm:ss":                  21,
+	"m/d/yy h:mm":              22,
+	"#,##0 ;(#,##0)":           37,
+	"#,##0 ;[Red](#,##0)":      38,
+	"#,##0.00;(#,##0.00)":      39,
+	"#,##0.00;[Red](#,##0.00)": 40,
+	"mm:ss":                    45,
+	"[h]:mm:ss":                46,
+	"mmss.0":                   47,
+	"##0.0E+0":                 48,
+	"@":                        49,
+}
+
+// classifyHyperlink returns the excelize linkType ("External" or
+// "Location") for a stored hyperlink target. URL schemes and protocol
+// links are External; sheet-relative references like "Sheet2!A1" or
+// named ranges are Location. Default is External — a slightly wrong
+// type still produces a clickable link, whereas the wrong type with
+// a URL target produces no link at all.
+func classifyHyperlink(link string) string {
+	if strings.Contains(link, "://") {
+		return "External"
 	}
+	if strings.HasPrefix(strings.ToLower(link), "mailto:") || strings.HasPrefix(strings.ToLower(link), "tel:") {
+		return "External"
+	}
+	if strings.Contains(link, "!") {
+		return "Location"
+	}
+	return "External"
+}
+
+// builtinNumberFormatID returns the Excel numeric ID for a built-in
+// format string. The boolean reports whether the format is a known
+// built-in; callers should treat false as "custom format, pass through".
+func builtinNumberFormatID(format string) (int, bool) {
+	id, ok := builtinNumberFormatIDs[format]
+	return id, ok
 }

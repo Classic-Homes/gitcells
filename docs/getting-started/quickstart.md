@@ -45,27 +45,9 @@ gitcells init
 
 This creates a configuration file that tells GitCells how to handle your Excel files.
 
-## Step 4: Start Tracking Your Excel Files
+## Step 4: Start Watching Your Excel Files
 
-### Option A: Use the Interactive Interface (Recommended for Beginners)
-
-Type this command to open GitCells' user-friendly interface:
-
-```bash
-gitcells tui
-```
-
-You'll see a menu with these options:
-- **Setup Wizard** - Helps configure GitCells for your needs
-- **Status Dashboard** - Shows which Excel files are being tracked
-- **Settings** - Manage GitCells settings
-- **Error Logs** - View any problems that occurred
-
-Use the arrow keys to navigate and press Enter to select an option.
-
-### Option B: Start Watching Automatically
-
-If you prefer, you can start watching your Excel files directly:
+Start watching your Excel files directly:
 
 ```bash
 gitcells watch .
@@ -158,7 +140,7 @@ A: Yes, when using the `watch` command. The terminal needs to stay open for GitC
 If you run into any issues:
 
 1. Check the [Troubleshooting Guide](../user-guide/troubleshooting.md)
-2. Use the TUI interface (`gitcells tui`) and check the Error Logs
+2. Inspect `.gitcells/failures.log` in your project for recent watcher errors
 3. Visit our [GitHub Issues page](https://github.com/Classic-Homes/gitcells/issues)
 
 ## Next Steps

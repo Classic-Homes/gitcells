@@ -8,10 +8,12 @@ import (
 )
 
 // expandSqref expands an Excel sqref string (space-separated list of ranges,
-// e.g. "A1 B2:C3 D5") into the set of cell references it covers. Returns a
-// set rather than a slice because the typical use is membership testing.
-func expandSqref(sqref string) map[string]struct{} {
+// e.g. "A1 B2:C3 D5") into the set of cell references it covers. Malformed
+// groups are returned via the second value so the caller can log them once
+// per sheet instead of silently dropping rules.
+func expandSqref(sqref string) (map[string]struct{}, []string) {
 	set := make(map[string]struct{})
+	var skipped []string
 	for _, group := range strings.Fields(sqref) {
 		parts := strings.SplitN(group, ":", 2)
 		if len(parts) == 1 {
@@ -20,10 +22,12 @@ func expandSqref(sqref string) map[string]struct{} {
 		}
 		startCol, startRow, err := excelize.CellNameToCoordinates(parts[0])
 		if err != nil {
+			skipped = append(skipped, group)
 			continue
 		}
 		endCol, endRow, err := excelize.CellNameToCoordinates(parts[1])
 		if err != nil {
+			skipped = append(skipped, group)
 			continue
 		}
 		if endCol < startCol {
@@ -42,7 +46,7 @@ func expandSqref(sqref string) map[string]struct{} {
 			}
 		}
 	}
-	return set
+	return set, skipped
 }
 
 // extractDataValidations attaches data validation rules from the source
@@ -77,7 +81,12 @@ func (c *converter) extractDataValidations(f *excelize.File, sheetName string, s
 			dv.Prompt = *v.Prompt
 		}
 
-		for cellRef := range expandSqref(v.Sqref) {
+		cells, skipped := expandSqref(v.Sqref)
+		if len(skipped) > 0 {
+			c.logger.Warnf("Sheet %q: skipped %d malformed data-validation sqref group(s): %s",
+				sheetName, len(skipped), strings.Join(skipped, ", "))
+		}
+		for cellRef := range cells {
 			if cell, ok := sheet.Cells[cellRef]; ok {
 				cell.DataValidation = dv
 				sheet.Cells[cellRef] = cell

@@ -156,19 +156,6 @@ This shows:
 - Git operations
 - Performance metrics
 
-### Using the TUI
-
-The Terminal UI provides a visual way to monitor:
-```bash
-gitcells tui
-```
-
-Then select "Status Dashboard" to see:
-- Active watchers
-- Recent file changes
-- Conversion status
-- Error logs
-
 ## Best Practices
 
 ### 1. Directory Organization
@@ -335,5 +322,4 @@ When watching sensitive files:
 
 - Learn about [Converting Files](converting.md) manually
 - Set up [Git Integration](git-integration.md) for version control
-- Explore the [Terminal UI](tui.md) for visual monitoring
 - Check [Troubleshooting](troubleshooting.md) for common issues

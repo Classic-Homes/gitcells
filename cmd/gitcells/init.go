@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Classic-Homes/gitcells/internal/tui"
 	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -165,13 +164,6 @@ func newInitCommand(logger *logrus.Logger) *cobra.Command {
 		Long:  "Initialize GitCells configuration and Git repository in the specified directory",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Check if TUI mode is requested
-			useTUI, _ := cmd.Flags().GetBool("tui")
-			if useTUI {
-				logger.Info("Launching setup wizard in TUI mode...")
-				return tui.Run()
-			}
-
 			dir := "."
 			if len(args) > 0 {
 				dir = args[0]
@@ -248,6 +240,29 @@ Thumbs.db
 				logger.Info("Created .gitignore file")
 			}
 
+			// Create .gitattributes so JSON chunks stay LF-normalized across
+			// Windows/macOS/Linux. Without this, a Windows dev with
+			// core.autocrlf=true gets a CRLF rewrite on every chunk and the
+			// diffs become unreadable noise.
+			gitattributesPath := filepath.Join(absDir, ".gitattributes")
+			gitattributesContent := `# GitCells: keep JSON chunks LF-normalized so diffs are stable
+# across Windows / macOS / Linux. Excel sources are binary.
+.gitcells/data/** text eol=lf
+*.json text eol=lf
+*.xlsx binary
+*.xls binary
+*.xlsm binary
+`
+			err = timeoutOperation(ctx, logger, ".gitattributes creation", func() error {
+				return os.WriteFile(gitattributesPath, []byte(gitattributesContent), filePermissions)
+			})
+			if err != nil {
+				logger.Warnf("Failed to create .gitattributes: %v", err)
+				suggestSolution(err, absDir, logger)
+			} else {
+				logger.Info("Created .gitattributes file")
+			}
+
 			// Initialize git repo if requested
 			initGit, _ := cmd.Flags().GetBool("git")
 			if initGit {
@@ -299,6 +314,13 @@ Thumbs.db
 							logger.Warnf("Failed to add .gitignore to git: %v", err)
 						}
 
+						// Add .gitattributes to the initial commit. It must
+						// land before any JSON chunk does, otherwise the
+						// eol=lf rule won't apply on first commit.
+						if _, err := worktree.Add(".gitattributes"); err != nil {
+							logger.Warnf("Failed to add .gitattributes to git: %v", err)
+						}
+
 						// Check if there are changes to commit
 						status, err := worktree.Status()
 						if err != nil {
@@ -340,7 +362,6 @@ Thumbs.db
 
 	cmd.Flags().Bool("force", false, "overwrite existing configuration")
 	cmd.Flags().Bool("git", true, "initialize git repository")
-	cmd.Flags().Bool("tui", false, "use TUI setup wizard")
 
 	return cmd
 }

@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/Classic-Homes/gitcells/internal/constants"
-	"github.com/Classic-Homes/gitcells/internal/tui"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -34,13 +33,11 @@ func main() {
 		newDiffCommand(logger),
 		newUpdateCommand(logger),
 		newVersionCommand(logger),
-		newTUICommand(logger),
 	)
 
 	// Global flags
 	rootCmd.PersistentFlags().String("config", "", "config file (default: .gitcells.yaml)")
 	rootCmd.PersistentFlags().Bool("verbose", false, "enable verbose logging")
-	rootCmd.PersistentFlags().Bool("tui", false, "launch interactive TUI mode")
 
 	// Handle verbose flag
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
@@ -63,17 +60,4 @@ func setupLogger() *logrus.Logger {
 		DisableColors: false,
 	})
 	return logger
-}
-
-func newTUICommand(logger *logrus.Logger) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "tui",
-		Short: "Launch interactive TUI mode",
-		Long:  `Launch GitCells in Terminal User Interface mode for interactive operations`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			logger.Info("Launching GitCells TUI...")
-			return tui.Run()
-		},
-	}
-	return cmd
 }

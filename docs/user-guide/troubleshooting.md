@@ -10,7 +10,7 @@ Before diving into specific issues, try these quick fixes:
 2. **Check configuration**: `gitcells init --validate`
 3. **Restart watchers**: Stop with Ctrl+C and start again
 4. **Check permissions**: Ensure read/write access to directories
-5. **View error logs**: `gitcells tui` → Error Logs
+5. **View error logs**: `cat .gitcells/failures.log`
 
 ## Common Issues
 
@@ -278,38 +278,6 @@ chmod +x /path/to/gitcells
    export GOGC=50  # More aggressive GC
    ```
 
-### Terminal UI Issues
-
-#### Garbled Display
-
-**Problem**: TUI shows incorrect characters or layout.
-
-**Solutions**:
-
-1. **Set UTF-8 locale**:
-   ```bash
-   export LANG=en_US.UTF-8
-   export LC_ALL=en_US.UTF-8
-   ```
-
-2. **Check terminal**:
-   ```bash
-   echo $TERM
-   # Should be xterm-256color or similar
-   ```
-
-3. **Try different terminal**: iTerm2, Windows Terminal, etc.
-
-#### Can't Navigate
-
-**Problem**: Arrow keys don't work in TUI.
-
-**Solutions**:
-
-1. **Use alternative keys**: j/k for up/down
-2. **Check terminal settings**: Disable application keypad mode
-3. **Try different terminal emulator**
-
 ### Error Messages Explained
 
 #### "File locked by another process"
@@ -370,7 +338,7 @@ When reporting issues, include:
 
 3. **Error logs**:
    ```bash
-   gitcells tui  # → Error Logs → Export
+   cat .gitcells/failures.log
    ```
 
 4. **System info**:

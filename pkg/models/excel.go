@@ -35,7 +35,6 @@ type DocumentProperties struct {
 	Title       string `json:"title,omitempty"`
 	Subject     string `json:"subject,omitempty"`
 	Author      string `json:"author,omitempty"`
-	Company     string `json:"company,omitempty"`
 	Keywords    string `json:"keywords,omitempty"`
 	Description string `json:"description,omitempty"`
 }
@@ -48,7 +47,6 @@ type Sheet struct {
 	RowHeights   map[int]float64    `json:"row_heights,omitempty"`
 	ColumnWidths map[string]float64 `json:"column_widths,omitempty"`
 	Hidden       bool               `json:"hidden"`
-	Protection   *SheetProtection   `json:"protection,omitempty"`
 }
 
 type Cell struct {
@@ -136,23 +134,4 @@ type DataValidation struct {
 	Error            string `json:"error,omitempty"`
 	PromptTitle      string `json:"prompt_title,omitempty"`
 	Prompt           string `json:"prompt,omitempty"`
-}
-
-type SheetProtection struct {
-	Password            string `json:"password,omitempty"`
-	EditObjects         bool   `json:"edit_objects,omitempty"`
-	EditScenarios       bool   `json:"edit_scenarios,omitempty"`
-	FormatCells         bool   `json:"format_cells,omitempty"`
-	FormatColumns       bool   `json:"format_columns,omitempty"`
-	FormatRows          bool   `json:"format_rows,omitempty"`
-	InsertColumns       bool   `json:"insert_columns,omitempty"`
-	InsertRows          bool   `json:"insert_rows,omitempty"`
-	InsertHyperlinks    bool   `json:"insert_hyperlinks,omitempty"`
-	DeleteColumns       bool   `json:"delete_columns,omitempty"`
-	DeleteRows          bool   `json:"delete_rows,omitempty"`
-	SelectLockedCells   bool   `json:"select_locked_cells,omitempty"`
-	SelectUnlockedCells bool   `json:"select_unlocked_cells,omitempty"`
-	Sort                bool   `json:"sort,omitempty"`
-	AutoFilter          bool   `json:"auto_filter,omitempty"`
-	PivotTables         bool   `json:"pivot_tables,omitempty"`
 }

@@ -217,6 +217,64 @@ func TestDebouncer_MultipleKeysRapidFire(t *testing.T) {
 	mu.Unlock()
 }
 
+func TestDebouncer_DrainWaitsForInFlight(t *testing.T) {
+	// Drain must wait for callbacks already scheduled to fire, otherwise
+	// SIGTERM during an Excel save loses data.
+	debouncer := NewDebouncer(50 * time.Millisecond)
+
+	var ran int32
+	var mu sync.Mutex
+	for i := 0; i < 5; i++ {
+		key := fmt.Sprintf("file%d", i)
+		debouncer.Debounce(key, func() {
+			time.Sleep(80 * time.Millisecond) // simulate conversion work
+			mu.Lock()
+			ran++
+			mu.Unlock()
+		})
+	}
+
+	// Drain immediately, before any timer has fired.
+	dropped := debouncer.Drain(2 * time.Second)
+
+	mu.Lock()
+	got := ran
+	mu.Unlock()
+
+	assert.Equal(t, int32(5), got, "all pending callbacks must complete before Drain returns")
+	assert.Empty(t, dropped, "no callbacks should be force-cancelled within grace")
+}
+
+func TestDebouncer_DrainTimeoutReportsDropped(t *testing.T) {
+	debouncer := NewDebouncer(500 * time.Millisecond)
+
+	debouncer.Debounce("slow1", func() {})
+	debouncer.Debounce("slow2", func() {})
+
+	// Grace shorter than the debounce delay → both timers force-cancelled.
+	dropped := debouncer.Drain(50 * time.Millisecond)
+
+	assert.ElementsMatch(t, []string{"slow1", "slow2"}, dropped)
+}
+
+func TestDebouncer_DrainRefusesNewWork(t *testing.T) {
+	debouncer := NewDebouncer(20 * time.Millisecond)
+	debouncer.Drain(0)
+
+	var called bool
+	var mu sync.Mutex
+	debouncer.Debounce("post-drain", func() {
+		mu.Lock()
+		called = true
+		mu.Unlock()
+	})
+	time.Sleep(50 * time.Millisecond)
+
+	mu.Lock()
+	defer mu.Unlock()
+	assert.False(t, called, "Debounce after Drain must be a no-op")
+}
+
 func TestDebouncer_TimerCleanup(t *testing.T) {
 	debouncer := NewDebouncer(50 * time.Millisecond)
 

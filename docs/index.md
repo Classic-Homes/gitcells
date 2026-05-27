@@ -108,9 +108,6 @@ gitcells init
 ```bash
 # Watch current directory for changes
 gitcells watch .
-
-# Or use the interactive UI
-gitcells tui
 ```
 
 That's it! GitCells will now track all changes to your Excel files.

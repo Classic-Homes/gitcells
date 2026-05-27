@@ -2,7 +2,6 @@ package converter
 
 import (
 	"github.com/Classic-Homes/gitcells/internal/utils"
-	"github.com/xuri/excelize/v2"
 )
 
 // ExcelToJSONFile converts Excel to chunked JSON files
@@ -42,9 +41,7 @@ func (c *converter) JSONFileToExcel(inputPath, outputPath string, options Conver
 
 // GetExcelSheetNames returns the sheet names from an Excel file without processing the data
 func (c *converter) GetExcelSheetNames(filePath string) ([]string, error) {
-	// This method is implemented in excel_to_json.go, but since Go doesn't allow forward declarations,
-	// we'll implement it here to avoid circular calls
-	f, err := excelize.OpenFile(filePath)
+	f, err := openExcelWithRetry(filePath, excelOpenTimeout)
 	if err != nil {
 		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "GetExcelSheetNames", filePath, "failed to open Excel file")
 	}
