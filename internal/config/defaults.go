@@ -6,17 +6,15 @@ import (
 	"github.com/Classic-Homes/gitcells/internal/constants"
 )
 
-// GetDefault returns a Config struct with default values
+// GetDefault returns a Config populated with built-in defaults. Used when
+// no config file exists or the loader errored.
 func GetDefault() *Config {
 	return &Config{
 		Version: "1.0",
 		Git: GitConfig{
-			Branch:         "main",
-			AutoPush:       false,
-			AutoPull:       true,
-			UserName:       constants.DefaultGitUserName,
-			UserEmail:      constants.DefaultGitUserEmail,
-			CommitTemplate: constants.DefaultCommitTemplate,
+			Branch:    constants.DefaultGitBranch,
+			UserName:  constants.DefaultGitUserName,
+			UserEmail: constants.DefaultGitUserEmail,
 		},
 		Watcher: WatcherConfig{
 			Directories:    []string{},
@@ -30,19 +28,8 @@ func GetDefault() *Config {
 			PreserveComments: true,
 			CompactJSON:      false,
 			IgnoreEmptyCells: true,
-			MaxCellsPerSheet: 1000000,
-		},
-		Features: FeaturesConfig{
-			EnableExperimentalFeatures: false,
-			EnableBetaUpdates:          false,
-			EnableTelemetry:            true,
-		},
-		Updates: UpdatesConfig{
-			AutoCheckUpdates:    true,
-			CheckInterval:       24 * time.Hour,
-			IncludePrereleases:  false,
-			AutoDownloadUpdates: false,
-			NotifyOnUpdate:      true,
+			MaxCellsPerSheet: DefaultMaxCellsPerSheet,
+			ChunkingStrategy: "sheet-based",
 		},
 	}
 }

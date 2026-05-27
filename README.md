@@ -16,21 +16,37 @@
   <a href="https://github.com/Classic-Homes/gitcells/actions"><img src="https://img.shields.io/github/actions/workflow/status/Classic-Homes/gitcells/ci.yml" alt="Build Status"></a>
 </p>
 
-GitCells seamlessly bridges Excel and Git, enabling true version control for spreadsheets. It automatically converts Excel files to human-readable JSON for diffing and merging, then restores them to native Excel format for editing. No more binary conflicts, lost formulas, or overwritten work.
+GitCells bridges Excel and Git, enabling version control for spreadsheets. It converts Excel files to human-readable JSON for diffing and merging, then restores them to native Excel format for editing. No more binary conflicts, lost formulas, or overwritten work.
+
+GitCells pairs well with GUI Git clients like GitHub Desktop — it focuses on the watch → convert → commit pipeline and leaves general Git operations (push, pull, branch, merge) to dedicated tools.
+
+## Scope
+
+**Preserved on round-trip:**
+
+- Cell values, formulas (A1 style)
+- Basic styling: fonts, fills, borders, alignment, number formats
+- Merged cells, comments, hyperlinks, data validation
+- Multi-sheet workbooks, unicode sheet names
+
+**NOT preserved (logged as a warning per sheet at conversion time):**
+
+- Charts, pivot tables, conditional formatting, tables (ListObjects)
+- Rich-text-per-run formatting, R1C1 formulas, array formula spill ranges
+- Embedded pictures, macros, VBA
+
+If your workbook depends on those, GitCells commits the cells and skips the rest — the conversion log names what was dropped.
 
 ## Features
 
-- **Excel ↔ JSON Conversion**: Converts Excel files to structured JSON that preserves formulas, styles, comments, and merged cells
-- **Interactive TUI**: Beautiful terminal user interface for setup, monitoring, and configuration
-- **Smart Chunking**: Automatically splits large workbooks into manageable chunks for optimal Git performance
-- **Version Control**: Full Git integration with automatic commits and conflict resolution
-- **File Watching**: Automatically monitors directories for Excel file changes with intelligent debouncing
-- **Diff Generation**: Human-readable diffs showing exactly what changed between Excel versions
-- **Self-Updating**: Built-in update system to keep GitCells current with latest releases
-- **Cross-Platform**: Works on Windows, macOS, and Linux
-- **Formula Preservation**: Maintains Excel formulas and calculations during conversion
-- **Smart Conflict Resolution**: Intelligent merging strategies for concurrent edits
-- **Error Tracking**: Comprehensive error logging and troubleshooting tools
+- **Excel ↔ JSON Conversion**: Converts Excel files to structured JSON
+- **Smart Chunking**: Splits workbooks per-sheet for clean Git diffs; sheet-name collisions are disambiguated with a content hash
+- **File Watching**: Monitors directories with cross-platform-aware debouncing — handles Excel's atomic save sequence (write-temp / rename-over / unlink) on Windows, macOS, and Linux
+- **Git Integration**: Auto-commits converted JSON; concurrent saves are serialized to prevent `index.lock` corruption
+- **Minimal TUI**: Single-screen dashboard with watcher start/stop, sync status, files list, activity log
+- **Diff Generation**: Text or JSON diffs between Excel files
+- **Update Check**: `gitcells version --check-update` reports new releases — install via your package manager or the release page (no in-place self-replace)
+- **Cross-Platform**: Windows, macOS, Linux all CI-tested per commit
 
 ## Installation
 
@@ -73,35 +89,21 @@ make install
 
 ## Updating GitCells
 
-GitCells includes a self-update feature that handles permission issues gracefully:
+GitCells does NOT self-replace its binary (Windows file locks make that unreliable). Use:
 
 ```bash
-# Check for updates
-gitcells update --check
+# Check for a newer release
+gitcells version --check-update
 
-# Update to latest version
+# Or: gitcells update (prints download URL + release notes)
 gitcells update
-
-# If installed in a system directory, GitCells will prompt for elevated permissions
 ```
+
+Install the new version via your package manager, the install script, or by downloading the binary from [Releases](https://github.com/Classic-Homes/gitcells/releases).
 
 ## Quick Start
 
-### Interactive Setup (Recommended)
-
-```bash
-gitcells tui
-```
-
-The interactive TUI guides you through:
-- Initial repository setup
-- Excel file discovery and configuration
-- Git integration setup
-- Watch directory configuration
-
-### Command Line Usage
-
-#### 1. Initialize GitCells in your project
+### 1. Initialize GitCells in your project
 
 ```bash
 cd your-excel-project
@@ -110,7 +112,7 @@ gitcells init
 
 This creates a `.gitcells.yaml` configuration file and sets up Git if needed.
 
-#### 2. Convert Excel files to JSON
+### 2. Convert Excel files to JSON
 
 ```bash
 # Convert a single file
@@ -123,7 +125,7 @@ gitcells convert *.xlsx
 gitcells convert --preserve-styles --preserve-comments data.xlsx
 ```
 
-#### 3. Watch directories for automatic conversion
+### 3. Watch directories for automatic conversion
 
 ```bash
 # Watch current directory
@@ -136,45 +138,44 @@ gitcells watch ./data ./reports
 gitcells watch --auto-commit ./spreadsheets
 ```
 
-#### 4. Check synchronization status
+### 4. Check synchronization status
 
 ```bash
 gitcells status
 ```
 
-#### 5. Manually sync with Git
+### 5. Manually sync with Git
 
 ```bash
 gitcells sync
 ```
 
-### Self-Update
+### Check for updates
 
 ```bash
-# Check for updates
-gitcells update --check
+# Print download URL if newer release available
+gitcells version --check-update
 
-# Update to latest version
+# Same, but include pre-releases
+gitcells version --check-update --prerelease
+
+# `gitcells update` is equivalent + prints release notes
 gitcells update
-
-# Include pre-release versions
-gitcells update --prerelease
 ```
+
+GitCells does not replace its own binary — install the new release via your package manager or by downloading from GitHub Releases.
 
 ## Configuration
 
-GitCells uses a `.gitcells.yaml` configuration file. Here's a comprehensive example:
+GitCells uses a `.gitcells.yaml` configuration file:
 
 ```yaml
-version: 1.0
+version: "1.0"
 
 git:
   branch: main
-  auto_push: false
-  auto_pull: true
   user_name: "GitCells"
   user_email: "gitcells@yourcompany.com"
-  commit_template: "GitCells: {action} {filename} at {timestamp}"
 
 watcher:
   directories:
@@ -184,7 +185,7 @@ watcher:
     - "~$*"           # Excel temp files
     - "*.tmp"         # Temporary files
     - ".~lock.*"      # LibreOffice lock files
-  debounce_delay: 2s  # Wait 2 seconds before processing changes
+  debounce_delay: 2s  # Wait before processing changes (must exceed Excel save time)
   file_extensions:
     - ".xlsx"
     - ".xls"
@@ -192,11 +193,12 @@ watcher:
 
 converter:
   preserve_formulas: true     # Keep Excel formulas
-  preserve_styles: true      # Keep cell formatting
-  preserve_comments: true    # Keep cell comments
-  compact_json: false        # Use pretty-printed JSON
-  ignore_empty_cells: true   # Skip empty cells in JSON
+  preserve_styles: true       # Keep cell formatting
+  preserve_comments: true     # Keep cell comments
+  compact_json: false         # Use pretty-printed JSON
+  ignore_empty_cells: true    # Skip empty cells in JSON
   max_cells_per_sheet: 1000000  # Memory protection
+  chunking_strategy: sheet-based
 ```
 
 ## Command Reference
@@ -205,24 +207,20 @@ converter:
 
 - `--config`: Specify config file path (default: `.gitcells.yaml`)
 - `--verbose`: Enable verbose logging
-- `--tui`: Launch interactive TUI mode
+- `--tui`: Launch the dashboard TUI
 - `--help`: Show help information
 
 ### Commands
 
 #### `gitcells tui`
 
-Launch the interactive Terminal User Interface for guided operations.
+Launch the dashboard TUI. Single screen showing sync status, tracked files, recent activity, and a watcher start/stop toggle.
 
 ```bash
 gitcells tui
 ```
 
-The TUI provides:
-- **Setup Wizard**: Configure GitCells for your repository
-- **Status Dashboard**: Monitor Excel file tracking and conversions
-- **Settings Management**: Update, configure, and manage GitCells
-- **Error Logs**: View and troubleshoot application errors
+Keys: `w` toggle watcher, `r` refresh, `tab` switch tab, `q` quit.
 
 #### `gitcells init`
 
@@ -310,15 +308,13 @@ gitcells diff [file] [flags]
 
 #### `gitcells update`
 
-Update GitCells to the latest version.
+Print latest release info + download URL. Does not self-replace.
 
 ```bash
 gitcells update [flags]
 ```
 
 **Options:**
-- `--check`: Check for updates without installing
-- `--force`: Update without confirmation
 - `--prerelease`: Include pre-release versions
 
 #### `gitcells version`
@@ -350,13 +346,17 @@ GitCells supports the following Excel features:
 - **Data Validation**: Cell validation rules
 - **Hyperlinks**: Links to URLs or other cells
 
-### ⚠️ Limitations
+### ⚠️ Not Preserved (logged as warnings per sheet)
 
-- **Charts and Graphs**: Not preserved in JSON format
-- **Pivot Tables**: Structure preserved, but may need refresh
-- **Macros**: VBA macros are not converted
-- **External Links**: Links to other files may break
-- **Images**: Embedded images are not preserved
+- **Charts and Graphs**: Skipped
+- **Pivot Tables**: Skipped (structure was previously extracted but never rebuilt — silent data loss)
+- **Conditional Formatting**: Skipped (style portion never round-tripped)
+- **Tables (ListObjects)**: Skipped (column definitions incomplete in excelize)
+- **Rich-Text-Per-Run**: Cell-level styles preserved, per-run formatting dropped
+- **Macros / VBA**: Not converted
+- **R1C1 Formulas**: Not yet supported by excelize
+- **Embedded Images**: Skipped
+- **External Links**: May break on rebuild
 
 ## JSON Format
 
@@ -453,26 +453,11 @@ gitcells watch --auto-commit ./data
 
 ### Commit Messages
 
-Customize commit messages using templates in your config:
-
-```yaml
-git:
-  commit_template: "GitCells: {action} {filename} at {timestamp}"
-```
-
-Available variables:
-- `{action}`: Type of change (create, modify, delete)
-- `{filename}`: Name of the changed file
-- `{timestamp}`: ISO timestamp of the change
-- `{branch}`: Current Git branch
+Commit messages are auto-generated as `GitCells: <event> <filename>` (for watch) or `GitCells: synchronized N Excel file(s)` (for sync). Customization is intentionally not supported — pair GitCells with a Git GUI if you want to rewrite messages.
 
 ### Conflict Resolution
 
-GitCells includes intelligent conflict resolution for concurrent edits:
-
-1. **Smart Merge**: Attempts to merge non-conflicting changes automatically
-2. **Timestamp Resolution**: Uses the most recent version when smart merge fails
-3. **Manual Resolution**: Provides clear conflict markers for manual resolution
+GitCells does not include built-in merge tools. Use your Git client (GitHub Desktop, VS Code, `git mergetool`) to resolve JSON chunk conflicts the same way you would any text file. Per-sheet chunk files keep conflicts narrow.
 
 ## Integration with Development Workflows
 
@@ -567,15 +552,6 @@ project/
 
 ## Troubleshooting
 
-### Interactive Error Viewer
-
-Use the TUI to view and diagnose errors:
-
-```bash
-gitcells tui
-# Select "Error Logs" from the menu
-```
-
 ### Common Issues
 
 **1. Permission Denied**
@@ -606,10 +582,8 @@ converter:
 ```
 
 **4. Git Conflicts**
-```bash
-# Solution: Use GitCells's conflict resolution
-gitcells sync --resolve-conflicts
-```
+
+Resolve JSON chunk conflicts the same way you would any text file — use your Git client (GitHub Desktop, VS Code, `git mergetool`).
 
 ### Debug Mode
 
@@ -617,17 +591,6 @@ Enable verbose logging for troubleshooting:
 
 ```bash
 gitcells --verbose watch .
-```
-
-### Log Files
-
-GitCells maintains detailed logs for troubleshooting:
-- Linux/macOS: `~/.local/share/gitcells/logs/`
-- Windows: `%APPDATA%/gitcells/logs/`
-
-View recent errors:
-```bash
-gitcells tui  # Select "Error Logs"
 ```
 
 ## Contributing
@@ -708,7 +671,7 @@ GitCells is built with a modular architecture:
 - **Documentation**: [Full Documentation](https://gitcells.com/docs) | Run locally: `./scripts/serve-docs.sh`
 - **Issues**: [GitHub Issues](https://github.com/Classic-Homes/gitcells/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/Classic-Homes/gitcells/discussions)
-- **Quick Start**: Launch `gitcells tui` for interactive help
+- **Quick Start**: Run `gitcells init` then `gitcells watch .`
 
 ---
 

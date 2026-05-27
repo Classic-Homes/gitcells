@@ -1,6 +1,8 @@
 package converter
 
 import (
+	"crypto/sha1" // #nosec G505 - filename disambiguation, not security
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -140,7 +142,7 @@ func (s *SheetBasedChunking) WriteChunks(doc *models.ExcelDocument, basePath str
 
 	// Write individual sheet files
 	for _, sheet := range doc.Sheets {
-		sheetFile := filepath.Join(chunkDir, s.sanitizeFilename(fmt.Sprintf("sheet_%s.json", sheet.Name)))
+		sheetFile := filepath.Join(chunkDir, s.sheetChunkFilename(sheet.Name))
 
 		// Create a document with just this sheet
 		sheetDoc := &SheetChunk{
@@ -317,21 +319,34 @@ func (s *SheetBasedChunking) writeJSONFile(path string, data interface{}, compac
 	return os.WriteFile(path, jsonData, constants.FilePermissions)
 }
 
-func (s *SheetBasedChunking) sanitizeFilename(name string) string {
-	// Replace invalid filename characters
-	replacer := strings.NewReplacer(
-		"/", "_",
-		"\\", "_",
-		":", "_",
-		"*", "_",
-		"?", "_",
-		"\"", "_",
-		"<", "_",
-		">", "_",
-		"|", "_",
-		" ", "_",
-	)
-	return replacer.Replace(name)
+// filenameReplacer strips filesystem-hostile chars to underscores. Same set
+// across all platforms so chunk filenames are portable Win/Mac/Linux.
+var filenameReplacer = strings.NewReplacer(
+	"/", "_",
+	"\\", "_",
+	":", "_",
+	"*", "_",
+	"?", "_",
+	"\"", "_",
+	"<", "_",
+	">", "_",
+	"|", "_",
+	" ", "_",
+)
+
+// sheetChunkFilename builds the on-disk JSON filename for a sheet. When
+// sanitization changes the name, a short content-hash suffix is appended so
+// adversarial names like "A B" and "A_B" don't collide and silently
+// overwrite each other. The original sheet name is preserved inside the
+// chunk payload (SheetChunk.Sheet.Name), so the suffix is purely for
+// filename uniqueness.
+func (s *SheetBasedChunking) sheetChunkFilename(sheetName string) string {
+	sanitized := filenameReplacer.Replace(sheetName)
+	if sanitized == sheetName {
+		return fmt.Sprintf("sheet_%s.json", sanitized)
+	}
+	sum := sha1.Sum([]byte(sheetName)) // #nosec G401 - collision-resistance only, not auth
+	return fmt.Sprintf("sheet_%s_%s.json", sanitized, hex.EncodeToString(sum[:])[:6])
 }
 
 func (s *SheetBasedChunking) getRelativeChunkFiles(baseDir string, fullPaths []string) []string {
@@ -342,4 +357,3 @@ func (s *SheetBasedChunking) getRelativeChunkFiles(baseDir string, fullPaths []s
 	}
 	return relativePaths
 }
-

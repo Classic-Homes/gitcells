@@ -210,10 +210,9 @@ func compareCells(oldCells, newCells map[string]Cell) []CellChange {
 
 // cellsAreDifferent checks if two cells are different.
 //
-// Style, data validation, array formula metadata and rich text are included
-// because the JSON is meant to capture full Excel state — diff was previously
-// silent on style-only edits which made formatting changes invisible to users
-// inspecting commits.
+// Style and data validation are included because the JSON is meant to
+// capture full Excel state — diff was previously silent on style-only
+// edits which made formatting changes invisible to users inspecting commits.
 func cellsAreDifferent(old, updated *Cell) bool {
 	if !reflect.DeepEqual(old.Value, updated.Value) {
 		return true
@@ -240,12 +239,6 @@ func cellsAreDifferent(old, updated *Cell) bool {
 		return true
 	}
 	if !reflect.DeepEqual(old.DataValidation, updated.DataValidation) {
-		return true
-	}
-	if !reflect.DeepEqual(old.ArrayFormula, updated.ArrayFormula) {
-		return true
-	}
-	if !reflect.DeepEqual(old.RichText, updated.RichText) {
 		return true
 	}
 

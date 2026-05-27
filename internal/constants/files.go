@@ -80,9 +80,6 @@ const (
 	DefaultGitUserName  = "GitCells"
 	DefaultGitUserEmail = "gitcells@localhost"
 	DefaultGitBranch    = "main"
-
-	// Default commit template
-	DefaultCommitTemplate = "GitCells: {action} {filename} at {timestamp}"
 )
 
 // File extension lists

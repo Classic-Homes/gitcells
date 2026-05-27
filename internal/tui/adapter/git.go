@@ -52,3 +52,13 @@ func (ga *GitAdapter) CommitFiles(files []string, message string) error {
 	}
 	return ga.client.AutoCommit(files, message)
 }
+
+// GetCurrentBranch returns the short name of HEAD. Returns "" when not in
+// a repo or when HEAD is detached/uninitialized — callers should treat
+// empty as "unknown" rather than an error.
+func (ga *GitAdapter) GetCurrentBranch() (string, error) {
+	if ga.client == nil {
+		return "", nil
+	}
+	return ga.client.CurrentBranch()
+}

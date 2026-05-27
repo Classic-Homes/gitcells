@@ -95,7 +95,6 @@ func TestConfigurationLoading(t *testing.T) {
 version: "1.0"
 git:
   branch: test-branch
-  auto_push: true
   user_name: "Test User"
   user_email: "test@example.com"
 watcher:
@@ -117,7 +116,6 @@ converter:
 	// Verify configuration values
 	assert.Equal(t, "1.0", cfg.Version)
 	assert.Equal(t, "test-branch", cfg.Git.Branch)
-	assert.True(t, cfg.Git.AutoPush)
 	assert.Equal(t, "Test User", cfg.Git.UserName)
 	assert.Equal(t, "test@example.com", cfg.Git.UserEmail)
 	assert.Equal(t, "5s", cfg.Watcher.DebounceDelay.String())

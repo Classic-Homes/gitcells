@@ -18,8 +18,19 @@ func (c *converter) JSONToExcel(doc *models.ExcelDocument, outputPath string, op
 	f := excelize.NewFile()
 	defer func() { _ = f.Close() }()
 
-	// Remove default sheet
-	_ = f.DeleteSheet("Sheet1")
+	// excelize.NewFile() always seeds a "Sheet1". We can't delete it up
+	// front (excelize refuses to delete the last sheet) so we postpone
+	// until after the requested sheets are created. If the document
+	// happens to define a "Sheet1" of its own, the loop below populates
+	// it instead of leaving the placeholder.
+	const defaultSheetName = "Sheet1"
+	docHasDefaultSheet := false
+	for _, s := range doc.Sheets {
+		if s.Name == defaultSheetName {
+			docHasDefaultSheet = true
+			break
+		}
+	}
 
 	// Process each sheet
 	for _, sheet := range doc.Sheets {
@@ -120,6 +131,15 @@ func (c *converter) JSONToExcel(doc *models.ExcelDocument, outputPath string, op
 			if err != nil {
 				c.logger.Warnf("Failed to set row height for %d: %v", row, err)
 			}
+		}
+	}
+
+	// Remove the placeholder default sheet now that real sheets exist
+	// (excelize refuses to delete the last sheet, hence the post-loop
+	// timing).
+	if !docHasDefaultSheet && len(doc.Sheets) > 0 {
+		if err := f.DeleteSheet(defaultSheetName); err != nil {
+			c.logger.Debugf("DeleteSheet(%s) failed (probably already gone): %v", defaultSheetName, err)
 		}
 	}
 

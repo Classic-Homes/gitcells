@@ -1,3 +1,36 @@
+// Package watcher provides cross-platform file system monitoring for
+// Excel files. It is the entry point for the watch → convert → commit
+// pipeline and must behave consistently on Windows, macOS, and Linux.
+//
+// Filesystem assumptions this package relies on (and that the next
+// maintainer should NOT regress):
+//
+//   - Excel saves atomically on every OS. The full sequence is roughly:
+//     write `~$tmp.xlsx` → rename over the target → unlink the temp.
+//     fsnotify emits Create + Write + Rename + Remove for what the user
+//     experiences as a single "save". The debounce window (cfg.Watcher.
+//     DebounceDelay, default 2s) must exceed typical save duration so all
+//     of those events collapse into one handler call.
+//
+//   - Classifying by the *last* fsnotify Op bit produces false deletes
+//     (an atomic-replace Rename arrives last). We instead os.Stat the
+//     path at the end of the debounce window: present → Modify, gone →
+//     Delete. See processEvents.
+//
+//   - fsnotify quirks per OS:
+//
+//   - Linux (inotify) coalesces rapid events; ordering is preserved
+//     but counts collapse.
+//
+//   - macOS (FSEvents) is lossy — fsnotify masks this by polling, but
+//     counts collapse and timestamps lag. Debounce window absorbs it.
+//
+//   - Windows (ReadDirectoryChangesW) splits a Rename into a CREATE on
+//     the destination and a REMOVE on the source. We treat REMOVE on
+//     a still-present path as a no-op via the stat check above.
+//
+//   - Excel lock files (`~$*.xlsx`, `.~lock.*`) are ignored at filter
+//     time. Dot-files and anything under `.git/` are also skipped.
 package watcher
 
 import (
@@ -161,22 +194,35 @@ func (fw *FileWatcher) processEvents() {
 						Timestamp: time.Now(),
 					}
 
-					// Check operations in priority order
-					// Create events can sometimes include Write, so check Create first
+					// Classify by current filesystem state, not by the last
+					// fsnotify op bit. Excel saves atomically on every OS
+					// (write-to-temp, rename-over-target, remove-temp), which
+					// fires Create+Write+Rename+Remove for the *same* logical
+					// "modify". Trusting the last op produces false deletes.
+					//
+					// If the file exists now (after the debounce window), it
+					// was created or modified — treat as Modify (Create is just
+					// a special-case Modify from a converter's perspective).
+					// If gone, it was deleted or renamed away.
+					info, statErr := os.Stat(event.Name)
 					switch {
-					case event.Op&fsnotify.Create == fsnotify.Create:
-						fileEvent.Type = EventTypeCreate
-						// If a directory was created, watch it
-						if info, err := os.Stat(event.Name); err == nil && info.IsDir() {
-							_ = fw.AddDirectory(event.Name)
-						}
-					case event.Op&fsnotify.Write == fsnotify.Write:
+					case statErr == nil && info.IsDir():
+						// New directory appeared inside a watched tree.
+						_ = fw.AddDirectory(event.Name)
+						return
+					case statErr == nil:
 						fileEvent.Type = EventTypeModify
-					case event.Op&fsnotify.Remove == fsnotify.Remove:
+					case os.IsNotExist(statErr):
+						// Only emit Delete if the originating op was actually
+						// a remove/rename. A spurious Stat miss on a write
+						// (rare, but possible mid-rename on Windows) should
+						// not nuke chunks.
+						if event.Op&(fsnotify.Remove|fsnotify.Rename) == 0 {
+							return
+						}
 						fileEvent.Type = EventTypeDelete
-					case event.Op&fsnotify.Rename == fsnotify.Rename:
-						fileEvent.Type = EventTypeDelete // Treat rename as delete for simplicity
 					default:
+						fw.logger.Debugf("Skipping event for %s: stat error: %v", event.Name, statErr)
 						return
 					}
 

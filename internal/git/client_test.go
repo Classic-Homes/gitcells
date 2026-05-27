@@ -254,14 +254,12 @@ func TestClient_InGitRepository(t *testing.T) {
 func TestConfig(t *testing.T) {
 	t.Run("config struct fields", func(t *testing.T) {
 		config := &Config{
-			UserName:       "John Doe",
-			UserEmail:      "john@example.com",
-			CommitTemplate: "GitCells: ${files}",
+			UserName:  "John Doe",
+			UserEmail: "john@example.com",
 		}
 
 		assert.Equal(t, "John Doe", config.UserName)
 		assert.Equal(t, "john@example.com", config.UserEmail)
-		assert.Equal(t, "GitCells: ${files}", config.CommitTemplate)
 	})
 }
 

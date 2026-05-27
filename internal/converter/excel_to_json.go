@@ -132,17 +132,9 @@ func (c *converter) processSheet(f *excelize.File, sheetName string, index int, 
 
 			cellRef, _ := excelize.CoordinatesToCellName(colIndex+1, rowIndex+1)
 
-			// Get enhanced formula information if requested
-			var formula, formulaR1C1 string
-			var arrayFormula *models.ArrayFormula
+			var formula string
 			if options.PreserveFormulas {
-				var err error
-				formula, formulaR1C1, arrayFormula, err = c.extractEnhancedFormulaInfo(f, sheetName, cellRef)
-				if err != nil {
-					c.logger.Debugf("Failed to extract formula info for %s: %v", cellRef, err)
-					// Fallback to basic formula extraction
-					formula, _ = f.GetCellFormula(sheetName, cellRef)
-				}
+				formula, _ = f.GetCellFormula(sheetName, cellRef)
 			}
 
 			// Skip empty cells if option is set, BUT NOT if cell has a formula
@@ -150,7 +142,6 @@ func (c *converter) processSheet(f *excelize.File, sheetName string, index int, 
 				continue
 			}
 
-			// Start with string value from rows
 			var cellVal interface{} = cellValue
 			cellType := c.detectCellType(cellValue, formula)
 
@@ -162,11 +153,9 @@ func (c *converter) processSheet(f *excelize.File, sheetName string, index int, 
 			}
 
 			cell := models.Cell{
-				Value:        cellVal,
-				Type:         cellType,
-				Formula:      formula,
-				FormulaR1C1:  formulaR1C1,
-				ArrayFormula: arrayFormula,
+				Value:   cellVal,
+				Type:    cellType,
+				Formula: formula,
 			}
 
 			// Get style if requested
@@ -208,69 +197,19 @@ func (c *converter) processSheet(f *excelize.File, sheetName string, index int, 
 		})
 	}
 
-	// Extract charts if requested
-	if options.PreserveCharts {
-		charts, err := c.extractCharts(f, sheetName)
-		if err != nil {
-			c.logger.Warnf("Failed to extract charts from sheet %s: %v", sheetName, err)
-		} else {
-			sheet.Charts = charts
-		}
+	// Data validation is always extracted — it round-trips cleanly and is
+	// common enough in templates that dropping it would be surprising.
+	if err := c.extractDataValidations(f, sheetName, sheet); err != nil {
+		c.logger.Warnf("Failed to extract data validations from sheet %s: %v", sheetName, err)
 	}
 
-	// Extract pivot tables if requested
-	if options.PreservePivotTables {
-		pivotTables, err := c.extractPivotTables(f, sheetName)
-		if err != nil {
-			c.logger.Warnf("Failed to extract pivot tables from sheet %s: %v", sheetName, err)
-		} else {
-			sheet.PivotTables = pivotTables
-		}
-	}
-
-	// Extract data validations if requested
-	if options.PreserveDataValidation {
-		if err := c.extractDataValidations(f, sheetName, sheet); err != nil {
-			c.logger.Warnf("Failed to extract data validations from sheet %s: %v", sheetName, err)
-		}
-	}
-
-	// Extract conditional formatting if requested
-	if options.PreserveConditionalFormats {
-		if conditionalFormats, err := c.extractConditionalFormats(f, sheetName); err != nil {
-			c.logger.Warnf("Failed to extract conditional formats from sheet %s: %v", sheetName, err)
-		} else {
-			sheet.ConditionalFormats = conditionalFormats
-		}
-	}
-
-	// Extract tables if requested
-	if options.PreserveTables {
-		if tables, err := c.extractTables(f, sheetName); err != nil {
-			c.logger.Warnf("Failed to extract tables from sheet %s: %v", sheetName, err)
-		} else {
-			sheet.Tables = tables
-		}
-	}
-
-	// Extract rich text for cells if requested
-	if options.PreserveRichText {
-		for cellRef, cell := range sheet.Cells {
-			if richText, err := c.extractRichText(f, sheetName, cellRef); err == nil && len(richText) > 0 {
-				cell.RichText = richText
-				sheet.Cells[cellRef] = cell
-			}
-		}
-	}
+	// Tell the user what we deliberately did NOT preserve from the source.
+	c.warnAboutUnsupportedFeatures(f, sheetName)
 
 	c.logger.WithFields(map[string]interface{}{
-		"sheet":               sheetName,
-		"total_cells":         len(sheet.Cells),
-		"merged_cells":        len(sheet.MergedCells),
-		"charts":              len(sheet.Charts),
-		"pivot_tables":        len(sheet.PivotTables),
-		"conditional_formats": len(sheet.ConditionalFormats),
-		"tables":              len(sheet.Tables),
+		"sheet":        sheetName,
+		"total_cells":  len(sheet.Cells),
+		"merged_cells": len(sheet.MergedCells),
 	}).Debug("Sheet processing completed")
 
 	return sheet, nil

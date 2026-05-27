@@ -32,11 +32,6 @@ func newWatchCommand(logger *logrus.Logger) *cobra.Command {
 
 			// Override config with command flags
 			autoCommit, _ := cmd.Flags().GetBool("auto-commit")
-			autoPush, _ := cmd.Flags().GetBool("auto-push")
-
-			if cmd.Flags().Changed("auto-push") {
-				cfg.Git.AutoPush = autoPush
-			}
 
 			// Initialize components
 			conv := converter.NewConverter(logger)
@@ -131,7 +126,6 @@ func newWatchCommand(logger *logrus.Logger) *cobra.Command {
 	}
 
 	cmd.Flags().Bool("auto-commit", true, "automatically commit changes to git")
-	cmd.Flags().Bool("auto-push", false, "automatically push commits to remote")
 
 	return cmd
 }

@@ -11,21 +11,16 @@ import (
 )
 
 func newUpdateCommand(logger *logrus.Logger) *cobra.Command {
-	var checkOnly bool
-	var force bool
 	var prerelease bool
 
 	cmd := &cobra.Command{
 		Use:   "update",
-		Short: "Update GitCells to the latest version",
-		Long: `Check for and install the latest version of GitCells from GitHub releases.
-		
-This command will:
-- Check GitHub for the latest release
-- Download and verify the update
-- Replace the current binary with the new version
-
-Use --prerelease to include pre-release versions as update targets.`,
+		Short: "Check for a newer GitCells release",
+		Long: `Check GitHub for a newer release of GitCells and print download
+instructions. GitCells does NOT self-replace its binary — install
+updates with your package manager or by downloading from the
+release page (locked-binary issues on Windows make in-place
+self-updates unreliable).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			u := updater.NewWithPrerelease(constants.Version, prerelease)
 
@@ -36,62 +31,32 @@ Use --prerelease to include pre-release versions as update targets.`,
 			}
 
 			if !hasUpdate {
-				if prerelease {
-					fmt.Printf("GitCells is already up to date (constants.Version %s, including pre-releases)\n", constants.Version)
-				} else {
-					fmt.Printf("GitCells is already up to date (constants.Version %s)\n", constants.Version)
-				}
+				fmt.Printf("GitCells is up to date (version %s)\n", constants.Version)
 				return nil
 			}
 
-			fmt.Printf("New constants.Version available: %s -> %s\n", constants.Version, release.TagName)
+			fmt.Printf("New version available: %s -> %s\n", constants.Version, release.TagName)
 			if release.Prerelease {
-				fmt.Printf("⚠️  Pre-release: %s\n", release.Name)
-			} else {
-				fmt.Printf("Release: %s\n", release.Name)
+				fmt.Printf("Pre-release: %s\n", release.Name)
 			}
-
 			if release.Body != "" {
-				fmt.Printf("Release Notes:\n%s\n\n", release.Body)
+				fmt.Printf("\nRelease notes:\n%s\n", release.Body)
 			}
-
-			if checkOnly {
-				fmt.Println("Use 'gitcells update' without --check to install the update")
-				return nil
-			}
-
-			if !force {
-				fmt.Print("Do you want to update? (y/N): ")
-				var response string
-				if _, err := fmt.Scanln(&response); err != nil {
-					fmt.Println("Update cancelled")
-					return nil
-				}
-				if response != "y" && response != "Y" && response != "yes" && response != "Yes" {
-					fmt.Println("Update cancelled")
-					return nil
-				}
-			}
-
-			logger.Info("Downloading and installing update...")
-			fmt.Printf("Updating GitCells from %s to %s...\n", constants.Version, release.TagName)
-
-			if err := u.Update(release); err != nil {
-				return utils.WrapError(err, utils.ErrorTypeNetwork, "update", "failed to update")
-			}
-
-			fmt.Printf("✅ Successfully updated to version %s\n", release.TagName)
-			fmt.Println("Please restart GitCells to use the new version")
-
+			fmt.Printf("\nDownload: %s\n", releaseURL(release))
+			fmt.Println("Or install via your package manager.")
 			return nil
 		},
 	}
 
-	cmd.Flags().BoolVar(&checkOnly, "check", false, "Only check for updates, don't install")
-	cmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt and update automatically")
-	cmd.Flags().BoolVar(&prerelease, "prerelease", false, "Include pre-release versions as update targets")
-
+	cmd.Flags().BoolVar(&prerelease, "prerelease", false, "Include pre-release versions")
 	return cmd
+}
+
+func releaseURL(r *updater.GitHubRelease) string {
+	if r != nil && r.HTMLURL != "" {
+		return r.HTMLURL
+	}
+	return updater.ReleasePageURL()
 }
 
 func newVersionCommand(logger *logrus.Logger) *cobra.Command {
@@ -101,7 +66,7 @@ func newVersionCommand(logger *logrus.Logger) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "Show version information",
-		Long:  `Display the current version of GitCells and optionally check for updates`,
+		Long:  `Display the current version of GitCells and optionally check for updates.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Printf("GitCells version %s (built %s)\n", constants.Version, constants.BuildTime)
 
@@ -116,28 +81,22 @@ func newVersionCommand(logger *logrus.Logger) *cobra.Command {
 				}
 
 				if hasUpdate {
+					tag := release.TagName
 					if release.Prerelease {
-						fmt.Printf("📦 New pre-release available: %s\n", release.TagName)
-						fmt.Println("Run 'gitcells update --prerelease' to install the latest pre-release")
+						fmt.Printf("New pre-release available: %s\n", tag)
 					} else {
-						fmt.Printf("📦 New version available: %s\n", release.TagName)
-						fmt.Println("Run 'gitcells update' to install the latest version")
+						fmt.Printf("New version available: %s\n", tag)
 					}
+					fmt.Printf("Download: %s\n", releaseURL(release))
 				} else {
-					if prerelease {
-						fmt.Println("✅ You are running the latest version (including pre-releases)")
-					} else {
-						fmt.Println("✅ You are running the latest version")
-					}
+					fmt.Println("You are running the latest version")
 				}
 			}
-
 			return nil
 		},
 	}
 
 	cmd.Flags().BoolVar(&checkUpdate, "check-update", false, "Check for available updates")
-	cmd.Flags().BoolVar(&prerelease, "prerelease", false, "Include pre-release versions when checking for updates")
-
+	cmd.Flags().BoolVar(&prerelease, "prerelease", false, "Include pre-release versions when checking")
 	return cmd
 }

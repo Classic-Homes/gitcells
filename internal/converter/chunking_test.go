@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Classic-Homes/gitcells/internal/constants"
@@ -126,22 +127,31 @@ func TestSheetBasedChunking(t *testing.T) {
 		}
 	})
 
-	t.Run("SanitizeFilename", func(t *testing.T) {
-		testCases := []struct {
-			input    string
-			expected string
-		}{
-			{"Sheet1", "sheet_Sheet1.json"},
-			{"Sheet/With/Slashes", "sheet_Sheet_With_Slashes.json"},
-			{"Sheet:With:Colons", "sheet_Sheet_With_Colons.json"},
-			{"Sheet With Spaces", "sheet_Sheet_With_Spaces.json"},
-			{"Sheet*With?Chars", "sheet_Sheet_With_Chars.json"},
+	t.Run("SheetChunkFilename", func(t *testing.T) {
+		c := chunker.(*SheetBasedChunking)
+
+		// Clean names get no hash suffix.
+		assert.Equal(t, "sheet_Sheet1.json", c.sheetChunkFilename("Sheet1"))
+
+		// Dirty names get sanitized + 6-hex-char content hash to avoid collisions.
+		for _, input := range []string{
+			"Sheet/With/Slashes",
+			"Sheet:With:Colons",
+			"Sheet With Spaces",
+			"Sheet*With?Chars",
+		} {
+			out := c.sheetChunkFilename(input)
+			assert.True(t, strings.HasPrefix(out, "sheet_"), "prefix for %q: %s", input, out)
+			assert.True(t, strings.HasSuffix(out, ".json"), "suffix for %q: %s", input, out)
+			assert.NotContains(t, out, "/", "no slashes for %q: %s", input, out)
+			assert.NotContains(t, out, " ", "no spaces for %q: %s", input, out)
 		}
 
-		for _, tc := range testCases {
-			filename := chunker.(*SheetBasedChunking).sanitizeFilename("sheet_" + tc.input + ".json")
-			assert.Equal(t, tc.expected, filename, "Failed for input: %s", tc.input)
-		}
+		// Adversarial collision: "A B" and "A_B" both sanitize to "A_B" but
+		// must produce distinct filenames thanks to the hash suffix.
+		a := c.sheetChunkFilename("A B")
+		b := c.sheetChunkFilename("A_B")
+		assert.NotEqual(t, a, b, "collision: %q vs %q both → %s", "A B", "A_B", a)
 	})
 }
 

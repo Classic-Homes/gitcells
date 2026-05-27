@@ -17,6 +17,10 @@ import (
 )
 
 type Client struct {
+	// mu serializes worktree operations. go-git's worktree is not
+	// safe for concurrent use, and the watcher fires handlers in
+	// parallel goroutines (one per debounced file key).
+	mu       sync.Mutex
 	repo     *git.Repository
 	worktree *git.Worktree
 	config   *Config
@@ -24,9 +28,8 @@ type Client struct {
 }
 
 type Config struct {
-	UserName       string
-	UserEmail      string
-	CommitTemplate string
+	UserName  string
+	UserEmail string
 }
 
 func NewClient(repoPath string, config *Config, logger *logrus.Logger) (*Client, error) {
@@ -56,12 +59,15 @@ func NewClient(repoPath string, config *Config, logger *logrus.Logger) (*Client,
 }
 
 // AutoCommit commits converted JSON files with a simple message.
-// Not safe for concurrent calls from multiple goroutines on the same Client.
+// Safe for concurrent callers; serialized via c.mu.
 func (c *Client) AutoCommit(files []string, message string) error {
 	if c == nil {
 		// No git repository - skip commit
 		return nil
 	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	// Stage files
 	worktreeRoot := c.worktree.Filesystem.Root()
@@ -91,9 +97,8 @@ func (c *Client) AutoCommit(files []string, message string) error {
 		return nil
 	}
 
-	// Use provided message, fall back to template, then to default.
 	if message == "" {
-		message = c.renderCommitTemplate(len(files))
+		message = fmt.Sprintf("GitCells: Update JSON representations (%d files)", len(files))
 	}
 
 	// Create commit
@@ -113,31 +118,13 @@ func (c *Client) AutoCommit(files []string, message string) error {
 	return nil
 }
 
-// renderCommitTemplate substitutes {action}, {filename}, {timestamp} in the
-// configured CommitTemplate. Returns a sensible default if the template is
-// empty or substitution produced no recognised tokens.
-func (c *Client) renderCommitTemplate(fileCount int) string {
-	defaultMsg := fmt.Sprintf("GitCells: Update JSON representations (%d files)", fileCount)
-	if c.config == nil || c.config.CommitTemplate == "" {
-		return defaultMsg
-	}
-	msg := c.config.CommitTemplate
-	msg = strings.ReplaceAll(msg, "{action}", "sync")
-	msg = strings.ReplaceAll(msg, "{filename}", fmt.Sprintf("%d files", fileCount))
-	msg = strings.ReplaceAll(msg, "{timestamp}", time.Now().Format("2006-01-02 15:04:05"))
-	if msg == c.config.CommitTemplate {
-		// Template had no recognised tokens — fall back rather than commit
-		// an opaque static string.
-		return defaultMsg
-	}
-	return msg
-}
-
 // IsClean returns true if the working directory is clean
 func (c *Client) IsClean() (bool, error) {
 	if c == nil {
 		return true, nil // No git repo = clean
 	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	status, err := c.worktree.Status()
 	if err != nil {
 		return false, err
@@ -148,6 +135,23 @@ func (c *Client) IsClean() (bool, error) {
 // InGitRepository returns true if the current directory is in a git repository
 func (c *Client) InGitRepository() bool {
 	return c != nil && c.repo != nil
+}
+
+// CurrentBranch returns the short HEAD branch name, or "" if HEAD is
+// detached, the repo is uninitialized, or no repo is open.
+func (c *Client) CurrentBranch() (string, error) {
+	if c == nil || c.repo == nil {
+		return "", nil
+	}
+	head, err := c.repo.Head()
+	if err != nil {
+		return "", nil
+	}
+	ref := head.Name()
+	if !ref.IsBranch() {
+		return "", nil
+	}
+	return ref.Short(), nil
 }
 
 // gitRootCache caches git root lookups for performance

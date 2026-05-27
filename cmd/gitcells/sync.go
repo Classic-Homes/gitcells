@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/Classic-Homes/gitcells/internal/config"
 	"github.com/Classic-Homes/gitcells/internal/constants"
@@ -93,19 +92,13 @@ func newSyncCommand(logger *logrus.Logger) *cobra.Command {
 
 				// Convert Excel to JSON
 				options := converter.ConvertOptions{
-					PreserveFormulas:           cfg.Converter.PreserveFormulas,
-					PreserveStyles:             cfg.Converter.PreserveStyles,
-					PreserveComments:           cfg.Converter.PreserveComments,
-					PreserveCharts:             true,
-					PreservePivotTables:        true,
-					PreserveDataValidation:     true,
-					PreserveConditionalFormats: true,
-					PreserveRichText:           true,
-					PreserveTables:             true,
-					CompactJSON:                cfg.Converter.CompactJSON,
-					IgnoreEmptyCells:           cfg.Converter.IgnoreEmptyCells,
-					MaxCellsPerSheet:           cfg.Converter.MaxCellsPerSheet,
-					ChunkingStrategy:           cfg.Converter.ChunkingStrategy,
+					PreserveFormulas: cfg.Converter.PreserveFormulas,
+					PreserveStyles:   cfg.Converter.PreserveStyles,
+					PreserveComments: cfg.Converter.PreserveComments,
+					CompactJSON:      cfg.Converter.CompactJSON,
+					IgnoreEmptyCells: cfg.Converter.IgnoreEmptyCells,
+					MaxCellsPerSheet: cfg.Converter.MaxCellsPerSheet,
+					ChunkingStrategy: cfg.Converter.ChunkingStrategy,
 				}
 
 				err := conv.ExcelToJSONFile(fileStatus.ExcelPath, fileStatus.JSONPath, options)
@@ -142,9 +135,8 @@ func newSyncCommand(logger *logrus.Logger) *cobra.Command {
 				}
 
 				gitCfg := &git.Config{
-					UserName:       cfg.Git.UserName,
-					UserEmail:      cfg.Git.UserEmail,
-					CommitTemplate: cfg.Git.CommitTemplate,
+					UserName:  cfg.Git.UserName,
+					UserEmail: cfg.Git.UserEmail,
 				}
 
 				gitClient, err := git.NewClient(gitRoot, gitCfg, logger)
@@ -153,14 +145,12 @@ func newSyncCommand(logger *logrus.Logger) *cobra.Command {
 				}
 
 				if gitClient != nil {
-					// Generate commit message
-					message := generateCommitMessage(cfg.Git.CommitTemplate, len(convertedFiles))
-
-					fmt.Printf("\n📝 Committing changes to git...\n")
+					message := fmt.Sprintf("GitCells: synchronized %d Excel file(s)", len(convertedFiles))
+					fmt.Printf("\nCommitting changes to git...\n")
 					if err := gitClient.AutoCommit(convertedFiles, message); err != nil {
 						return utils.WrapError(err, utils.ErrorTypeGit, "autoCommit", "failed to commit changes")
 					}
-					fmt.Println("✅ Changes committed successfully")
+					fmt.Println("Changes committed successfully")
 				}
 			}
 
@@ -201,20 +191,4 @@ func filterExcludedFiles(files []string, excludePatterns []string) []string {
 		}
 	}
 	return filtered
-}
-
-func generateCommitMessage(template string, fileCount int) string {
-	message := template
-
-	// Replace placeholders
-	message = strings.ReplaceAll(message, "{action}", "sync")
-	message = strings.ReplaceAll(message, "{filename}", fmt.Sprintf("%d files", fileCount))
-	message = strings.ReplaceAll(message, "{timestamp}", time.Now().Format("2006-01-02 15:04:05"))
-
-	// Fallback if template doesn't make sense
-	if message == template {
-		message = fmt.Sprintf("GitCells: Synchronized %d Excel files", fileCount)
-	}
-
-	return message
 }

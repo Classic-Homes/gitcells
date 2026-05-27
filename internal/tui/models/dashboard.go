@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Classic-Homes/gitcells/internal/config"
 	"github.com/Classic-Homes/gitcells/internal/tui/adapter"
-	"github.com/Classic-Homes/gitcells/internal/tui/messages"
 	"github.com/Classic-Homes/gitcells/internal/tui/styles"
-
-	// "github.com/Classic-Homes/gitcells/internal/watcher"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -26,99 +24,110 @@ const (
 
 var tabNames = []string{"Overview", "Files", "Activity"}
 
-type UnifiedDashboardModel struct {
+const (
+	maxActivities  = 100
+	tickInterval   = 2 * time.Second
+	tabCount       = 3
+	headerOverhead = 4
+)
+
+type DashboardModel struct {
 	width  int
 	height int
 
-	// Adapters
-	config      *config.Config
-	gitAdapter  *adapter.GitAdapter
-	convAdapter *adapter.ConverterAdapter
-	// watcher     *watcher.Watcher
+	cfg            *config.Config
+	gitAdapter     *adapter.GitAdapter
+	watcherAdapter *adapter.WatcherAdapter
 
-	// State
 	activeTab    DashboardTab
 	syncStatus   SyncStatus
 	watcherState WatcherState
 	files        []FileInfo
+
+	activitiesMu sync.Mutex
 	activities   []Activity
 
-	// UI state
-	scrollOffset    int
-	showQuickAction bool
-	quickActionType string
+	scrollOffset int
 }
 
 type SyncStatus struct {
-	IsSynced   bool
 	Branch     string
 	HasChanges bool
+	InRepo     bool
 }
 
 type WatcherState struct {
-	IsRunning     bool
-	StartTime     time.Time
-	FilesWatched  int
-	LastEvent     string
-	LastEventTime time.Time
+	IsRunning          bool
+	DirectoriesWatched int
+	LastEvent          string
+	LastEventTime      time.Time
 }
 
 type FileInfo struct {
 	Path         string
 	Size         int64
 	LastModified time.Time
-	IsTracked    bool
 	HasChanges   bool
-	JSONPath     string
 }
 
 type Activity struct {
 	Time    time.Time
-	Type    string // "convert", "commit", "watch", "error"
+	Type    string
 	Message string
 	Details string
 }
 
-func NewDashboardModel() *UnifiedDashboardModel {
-	cfg, err := config.Load("")
-	if err != nil {
-		// Fall back to defaults but surface in initial activity so the user
-		// has a chance to spot a broken config file rather than silently
-		// running with zero values.
+type tickMsg time.Time
+type watcherEventMsg adapter.WatcherEvent
+
+func NewDashboardModel() *DashboardModel {
+	cfg, cfgErr := config.Load("")
+	if cfgErr != nil {
 		cfg = config.GetDefault()
 	}
 	gitAdapter, _ := adapter.NewGitAdapter("")
-	convAdapter := adapter.NewConverterAdapter()
 
-	m := &UnifiedDashboardModel{
-		config:      cfg,
-		gitAdapter:  gitAdapter,
-		convAdapter: convAdapter,
-		activeTab:   TabOverview,
+	m := &DashboardModel{
+		cfg:        cfg,
+		gitAdapter: gitAdapter,
+		activeTab:  TabOverview,
 	}
-	if err != nil {
-		m.activities = append(m.activities, Activity{
+
+	// Watcher adapter feeds events back into the Bubble Tea loop via a
+	// channel-bounded callback. We capture m so the closure can push
+	// activities. Wrapping in a goroutine-safe append (activitiesMu) keeps
+	// it correct under concurrent fsnotify callbacks.
+	wa, err := adapter.NewWatcherAdapter(cfg, nil, func(ev adapter.WatcherEvent) {
+		m.recordActivity(Activity{
+			Time:    ev.Timestamp,
+			Type:    ev.Type,
+			Message: ev.Message,
+			Details: ev.Details,
+		})
+	})
+	if err == nil {
+		m.watcherAdapter = wa
+	}
+	if cfgErr != nil {
+		m.recordActivity(Activity{
 			Time:    time.Now(),
 			Type:    "error",
 			Message: "Config load failed; running with defaults",
-			Details: err.Error(),
+			Details: cfgErr.Error(),
 		})
 	}
 	return m
 }
 
-func (m *UnifiedDashboardModel) Init() tea.Cmd {
-	return tea.Batch(
-		m.loadDashboardData(),
-		tea.Tick(time.Second*5, func(t time.Time) tea.Msg {
-			return tickMsg(t)
-		}),
-	)
+func (m *DashboardModel) Init() tea.Cmd {
+	return tea.Batch(m.refresh(), tickEvery())
 }
 
-type tickMsg time.Time
+func tickEvery() tea.Cmd {
+	return tea.Tick(tickInterval, func(t time.Time) tea.Msg { return tickMsg(t) })
+}
 
-func (m *UnifiedDashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -126,90 +135,36 @@ func (m *UnifiedDashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		// Global shortcuts
 		switch msg.String() {
 		case "q", "ctrl+c":
-			if m.showQuickAction {
-				m.showQuickAction = false
-				return m, nil
+			if m.watcherAdapter != nil && m.watcherAdapter.IsRunning() {
+				_ = m.watcherAdapter.Stop()
 			}
 			return m, tea.Quit
-
-		case "esc":
-			if m.showQuickAction {
-				m.showQuickAction = false
-				return m, nil
-			}
-			return m, messages.RequestMainMenu()
-
 		case "tab":
-			m.activeTab = (m.activeTab + 1) % 3
-			return m, nil
-
+			m.activeTab = (m.activeTab + 1) % tabCount
 		case "shift+tab":
-			m.activeTab = (m.activeTab + 2) % 3
-			return m, nil
-
-		// Quick actions
+			m.activeTab = (m.activeTab + tabCount - 1) % tabCount
 		case "w":
-			if !m.showQuickAction {
-				return m, m.toggleWatcher()
-			}
-
-		case "c":
-			if !m.showQuickAction {
-				m.showQuickAction = true
-				m.quickActionType = "convert"
-				return m, nil
-			}
-
-		case "d":
-			if !m.showQuickAction {
-				// Switch to diff viewer
-				return m, messages.RequestModeChange("diff")
-			}
-
-		case "s":
-			if !m.showQuickAction {
-				// Switch to settings
-				return m, messages.RequestModeChange("settings")
-			}
-
-		case "?", "h":
-			if !m.showQuickAction {
-				// Show help/logs
-				return m, messages.RequestModeChange("errorlog")
-			}
-
-		// Navigation within tabs
+			return m, m.toggleWatcher()
+		case "r":
+			return m, m.refresh()
 		case "up", "k":
 			if m.scrollOffset > 0 {
 				m.scrollOffset--
 			}
-
 		case "down", "j":
 			m.scrollOffset++
-
-		case "enter":
-			// Handle selection based on current tab
-			return m, m.handleSelection()
 		}
 
 	case tickMsg:
-		// Auto-refresh data
-		return m, tea.Batch(
-			m.loadDashboardData(),
-			tea.Tick(time.Second*5, func(t time.Time) tea.Msg {
-				return tickMsg(t)
-			}),
-		)
+		return m, tea.Batch(m.refresh(), tickEvery())
 	}
 
 	return m, nil
 }
 
-func (m *UnifiedDashboardModel) View() string {
-	// Set default dimensions if not set
+func (m *DashboardModel) View() string {
 	if m.width == 0 {
 		m.width = 80
 	}
@@ -217,10 +172,9 @@ func (m *UnifiedDashboardModel) View() string {
 		m.height = 24
 	}
 
-	// Header
 	header := m.renderHeader()
+	actionBar := m.renderActionBar()
 
-	// Content area
 	var content string
 	switch m.activeTab {
 	case TabOverview:
@@ -231,36 +185,18 @@ func (m *UnifiedDashboardModel) View() string {
 		content = m.renderActivity()
 	}
 
-	// Quick action bar
-	actionBar := m.renderActionBar()
+	contentHeight := m.height - lipgloss.Height(header) - lipgloss.Height(actionBar) - 2
+	if contentHeight < 1 {
+		contentHeight = 1
+	}
+	styledContent := lipgloss.NewStyle().Width(m.width).Height(contentHeight).Padding(0, 2).Render(content)
 
-	// Calculate heights
-	headerHeight := lipgloss.Height(header)
-	actionBarHeight := lipgloss.Height(actionBar)
-	contentHeight := m.height - headerHeight - actionBarHeight - 2
-
-	// Style content with fixed height
-	contentStyle := lipgloss.NewStyle().
-		Width(m.width).
-		Height(contentHeight).
-		Padding(0, 2)
-
-	styledContent := contentStyle.Render(content)
-
-	// Combine all parts
-	return lipgloss.JoinVertical(
-		lipgloss.Left,
-		header,
-		styledContent,
-		actionBar,
-	)
+	return lipgloss.JoinVertical(lipgloss.Left, header, styledContent, actionBar)
 }
 
-func (m *UnifiedDashboardModel) renderHeader() string {
-	// Title
-	title := styles.TitleStyle.Render("GitCells Dashboard")
+func (m *DashboardModel) renderHeader() string {
+	title := styles.TitleStyle.Render("GitCells")
 
-	// Tabs
 	tabs := make([]string, 0, len(tabNames))
 	for i, name := range tabNames {
 		style := styles.TabStyle
@@ -271,33 +207,22 @@ func (m *UnifiedDashboardModel) renderHeader() string {
 	}
 	tabBar := lipgloss.JoinHorizontal(lipgloss.Left, tabs...)
 
-	// Status indicators
-	var status []string
-
-	// Git sync status
-	syncIcon := "⚡"
-	if !m.syncStatus.IsSynced {
-		syncIcon = "⚠️"
+	branch := m.syncStatus.Branch
+	if branch == "" {
+		branch = "—"
 	}
-	status = append(status, fmt.Sprintf("%s %s", syncIcon, m.syncStatus.Branch))
-
-	// Watcher status
-	watchIcon := "👁"
-	if !m.watcherState.IsRunning {
-		watchIcon = "💤"
+	watchTag := "watch:off"
+	if m.watcherState.IsRunning {
+		watchTag = fmt.Sprintf("watch:on (%d dirs)", m.watcherState.DirectoriesWatched)
 	}
-	status = append(status, fmt.Sprintf("%s Watch", watchIcon))
+	statusBar := styles.StatusStyle.Render(fmt.Sprintf("%s • %s", branch, watchTag))
 
-	statusBar := styles.StatusStyle.Render(strings.Join(status, " • "))
-
-	// Combine header elements
 	headerTop := lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		title,
-		lipgloss.NewStyle().Width(m.width-lipgloss.Width(title)-lipgloss.Width(statusBar)).Render(" "),
+		lipgloss.NewStyle().Width(maxInt(0, m.width-lipgloss.Width(title)-lipgloss.Width(statusBar))).Render(" "),
 		statusBar,
 	)
-
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
 		headerTop,
@@ -306,237 +231,200 @@ func (m *UnifiedDashboardModel) renderHeader() string {
 	)
 }
 
-func (m *UnifiedDashboardModel) renderOverview() string {
-	content := make([]string, 0, 15) // Pre-allocate for typical overview
-
-	// Quick stats
-	content = append(content, styles.SubtitleStyle.Render("📊 Quick Stats"))
-
-	stats := []string{
-		fmt.Sprintf("Excel Files: %d tracked", len(m.files)),
-		fmt.Sprintf("Git Status: %s", m.syncStatus.getStatusText()),
-		fmt.Sprintf("Watcher: %s", m.watcherState.getStatusText()),
-		fmt.Sprintf("Last Activity: %s", m.getLastActivityTime()),
+func (m *DashboardModel) renderOverview() string {
+	lines := []string{
+		styles.SubtitleStyle.Render("Status"),
+		fmt.Sprintf("  Git:     %s", m.syncStatusText()),
+		fmt.Sprintf("  Watcher: %s", m.watcherStatusText()),
+		fmt.Sprintf("  Files:   %d tracked", len(m.files)),
+		"",
+		styles.SubtitleStyle.Render("Keys"),
+		"  w   toggle watcher",
+		"  r   refresh",
+		"  tab switch tab",
+		"  q   quit",
 	}
-
-	for _, stat := range stats {
-		content = append(content, "  "+stat)
-	}
-
-	content = append(content, "")
-
-	// Recent changes
-	if m.syncStatus.HasChanges {
-		content = append(content, styles.SubtitleStyle.Render("🔄 Pending Changes"))
-		for i, file := range m.files {
-			if file.HasChanges && i < 5 {
-				content = append(content, fmt.Sprintf("  • %s", filepath.Base(file.Path)))
-			}
-		}
-		content = append(content, "")
-	}
-
-	// Quick actions hint
-	content = append(content, styles.SubtitleStyle.Render("⚡ Quick Actions"))
-	content = append(content, "  Press 'w' to toggle watcher")
-	content = append(content, "  Press 'c' to convert a file")
-	content = append(content, "  Press 'd' for diff viewer")
-
-	return strings.Join(content, "\n")
+	return strings.Join(lines, "\n")
 }
 
-func (m *UnifiedDashboardModel) renderFiles() string {
-	var content []string
-
-	content = append(content, styles.SubtitleStyle.Render("📁 Tracked Files"))
-	content = append(content, "")
-
+func (m *DashboardModel) renderFiles() string {
+	lines := []string{styles.SubtitleStyle.Render("Tracked Excel files"), ""}
 	if len(m.files) == 0 {
-		content = append(content, styles.MutedStyle.Render("  No Excel files found in watched directories"))
-	} else {
-		// Table header
-		header := fmt.Sprintf("  %-40s %-15s %-20s %s", "File", "Size", "Modified", "Status")
-		content = append(content, styles.MutedStyle.Render(header))
-		content = append(content, styles.MutedStyle.Render(strings.Repeat("─", 90)))
-
-		// File list
-		start := m.scrollOffset
-		end := start + (m.height - 10) // Leave room for header/footer
-		if end > len(m.files) {
-			end = len(m.files)
-		}
-
-		for i := start; i < end; i++ {
-			file := m.files[i]
-			status := "✓ Synced"
-			if file.HasChanges {
-				status = "● Modified"
-			}
-			if !file.IsTracked {
-				status = "○ Untracked"
-			}
-
-			line := fmt.Sprintf("  %-40s %-15s %-20s %s",
-				truncateStringUD(filepath.Base(file.Path), 40),
-				formatFileSize(file.Size),
-				file.LastModified.Format("Jan 2 15:04"),
-				status,
-			)
-			content = append(content, line)
-		}
+		lines = append(lines, styles.MutedStyle.Render("  none"))
+		return strings.Join(lines, "\n")
 	}
-
-	return strings.Join(content, "\n")
-}
-
-func (m *UnifiedDashboardModel) renderActivity() string {
-	var content []string
-
-	content = append(content, styles.SubtitleStyle.Render("📋 Recent Activity"))
-	content = append(content, "")
-
-	if len(m.activities) == 0 {
-		content = append(content, styles.MutedStyle.Render("  No recent activity"))
-	} else {
-		for i, activity := range m.activities {
-			if i >= 20 { // Show last 20 activities
-				break
-			}
-
-			icon := m.getActivityIcon(activity.Type)
-			timeStr := activity.Time.Format("15:04:05")
-
-			line := fmt.Sprintf("  %s %s %s",
-				styles.MutedStyle.Render(timeStr),
-				icon,
-				activity.Message,
-			)
-			content = append(content, line)
-
-			if activity.Details != "" {
-				content = append(content, styles.MutedStyle.Render("       "+activity.Details))
-			}
-		}
-	}
-
-	return strings.Join(content, "\n")
-}
-
-func (m *UnifiedDashboardModel) renderActionBar() string {
-	// Quick actions
-	actions := []string{
-		"[w] Watch",
-		"[c] Convert",
-		"[d] Diff",
-		"[s] Settings",
-		"[?] Help",
-	}
-
-	if m.watcherState.IsRunning {
-		actions[0] = "[w] Stop Watch"
-	}
-
-	actionStr := strings.Join(actions, " • ")
-
-	// Navigation help
-	navHelp := "Tab: Switch tabs • ↑↓: Scroll • Esc: Menu • q: Quit"
-
-	// Combine with styling
-	actionBar := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		styles.ActionStyle.Render(actionStr),
-		lipgloss.NewStyle().Width(m.width-lipgloss.Width(actionStr)-lipgloss.Width(navHelp)-4).Render(" "),
-		styles.MutedStyle.Render(navHelp),
+	lines = append(lines,
+		styles.MutedStyle.Render(fmt.Sprintf("  %-40s %-12s %-20s %s", "File", "Size", "Modified", "Status")),
+		styles.MutedStyle.Render("  "+strings.Repeat("─", 88)),
 	)
+	end := m.scrollOffset + (m.height - 10)
+	if end > len(m.files) {
+		end = len(m.files)
+	}
+	for i := m.scrollOffset; i < end; i++ {
+		f := m.files[i]
+		status := "synced"
+		if f.HasChanges {
+			status = "modified"
+		}
+		lines = append(lines, fmt.Sprintf("  %-40s %-12s %-20s %s",
+			truncate(filepath.Base(f.Path), 40),
+			formatBytes(f.Size),
+			f.LastModified.Format("Jan 2 15:04"),
+			status,
+		))
+	}
+	return strings.Join(lines, "\n")
+}
 
+func (m *DashboardModel) renderActivity() string {
+	m.activitiesMu.Lock()
+	defer m.activitiesMu.Unlock()
+
+	lines := []string{styles.SubtitleStyle.Render("Recent activity"), ""}
+	if len(m.activities) == 0 {
+		lines = append(lines, styles.MutedStyle.Render("  (none yet)"))
+		return strings.Join(lines, "\n")
+	}
+	limit := 20
+	if len(m.activities) < limit {
+		limit = len(m.activities)
+	}
+	for i := 0; i < limit; i++ {
+		a := m.activities[i]
+		lines = append(lines, fmt.Sprintf("  %s  %s  %s",
+			styles.MutedStyle.Render(a.Time.Format("15:04:05")),
+			activityIcon(a.Type),
+			a.Message,
+		))
+		if a.Details != "" {
+			lines = append(lines, styles.MutedStyle.Render("           "+a.Details))
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (m *DashboardModel) renderActionBar() string {
+	watchLabel := "[w] start watch"
+	if m.watcherState.IsRunning {
+		watchLabel = "[w] stop watch"
+	}
+	actions := strings.Join([]string{watchLabel, "[r] refresh", "[tab] tab", "[q] quit"}, " • ")
 	return lipgloss.NewStyle().
 		BorderTop(true).
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color("241")).
 		Width(m.width).
 		Padding(0, 2).
-		Render(actionBar)
+		Render(styles.ActionStyle.Render(actions))
 }
 
-// Helper methods
-
-func (m *UnifiedDashboardModel) loadDashboardData() tea.Cmd {
+func (m *DashboardModel) refresh() tea.Cmd {
 	return func() tea.Msg {
-		// Load data from adapters
-		// This would be implemented to actually fetch data
+		if m.gitAdapter != nil {
+			if branch, err := m.gitAdapter.GetCurrentBranch(); err == nil {
+				m.syncStatus.Branch = branch
+				m.syncStatus.InRepo = true
+			}
+			if clean, err := m.gitAdapter.IsClean(); err == nil {
+				m.syncStatus.HasChanges = !clean
+			}
+		}
+		if m.watcherAdapter != nil {
+			s := m.watcherAdapter.GetStatus()
+			m.watcherState.IsRunning = s.IsRunning
+			m.watcherState.DirectoriesWatched = s.DirectoriesWatched
+			m.watcherState.LastEvent = s.LastEvent
+			m.watcherState.LastEventTime = s.LastEventTime
+		}
 		return nil
 	}
 }
 
-func (m *UnifiedDashboardModel) toggleWatcher() tea.Cmd {
+func (m *DashboardModel) toggleWatcher() tea.Cmd {
 	return func() tea.Msg {
-		// Toggle watcher state
-		// TODO: Implement actual watcher start/stop logic
-		m.watcherState.IsRunning = !m.watcherState.IsRunning
+		if m.watcherAdapter == nil {
+			m.recordActivity(Activity{Time: time.Now(), Type: "error", Message: "Watcher unavailable"})
+			return nil
+		}
+		var err error
+		if m.watcherAdapter.IsRunning() {
+			err = m.watcherAdapter.Stop()
+		} else {
+			err = m.watcherAdapter.Start()
+		}
+		if err != nil {
+			m.recordActivity(Activity{Time: time.Now(), Type: "error", Message: err.Error()})
+		}
 		return nil
 	}
 }
 
-func (m *UnifiedDashboardModel) handleSelection() tea.Cmd {
-	// Handle enter key based on current tab and selection
-	return nil
+func (m *DashboardModel) recordActivity(a Activity) {
+	m.activitiesMu.Lock()
+	defer m.activitiesMu.Unlock()
+	m.activities = append([]Activity{a}, m.activities...)
+	if len(m.activities) > maxActivities {
+		m.activities = m.activities[:maxActivities]
+	}
 }
 
-func (m *UnifiedDashboardModel) getActivityIcon(activityType string) string {
-	switch activityType {
-	case "convert":
-		return "🔄"
-	case "commit":
-		return "📝"
-	case "watch":
-		return "👁"
-	case "error":
-		return "❌"
-	default:
+func (m *DashboardModel) syncStatusText() string {
+	if !m.syncStatus.InRepo {
+		return "not a git repo"
+	}
+	if m.syncStatus.HasChanges {
+		return "uncommitted changes"
+	}
+	return "clean"
+}
+
+func (m *DashboardModel) watcherStatusText() string {
+	if m.watcherState.IsRunning {
+		return fmt.Sprintf("running (%d dirs)", m.watcherState.DirectoriesWatched)
+	}
+	return "stopped"
+}
+
+func activityIcon(kind string) string {
+	switch kind {
+	case "started", "stopped":
 		return "•"
+	case "file_changed":
+		return "→"
+	case "error":
+		return "!"
+	default:
+		return "·"
 	}
 }
 
-func (m *UnifiedDashboardModel) getLastActivityTime() string {
-	if len(m.activities) > 0 {
-		return m.activities[0].Time.Format("15:04")
-	}
-	return "No activity"
-}
-
-func (s SyncStatus) getStatusText() string {
-	if s.IsSynced {
-		return "✓ Synced with remote"
-	}
-	if s.HasChanges {
-		return "● Local changes pending"
-	}
-	return "⚠️ Out of sync"
-}
-
-func (w WatcherState) getStatusText() string {
-	if w.IsRunning {
-		return fmt.Sprintf("Running (%d files)", w.FilesWatched)
-	}
-	return "Stopped"
-}
-
-func truncateStringUD(s string, max int) string {
+func truncate(s string, max int) string {
 	if len(s) <= max {
 		return s
+	}
+	if max < 4 {
+		return s[:max]
 	}
 	return s[:max-3] + "..."
 }
 
-func formatFileSize(bytes int64) string {
+func formatBytes(b int64) string {
 	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
 	}
 	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
+	for n := b / unit; n >= unit; n /= unit {
 		div *= unit
 		exp++
 	}
-	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
