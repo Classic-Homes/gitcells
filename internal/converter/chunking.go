@@ -3,6 +3,7 @@ package converter
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,33 @@ import (
 	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/Classic-Homes/gitcells/pkg/models"
 )
+
+// MaxChunkFileBytes caps any single JSON chunk we'll attempt to deserialize.
+// A 256 MB ceiling keeps us safely above realistic per-sheet payloads while
+// preventing a pathological file from forcing the whole document into memory
+// (which would otherwise OOM well before json.Unmarshal completes).
+const MaxChunkFileBytes int64 = 256 * 1024 * 1024
+
+// readJSONFileBounded reads a JSON file into the given destination, refusing
+// inputs larger than MaxChunkFileBytes.
+func readJSONFileBounded(path string, dst interface{}) error {
+	f, err := os.Open(path) // #nosec G304 - path comes from chunk metadata we wrote
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if info.Size() > MaxChunkFileBytes {
+		return fmt.Errorf("chunk file %s exceeds size limit (%d > %d)", path, info.Size(), MaxChunkFileBytes)
+	}
+
+	dec := json.NewDecoder(io.LimitReader(f, MaxChunkFileBytes+1))
+	return dec.Decode(dst)
+}
 
 // ChunkingStrategy defines how to split Excel data into multiple files
 type ChunkingStrategy interface {
@@ -177,31 +205,20 @@ func (s *SheetBasedChunking) ReadChunks(basePath string) (*models.ExcelDocument,
 
 	// Read chunk metadata
 	metadataFile := filepath.Join(chunkDir, constants.ChunkMetadataFile)
-	metadataData, err := os.ReadFile(metadataFile)
-	if err != nil {
+	var metadata ChunkMetadata
+	if err := readJSONFileBounded(metadataFile, &metadata); err != nil {
 		if os.IsNotExist(err) {
-			// Provide a more helpful error message for missing chunks
 			return nil, utils.NewError(utils.ErrorTypeFileSystem, "ReadChunks",
 				fmt.Sprintf("JSON file chunks not found. The file '%s' appears to be a standalone JSON file, but GitCells requires chunked JSON files created by the Excel to JSON conversion. Please ensure you're using a JSON file that was created by GitCells.", basePath))
 		}
-		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "ReadChunks", metadataFile, "failed to read chunk metadata")
-	}
-
-	var metadata ChunkMetadata
-	if err := json.Unmarshal(metadataData, &metadata); err != nil {
-		return nil, utils.WrapError(err, utils.ErrorTypeConverter, "ReadChunks", "failed to parse chunk metadata")
+		return nil, utils.WrapFileError(err, utils.ErrorTypeConverter, "ReadChunks", metadataFile, "failed to read chunk metadata")
 	}
 
 	// Read main workbook file
 	mainFile := filepath.Join(chunkDir, metadata.MainFile)
-	mainData, err := os.ReadFile(mainFile)
-	if err != nil {
-		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "ReadChunks", mainFile, "failed to read main file")
-	}
-
 	var doc models.ExcelDocument
-	if err := json.Unmarshal(mainData, &doc); err != nil {
-		return nil, utils.WrapFileError(err, utils.ErrorTypeConverter, "ReadChunks", mainFile, "failed to parse main file")
+	if err := readJSONFileBounded(mainFile, &doc); err != nil {
+		return nil, utils.WrapFileError(err, utils.ErrorTypeConverter, "ReadChunks", mainFile, "failed to read main file")
 	}
 
 	// Clear sheets array - we'll populate from individual files
@@ -214,15 +231,9 @@ func (s *SheetBasedChunking) ReadChunks(basePath string) (*models.ExcelDocument,
 		}
 
 		sheetFile := filepath.Join(chunkDir, chunkFile)
-		sheetData, err := os.ReadFile(sheetFile)
-		if err != nil {
-			s.logger.Warnf("Failed to read sheet file %s: %v", sheetFile, err)
-			continue
-		}
-
 		var sheetChunk SheetChunk
-		if err := json.Unmarshal(sheetData, &sheetChunk); err != nil {
-			s.logger.Warnf("Failed to parse sheet file %s: %v", sheetFile, err)
+		if err := readJSONFileBounded(sheetFile, &sheetChunk); err != nil {
+			s.logger.Warnf("Failed to load sheet file %s: %v", sheetFile, err)
 			continue
 		}
 
@@ -266,14 +277,9 @@ func (s *SheetBasedChunking) GetChunkPaths(basePath string) ([]string, error) {
 
 	// Read chunk metadata
 	metadataFile := filepath.Join(chunkDir, constants.ChunkMetadataFile)
-	metadataData, err := os.ReadFile(metadataFile)
-	if err != nil {
-		return nil, utils.WrapFileError(err, utils.ErrorTypeFileSystem, "GetChunkPaths", metadataFile, "failed to read chunk metadata")
-	}
-
 	var metadata ChunkMetadata
-	if err := json.Unmarshal(metadataData, &metadata); err != nil {
-		return nil, utils.WrapError(err, utils.ErrorTypeConverter, "GetChunkPaths", "failed to parse chunk metadata")
+	if err := readJSONFileBounded(metadataFile, &metadata); err != nil {
+		return nil, utils.WrapFileError(err, utils.ErrorTypeConverter, "GetChunkPaths", metadataFile, "failed to read chunk metadata")
 	}
 
 	// Build full paths
@@ -308,7 +314,7 @@ func (s *SheetBasedChunking) writeJSONFile(path string, data interface{}, compac
 		return utils.WrapFileError(err, utils.ErrorTypeConverter, "writeJSONFile", path, "failed to marshal JSON")
 	}
 
-	return os.WriteFile(path, jsonData, 0600)
+	return os.WriteFile(path, jsonData, constants.FilePermissions)
 }
 
 func (s *SheetBasedChunking) sanitizeFilename(name string) string {
@@ -337,34 +343,3 @@ func (s *SheetBasedChunking) getRelativeChunkFiles(baseDir string, fullPaths []s
 	return relativePaths
 }
 
-// Future-proofing for hybrid chunking strategy
-type HybridChunking struct {
-	sheetBased      *SheetBasedChunking
-	maxCellsPerFile int
-	logger          Logger
-}
-
-// This is a placeholder for future implementation
-func NewHybridChunking(logger Logger, maxCellsPerFile int) ChunkingStrategy {
-	return &HybridChunking{
-		sheetBased:      &SheetBasedChunking{logger: logger},
-		maxCellsPerFile: maxCellsPerFile,
-		logger:          logger,
-	}
-}
-
-func (h *HybridChunking) WriteChunks(doc *models.ExcelDocument, basePath string, options ConvertOptions) ([]string, error) {
-	// Future implementation will split large sheets into ranges
-	// For now, delegate to sheet-based chunking
-	return nil, utils.NewError(utils.ErrorTypeConverter, "WriteChunks", "hybrid chunking not yet implemented")
-}
-
-func (h *HybridChunking) ReadChunks(basePath string) (*models.ExcelDocument, error) {
-	// Future implementation
-	return nil, utils.NewError(utils.ErrorTypeConverter, "ReadChunks", "hybrid chunking not yet implemented")
-}
-
-func (h *HybridChunking) GetChunkPaths(basePath string) ([]string, error) {
-	// Future implementation
-	return nil, utils.NewError(utils.ErrorTypeConverter, "GetChunkPaths", "hybrid chunking not yet implemented")
-}

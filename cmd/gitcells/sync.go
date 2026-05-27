@@ -86,7 +86,7 @@ func newSyncCommand(logger *logrus.Logger) *cobra.Command {
 
 				// Ensure JSON directory exists
 				jsonDir := filepath.Dir(fileStatus.JSONPath)
-				if err := os.MkdirAll(jsonDir, 0755); err != nil {
+				if err := os.MkdirAll(jsonDir, constants.DirPermissions); err != nil {
 					fmt.Printf("❌ Failed to create directory: %v\n", err)
 					continue
 				}

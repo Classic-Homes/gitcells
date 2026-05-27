@@ -20,21 +20,30 @@ func NewDebouncer(delay time.Duration) *Debouncer {
 	}
 }
 
-// Debounce delays the execution of fn until delay has passed since the last call
+// Debounce delays the execution of fn until delay has passed since the last call.
+//
+// The timer-callback path takes d.mu and only deletes the map entry if the
+// stored timer is still the one we created. Without that guard, a follow-up
+// Debounce(key, ...) that fires between fn() and the Delete could see its
+// fresh map entry wiped, leaving an orphan timer with no map presence.
 func (d *Debouncer) Debounce(key string, fn func()) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	// Cancel existing timer if it exists
-	if timer, exists := d.timers.Load(key); exists {
-		// Stop returns whether the timer was stopped before it fired
-		_ = timer.(*time.Timer).Stop()
+	if existing, ok := d.timers.Load(key); ok {
+		if t, ok := existing.(*time.Timer); ok {
+			_ = t.Stop()
+		}
 	}
 
-	// Create new timer
-	timer := time.AfterFunc(d.delay, func() {
+	var timer *time.Timer
+	timer = time.AfterFunc(d.delay, func() {
 		fn()
-		d.timers.Delete(key)
+		d.mu.Lock()
+		defer d.mu.Unlock()
+		if cur, ok := d.timers.Load(key); ok && cur == timer {
+			d.timers.Delete(key)
+		}
 	})
 
 	d.timers.Store(key, timer)
@@ -45,8 +54,10 @@ func (d *Debouncer) Cancel(key string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if timer, exists := d.timers.Load(key); exists {
-		timer.(*time.Timer).Stop()
+	if existing, ok := d.timers.Load(key); ok {
+		if t, ok := existing.(*time.Timer); ok {
+			t.Stop()
+		}
 		d.timers.Delete(key)
 	}
 }
@@ -57,8 +68,9 @@ func (d *Debouncer) CancelAll() {
 	defer d.mu.Unlock()
 
 	d.timers.Range(func(key, value interface{}) bool {
-		timer := value.(*time.Timer)
-		timer.Stop()
+		if t, ok := value.(*time.Timer); ok {
+			t.Stop()
+		}
 		d.timers.Delete(key)
 		return true
 	})

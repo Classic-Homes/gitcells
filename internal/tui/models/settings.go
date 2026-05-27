@@ -73,9 +73,15 @@ type uninstallCompleteMsg struct {
 }
 
 func NewSettingsModel() *SettingsModelV2 {
-	cfg, _ := config.Load("")
+	cfg, err := config.Load("")
+	status := ""
+	if err != nil {
+		cfg = config.GetDefault()
+		status = fmt.Sprintf("Config load failed, showing defaults: %v", err)
+	}
 	return &SettingsModelV2{
 		config:    cfg,
+		status:    status,
 		activeTab: TabGeneral,
 		width:     80,
 		height:    24,
@@ -653,9 +659,7 @@ func (m *SettingsModelV2) saveConfig() tea.Cmd {
 		if m.config == nil {
 			return configSavedMsg{err: fmt.Errorf("no config loaded")}
 		}
-		// Save config to file
-		err := fmt.Errorf("save not implemented") // TODO: implement config save
-		return configSavedMsg{err: err}
+		return configSavedMsg{err: m.config.Save("")}
 	}
 }
 

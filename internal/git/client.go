@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -54,7 +55,8 @@ func NewClient(repoPath string, config *Config, logger *logrus.Logger) (*Client,
 	}, nil
 }
 
-// AutoCommit commits converted JSON files with a simple message
+// AutoCommit commits converted JSON files with a simple message.
+// Not safe for concurrent calls from multiple goroutines on the same Client.
 func (c *Client) AutoCommit(files []string, message string) error {
 	if c == nil {
 		// No git repository - skip commit
@@ -62,8 +64,17 @@ func (c *Client) AutoCommit(files []string, message string) error {
 	}
 
 	// Stage files
+	worktreeRoot := c.worktree.Filesystem.Root()
 	for _, file := range files {
-		relPath, _ := filepath.Rel(c.worktree.Filesystem.Root(), file)
+		relPath, err := filepath.Rel(worktreeRoot, file)
+		if err != nil {
+			return utils.WrapFileError(err, utils.ErrorTypeGit, "stageFile", file,
+				"file is not under git worktree root")
+		}
+		if strings.HasPrefix(relPath, "..") {
+			c.logger.Warnf("Skipping file outside worktree: %s", file)
+			continue
+		}
 		if _, err := c.worktree.Add(relPath); err != nil {
 			return utils.WrapFileError(err, utils.ErrorTypeGit, "stageFile", file, "failed to stage file")
 		}
@@ -80,9 +91,9 @@ func (c *Client) AutoCommit(files []string, message string) error {
 		return nil
 	}
 
-	// Use provided message or default
+	// Use provided message, fall back to template, then to default.
 	if message == "" {
-		message = fmt.Sprintf("GitCells: Update JSON representations (%d files)", len(files))
+		message = c.renderCommitTemplate(len(files))
 	}
 
 	// Create commit
@@ -100,6 +111,26 @@ func (c *Client) AutoCommit(files []string, message string) error {
 
 	c.logger.Infof("Committed JSON updates: %s", commit.String()[:8])
 	return nil
+}
+
+// renderCommitTemplate substitutes {action}, {filename}, {timestamp} in the
+// configured CommitTemplate. Returns a sensible default if the template is
+// empty or substitution produced no recognised tokens.
+func (c *Client) renderCommitTemplate(fileCount int) string {
+	defaultMsg := fmt.Sprintf("GitCells: Update JSON representations (%d files)", fileCount)
+	if c.config == nil || c.config.CommitTemplate == "" {
+		return defaultMsg
+	}
+	msg := c.config.CommitTemplate
+	msg = strings.ReplaceAll(msg, "{action}", "sync")
+	msg = strings.ReplaceAll(msg, "{filename}", fmt.Sprintf("%d files", fileCount))
+	msg = strings.ReplaceAll(msg, "{timestamp}", time.Now().Format("2006-01-02 15:04:05"))
+	if msg == c.config.CommitTemplate {
+		// Template had no recognised tokens — fall back rather than commit
+		// an opaque static string.
+		return defaultMsg
+	}
+	return msg
 }
 
 // IsClean returns true if the working directory is clean

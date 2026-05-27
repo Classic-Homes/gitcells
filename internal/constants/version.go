@@ -2,13 +2,13 @@ package constants
 
 import "runtime"
 
+// These are populated at build time via ldflags (see Makefile). When the
+// binary is run from `go run` or built without ldflags, Version remains
+// "dev" and the updater treats it as upgrade-eligible. Do not hardcode a
+// numeric version here — the VERSION file is the single source of truth.
 var (
-	// Version is the current version of GitCells (set at build time via ldflags)
-	Version = "0.1.4"
-	// BuildTime is when the binary was built (set at build time via ldflags)
-	BuildTime = "unknown"
-	// CommitHash is the git commit hash (set at build time via ldflags)
+	Version    = "dev"
+	BuildTime  = "unknown"
 	CommitHash = "unknown"
-	// GoVersion is the Go version used to build
-	GoVersion = runtime.Version()
+	GoVersion  = runtime.Version()
 )

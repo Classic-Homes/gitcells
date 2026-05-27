@@ -1,6 +1,7 @@
 package adapter
 
 import (
+	"github.com/Classic-Homes/gitcells/internal/config"
 	"github.com/Classic-Homes/gitcells/internal/git"
 	"github.com/sirupsen/logrus"
 )
@@ -12,13 +13,18 @@ type GitAdapter struct {
 }
 
 func NewGitAdapter(directory string) (*GitAdapter, error) {
-	// Create a minimal git config for basic commit operations only
+	name, email := config.ResolveGitIdentity()
+	if name == "" {
+		name = "GitCells"
+	}
+	if email == "" {
+		email = "gitcells@localhost"
+	}
 	gitConfig := &git.Config{
-		UserName:  "GitCells",
-		UserEmail: "gitcells@localhost",
+		UserName:  name,
+		UserEmail: email,
 	}
 
-	// Create a simple logger
 	logger := logrus.New()
 
 	client, err := git.NewClient(directory, gitConfig, logger)

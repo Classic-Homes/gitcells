@@ -87,6 +87,10 @@ func (fw *FileWatcher) Start() error {
 }
 
 func (fw *FileWatcher) Stop() error {
+	// Cancel pending debounced callbacks first. Otherwise an in-flight
+	// time.AfterFunc may fire after Close() and call the event handler against
+	// a torn-down dashboard / closed fsnotify channels.
+	fw.debouncer.CancelAll()
 	fw.cancel()
 	err := fw.watcher.Close()
 	fw.logger.Info("File watcher stopped")
@@ -108,10 +112,16 @@ func (fw *FileWatcher) AddDirectory(path string) error {
 				return filepath.SkipDir
 			}
 
+			// LoadOrStore makes the recursive walk idempotent. fsnotify itself
+			// tolerates a duplicate Add, but we don't want to redundantly call
+			// it or emit a duplicate debug line for the same directory.
+			if _, loaded := fw.watchedDirs.LoadOrStore(walkPath, true); loaded {
+				return nil
+			}
 			if err := fw.watcher.Add(walkPath); err != nil {
+				fw.watchedDirs.Delete(walkPath)
 				fw.logger.Warnf("Failed to watch %s: %v", walkPath, err)
 			} else {
-				fw.watchedDirs.Store(walkPath, true)
 				fw.logger.Debugf("Watching directory: %s", walkPath)
 			}
 		}

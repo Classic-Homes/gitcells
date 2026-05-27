@@ -80,16 +80,31 @@ type Activity struct {
 }
 
 func NewDashboardModel() *UnifiedDashboardModel {
-	cfg, _ := config.Load("")
+	cfg, err := config.Load("")
+	if err != nil {
+		// Fall back to defaults but surface in initial activity so the user
+		// has a chance to spot a broken config file rather than silently
+		// running with zero values.
+		cfg = config.GetDefault()
+	}
 	gitAdapter, _ := adapter.NewGitAdapter("")
 	convAdapter := adapter.NewConverterAdapter()
 
-	return &UnifiedDashboardModel{
+	m := &UnifiedDashboardModel{
 		config:      cfg,
 		gitAdapter:  gitAdapter,
 		convAdapter: convAdapter,
 		activeTab:   TabOverview,
 	}
+	if err != nil {
+		m.activities = append(m.activities, Activity{
+			Time:    time.Now(),
+			Type:    "error",
+			Message: "Config load failed; running with defaults",
+			Details: err.Error(),
+		})
+	}
+	return m
 }
 
 func (m *UnifiedDashboardModel) Init() tea.Cmd {

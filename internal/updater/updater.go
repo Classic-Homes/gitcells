@@ -20,7 +20,43 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/inconshreveable/go-update"
+	"github.com/mattn/go-isatty"
 )
+
+// isInteractive reports whether stdin is connected to a terminal. Used to
+// avoid the updater hanging on `fmt.Scanln` when running under CI, piped
+// input, the TUI, or any other non-TTY context.
+func isInteractive() bool {
+	return isatty.IsTerminal(os.Stdin.Fd()) || isatty.IsCygwinTerminal(os.Stdin.Fd())
+}
+
+// promptYesNo returns true if stdin is a TTY and the user typed y/Y.
+// Returns false (without consuming stdin) on non-TTY contexts.
+func promptYesNo(question string) bool {
+	if !isInteractive() {
+		return false
+	}
+	fmt.Print(question)
+	var response string
+	if _, err := fmt.Scanln(&response); err != nil {
+		return false
+	}
+	return response == "y" || response == "Y"
+}
+
+// isSafeArchiveBinaryName returns true if name is a permitted gitcells
+// binary entry inside a release archive: a basename only (no directories,
+// no path traversal), exactly "gitcells" or "gitcells.exe".
+func isSafeArchiveBinaryName(name string) bool {
+	clean := filepath.Clean(name)
+	if clean != filepath.Base(clean) {
+		return false
+	}
+	if strings.ContainsAny(clean, "/\\") || strings.Contains(clean, "..") {
+		return false
+	}
+	return clean == "gitcells" || clean == "gitcells.exe"
+}
 
 const (
 	GitHubAPI     = "https://api.github.com"
@@ -147,14 +183,21 @@ func (u *Updater) Update(release *GitHubRelease) error {
 	var expectedSize int64
 	var checksumURL string
 
+	// Accept only canonical checksum filenames. A loose match would allow a
+	// release with multiple "checksums*"-named assets to shadow the real
+	// one with attacker-controlled hashes.
+	allowedChecksumNames := map[string]bool{
+		"checksums.txt":    true,
+		"checksums.sha256": true,
+		"SHA256SUMS":       true,
+	}
+
 	for _, asset := range release.Assets {
-		// Match exact asset name with appropriate extension
 		if asset.Name == assetName+".tar.gz" || asset.Name == assetName+".zip" {
 			downloadURL = asset.BrowserDownloadURL
 			expectedSize = asset.Size
 		}
-		// Look for checksum file
-		if strings.Contains(asset.Name, "checksums") && (strings.HasSuffix(asset.Name, ".txt") || strings.HasSuffix(asset.Name, ".sha256")) {
+		if allowedChecksumNames[asset.Name] {
 			checksumURL = asset.BrowserDownloadURL
 		}
 	}
@@ -290,23 +333,24 @@ func (u *Updater) extractBinaryFromTarGz(reader io.Reader, assetName string) (io
 			return nil, fmt.Errorf("failed to read tar header: %w", err)
 		}
 
-		// Look for the gitcells binary
-		if strings.Contains(header.Name, "gitcells") && !strings.Contains(header.Name, "/") {
-			// Limit file size to prevent decompression bombs (100MB max)
-			const maxSize = 100 * 1024 * 1024
-			limitReader := io.LimitReader(tr, maxSize)
-
-			// Create a buffer to hold the binary
-			var buf strings.Builder
-			n, err := io.Copy(&buf, limitReader)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read binary from archive: %w", err)
-			}
-			if n == maxSize {
-				return nil, fmt.Errorf("binary file too large (exceeds %d bytes)", maxSize)
-			}
-			return strings.NewReader(buf.String()), nil
+		if !isSafeArchiveBinaryName(header.Name) {
+			continue
 		}
+		// Limit file size to prevent decompression bombs (100MB max)
+		const maxSize = 100 * 1024 * 1024
+		// LimitReader takes maxSize+1 so we can distinguish "exactly at
+		// limit" from "truncated at limit".
+		limitReader := io.LimitReader(tr, maxSize+1)
+
+		var buf bytes.Buffer
+		n, err := io.Copy(&buf, limitReader)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read binary from archive: %w", err)
+		}
+		if n > maxSize {
+			return nil, fmt.Errorf("binary file too large (exceeds %d bytes)", maxSize)
+		}
+		return bytes.NewReader(buf.Bytes()), nil
 	}
 
 	return nil, fmt.Errorf("gitcells binary not found in archive")
@@ -320,34 +364,30 @@ func (u *Updater) extractBinaryFromZip(data []byte, assetName string) (io.Reader
 	}
 
 	for _, file := range reader.File {
-		// Look for the gitcells binary (can have .exe extension on Windows)
-		baseName := strings.TrimSuffix(file.Name, ".exe")
-		if strings.Contains(baseName, "gitcells") && !strings.Contains(file.Name, "/") {
-			// Limit file size to prevent decompression bombs (100MB max)
-			const maxSize = 100 * 1024 * 1024
-			if file.UncompressedSize64 > maxSize {
-				return nil, fmt.Errorf("binary file too large (exceeds %d bytes)", maxSize)
-			}
-
-			rc, err := file.Open()
-			if err != nil {
-				return nil, fmt.Errorf("failed to open file in zip: %w", err)
-			}
-			defer rc.Close()
-
-			// Create a buffer to hold the binary
-			var buf strings.Builder
-			// Use limited reader to prevent decompression bombs
-			limitReader := io.LimitReader(rc, maxSize)
-			n, err := io.Copy(&buf, limitReader)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read binary from zip: %w", err)
-			}
-			if n == maxSize {
-				return nil, fmt.Errorf("binary file too large (exceeds %d bytes)", maxSize)
-			}
-			return strings.NewReader(buf.String()), nil
+		if !isSafeArchiveBinaryName(file.Name) {
+			continue
 		}
+		const maxSize = 100 * 1024 * 1024
+		if file.UncompressedSize64 > maxSize {
+			return nil, fmt.Errorf("binary file too large (exceeds %d bytes)", maxSize)
+		}
+
+		rc, err := file.Open()
+		if err != nil {
+			return nil, fmt.Errorf("failed to open file in zip: %w", err)
+		}
+		defer rc.Close()
+
+		var buf bytes.Buffer
+		limitReader := io.LimitReader(rc, maxSize+1)
+		n, err := io.Copy(&buf, limitReader)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read binary from zip: %w", err)
+		}
+		if n > maxSize {
+			return nil, fmt.Errorf("binary file too large (exceeds %d bytes)", maxSize)
+		}
+		return bytes.NewReader(buf.Bytes()), nil
 	}
 
 	return nil, fmt.Errorf("gitcells binary not found in zip archive")
@@ -523,10 +563,7 @@ func (u *Updater) applyUpdateWithSudo(binary io.Reader, targetPath string) error
 	fmt.Printf("  You can manually replace %s with this file\n", targetPath)
 	fmt.Println()
 
-	fmt.Print("Would you like to run the sudo command now? (y/N): ")
-	var response string
-	if _, err := fmt.Scanln(&response); err == nil && (response == "y" || response == "Y") {
-		// Execute sudo command
+	if promptYesNo("Would you like to run the sudo command now? (y/N): ") {
 		// #nosec G204 - tmpFile.Name() and targetPath are from our own code, not user input
 		cmd := exec.Command("sudo", "mv", tmpFile.Name(), targetPath)
 		cmd.Stdout = os.Stdout
@@ -540,14 +577,13 @@ func (u *Updater) applyUpdateWithSudo(binary io.Reader, targetPath string) error
 		// Ensure the file has correct permissions
 		cmd = exec.Command("sudo", "chmod", "755", targetPath)
 		if err := cmd.Run(); err != nil {
-			// Non-fatal, just warn
 			fmt.Printf("Warning: failed to set permissions: %v\n", err)
 		}
 
 		return nil
 	}
 
-	// If user chose not to use sudo, provide manual instructions
+	// Non-TTY or user declined: print manual instructions and exit clean.
 	return fmt.Errorf("update downloaded to %s. Please manually move it to %s", tmpFile.Name(), targetPath)
 }
 
@@ -568,7 +604,11 @@ func (u *Updater) applyUpdateWithElevation(binary io.Reader, targetPath string) 
 	}
 	tmpFile.Close()
 
-	// Create a batch script to perform the update
+	// Quote both paths defensively. tmpFile.Name() / targetPath come from
+	// os.CreateTemp and our own derivation respectively, but escaping any
+	// stray `"` keeps the script robust if a user has a quote in their
+	// install path.
+	quote := func(s string) string { return strings.ReplaceAll(s, `"`, `""`) }
 	batchScript := fmt.Sprintf(`@echo off
 echo Updating GitCells...
 ping 127.0.0.1 -n 2 > nul
@@ -579,7 +619,7 @@ if %%errorlevel%% equ 0 (
     echo Update failed. Please run as administrator.
     pause
 )
-`, tmpFile.Name(), targetPath)
+`, quote(tmpFile.Name()), quote(targetPath))
 
 	batchFile, err := os.CreateTemp("", "gitcells-update-*.bat")
 	if err != nil {
@@ -606,13 +646,13 @@ if %%errorlevel%% equ 0 (
 	fmt.Println()
 
 	// Try to run with elevation using PowerShell
-	fmt.Print("Would you like to try running with administrator privileges now? (y/N): ")
-	var response string
-	if _, err := fmt.Scanln(&response); err == nil && (response == "y" || response == "Y") {
-		// Use PowerShell to run as administrator
+	if promptYesNo("Would you like to try running with administrator privileges now? (y/N): ") {
+		// Use PowerShell to run as administrator. Escape the path in single
+		// quotes by doubling embedded ' characters (PowerShell rule).
+		psQuoted := strings.ReplaceAll(batchFile.Name(), "'", "''")
 		// #nosec G204 - batchFile.Name() is from our own temp file creation, not user input
 		cmd := exec.Command("powershell", "-Command",
-			fmt.Sprintf("Start-Process cmd -ArgumentList '/c %s' -Verb RunAs", batchFile.Name()))
+			fmt.Sprintf("Start-Process cmd -ArgumentList '/c \"%s\"' -Verb RunAs", psQuoted))
 
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to run with elevation: %w. Please run the command manually", err)

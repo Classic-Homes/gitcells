@@ -153,8 +153,11 @@ func TestGitAdapter_CommitFiles(t *testing.T) {
 		commit, err := repo.CommitObject(ref.Hash())
 		assert.NoError(t, err)
 		assert.Equal(t, "Add test file", commit.Message)
-		assert.Equal(t, "GitCells", commit.Author.Name)
-		assert.Equal(t, "gitcells@localhost", commit.Author.Email)
+		// Author resolution prefers the host's `git config user.{name,email}`;
+		// only falls back to GitCells placeholder when git isn't configured.
+		// Assert that *some* author was set, not a specific identity.
+		assert.NotEmpty(t, commit.Author.Name)
+		assert.NotEmpty(t, commit.Author.Email)
 	})
 
 	t.Run("handles commit with non-existent file", func(t *testing.T) {

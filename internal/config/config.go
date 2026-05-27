@@ -3,11 +3,27 @@ package config
 
 import (
 	"os"
+	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
+
+// ResolveGitIdentity returns the user's git user.name and user.email by
+// shelling out to `git config`. Empty strings on failure — callers decide
+// whether to fall back to the GitCells placeholder identity.
+func ResolveGitIdentity() (name, email string) {
+	read := func(key string) string {
+		out, err := exec.Command("git", "config", "--get", key).Output()
+		if err != nil {
+			return ""
+		}
+		return strings.TrimSpace(string(out))
+	}
+	return read("user.name"), read("user.email")
+}
 
 const (
 	// DefaultMaxCellsPerSheet is the default maximum number of cells per sheet

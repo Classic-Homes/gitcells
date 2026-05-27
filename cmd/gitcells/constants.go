@@ -1,9 +1,10 @@
 package main
 
-// File and directory permissions
+import "github.com/Classic-Homes/gitcells/internal/constants"
+
+// Aliases to the shared constants package so the cmd layer uses one canonical
+// permission matrix. New code should reference internal/constants directly.
 const (
-	// dirPermissions is the permission for created directories
-	dirPermissions = 0750
-	// filePermissions is the permission for created files
-	filePermissions = 0600
+	dirPermissions  = constants.DirPermissions
+	filePermissions = constants.FilePermissions
 )

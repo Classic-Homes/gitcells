@@ -7,6 +7,44 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
+// expandSqref expands an Excel sqref string (space-separated list of ranges,
+// e.g. "A1 B2:C3 D5") into the set of cell references it covers. Returns a
+// set rather than a slice because the typical use is membership testing.
+func expandSqref(sqref string) map[string]struct{} {
+	set := make(map[string]struct{})
+	for _, group := range strings.Fields(sqref) {
+		parts := strings.SplitN(group, ":", 2)
+		if len(parts) == 1 {
+			set[parts[0]] = struct{}{}
+			continue
+		}
+		startCol, startRow, err := excelize.CellNameToCoordinates(parts[0])
+		if err != nil {
+			continue
+		}
+		endCol, endRow, err := excelize.CellNameToCoordinates(parts[1])
+		if err != nil {
+			continue
+		}
+		if endCol < startCol {
+			startCol, endCol = endCol, startCol
+		}
+		if endRow < startRow {
+			startRow, endRow = endRow, startRow
+		}
+		for r := startRow; r <= endRow; r++ {
+			for c := startCol; c <= endCol; c++ {
+				name, err := excelize.CoordinatesToCellName(c, r)
+				if err != nil {
+					continue
+				}
+				set[name] = struct{}{}
+			}
+		}
+	}
+	return set
+}
+
 // extractDataValidations extracts all data validation rules from a sheet
 func (c *converter) extractDataValidations(f *excelize.File, sheetName string, sheet *models.Sheet) error {
 	// Get all data validations for the sheet
@@ -45,13 +83,12 @@ func (c *converter) extractDataValidations(f *excelize.File, sheetName string, s
 			dv.Prompt = *validation.Prompt
 		}
 
-		// Apply to cells in the range
-		// This is a simplified implementation - a full implementation would
-		// parse the Sqref range and apply to all cells in that range
-		for cellRef, cell := range sheet.Cells {
-			// Check if this cell is within the validation range
-			// For now, we'll do a simple string contains check
-			if validation.Sqref == cellRef || strings.Contains(validation.Sqref, cellRef) {
+		// Expand the validation's sqref into the exact set of covered cells
+		// and apply only to those. Previously a substring check matched A1
+		// inside A10 / A11 etc., spraying validations onto unrelated cells.
+		members := expandSqref(validation.Sqref)
+		for cellRef := range members {
+			if cell, ok := sheet.Cells[cellRef]; ok {
 				cell.DataValidation = dv
 				sheet.Cells[cellRef] = cell
 			}
@@ -93,15 +130,12 @@ func (c *converter) extractConditionalFormats(f *excelize.File, sheetName string
 	return formats, nil
 }
 
-// convertConditionalStyle converts excelize conditional format style to our model
+// convertConditionalStyle would convert an excelize conditional format style
+// to our CellStyle model. Excelize does not yet expose enough structure to
+// implement this round-trip, so we return nil rather than a misleading empty
+// style.
 func (c *converter) convertConditionalStyle(style interface{}) *models.CellStyle {
-	// This would convert the excelize style format to our CellStyle model
-	// Implementation depends on the actual structure provided by excelize
-
-	// For now, return a basic style
-	return &models.CellStyle{
-		// Style properties would be extracted here
-	}
+	return nil
 }
 
 // extractRichText extracts rich text formatting from a cell

@@ -219,36 +219,23 @@ func (c *converter) convertCellStyleToExcelizeStyle(cellStyle *models.CellStyle)
 	// Convert Border
 	if cellStyle.Border != nil {
 		style.Border = []excelize.Border{}
-
-		if cellStyle.Border.Left != nil {
-			style.Border = append(style.Border, excelize.Border{
-				Type:  "left",
-				Color: cellStyle.Border.Left.Color,
-				Style: convertBorderStyle(cellStyle.Border.Left.Style),
-			})
+		sides := []struct {
+			name   string
+			border *models.BorderLine
+		}{
+			{"left", cellStyle.Border.Left},
+			{"right", cellStyle.Border.Right},
+			{"top", cellStyle.Border.Top},
+			{"bottom", cellStyle.Border.Bottom},
 		}
-
-		if cellStyle.Border.Right != nil {
+		for _, s := range sides {
+			if s.border == nil {
+				continue
+			}
 			style.Border = append(style.Border, excelize.Border{
-				Type:  "right",
-				Color: cellStyle.Border.Right.Color,
-				Style: convertBorderStyle(cellStyle.Border.Right.Style),
-			})
-		}
-
-		if cellStyle.Border.Top != nil {
-			style.Border = append(style.Border, excelize.Border{
-				Type:  "top",
-				Color: cellStyle.Border.Top.Color,
-				Style: convertBorderStyle(cellStyle.Border.Top.Style),
-			})
-		}
-
-		if cellStyle.Border.Bottom != nil {
-			style.Border = append(style.Border, excelize.Border{
-				Type:  "bottom",
-				Color: cellStyle.Border.Bottom.Color,
-				Style: convertBorderStyle(cellStyle.Border.Bottom.Style),
+				Type:  s.name,
+				Color: s.border.Color,
+				Style: convertBorderStyle(s.border.Style),
 			})
 		}
 	}
