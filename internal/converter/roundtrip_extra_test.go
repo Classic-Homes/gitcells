@@ -402,9 +402,9 @@ func TestSheetChunkFilename_SanitizationCollision(t *testing.T) {
 	logger.SetLevel(logrus.ErrorLevel)
 	s := &SheetBasedChunking{logger: logger}
 
-	a := s.sheetChunkFilename("A B")
-	b := s.sheetChunkFilename("A_B")
-	c := s.sheetChunkFilename("A_B") // identical input → identical output
+	a := s.sheetChunkFilename("A B", false)
+	b := s.sheetChunkFilename("A_B", false)
+	c := s.sheetChunkFilename("A_B", false) // identical input → identical output
 
 	assert.NotEqual(t, a, b, `sanitized "A B" must not collide with literal "A_B"`)
 	assert.Equal(t, b, c, "identical sheet names must produce identical chunk filenames")

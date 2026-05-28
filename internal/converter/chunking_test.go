@@ -146,7 +146,7 @@ func TestSheetBasedChunking(t *testing.T) {
 		c := chunker.(*SheetBasedChunking)
 
 		// Clean names get no hash suffix.
-		assert.Equal(t, "sheet_Sheet1.json", c.sheetChunkFilename("Sheet1"))
+		assert.Equal(t, "sheet_Sheet1.json", c.sheetChunkFilename("Sheet1", false))
 
 		// Dirty names get sanitized + 6-hex-char content hash to avoid collisions.
 		for _, input := range []string{
@@ -155,7 +155,7 @@ func TestSheetBasedChunking(t *testing.T) {
 			"Sheet With Spaces",
 			"Sheet*With?Chars",
 		} {
-			out := c.sheetChunkFilename(input)
+			out := c.sheetChunkFilename(input, false)
 			assert.True(t, strings.HasPrefix(out, "sheet_"), "prefix for %q: %s", input, out)
 			assert.True(t, strings.HasSuffix(out, ".json"), "suffix for %q: %s", input, out)
 			assert.NotContains(t, out, "/", "no slashes for %q: %s", input, out)
@@ -164,9 +164,18 @@ func TestSheetBasedChunking(t *testing.T) {
 
 		// Adversarial collision: "A B" and "A_B" both sanitize to "A_B" but
 		// must produce distinct filenames thanks to the hash suffix.
-		a := c.sheetChunkFilename("A B")
-		b := c.sheetChunkFilename("A_B")
+		a := c.sheetChunkFilename("A B", false)
+		b := c.sheetChunkFilename("A_B", false)
 		assert.NotEqual(t, a, b, "collision: %q vs %q both → %s", "A B", "A_B", a)
+
+		// Case-insensitive collision: forceHash=true forces the hash even
+		// when sanitization would otherwise produce a bare name. Caller
+		// passes forceHash=true after a pre-scan detects another sheet that
+		// lowercases to the same basename.
+		s1 := c.sheetChunkFilename("Sheet1", true)
+		s2 := c.sheetChunkFilename("sheet1", true)
+		assert.NotEqual(t, s1, s2, "force-hashed Sheet1 / sheet1 must produce distinct filenames")
+		assert.NotEqual(t, "sheet_Sheet1.json", s1, "forceHash=true must add a hash suffix")
 	})
 
 	t.Run("AtomicReplaceLeavesNoStagingDirs", func(t *testing.T) {
@@ -340,4 +349,66 @@ func TestReadChunks_ForwardSlashMetadataIsPortable(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, string(raw), `\\`, "metadata must not embed escaped backslashes")
 	assert.Contains(t, string(raw), `"sheet_Foo.json"`)
+}
+
+// TestWriteChunks_CaseInsensitiveSheetCollision exercises the pre-scan
+// that forces a hash suffix when two sheet names lowercase to the same
+// basename. On case-insensitive filesystems (macOS APFS, Windows NTFS),
+// the pre-fix behavior wrote `sheet_Sheet1.json` and `sheet_sheet1.json`
+// to the same on-disk path, silently clobbering one sheet's chunk with
+// the other's.
+func TestWriteChunks_CaseInsensitiveSheetCollision(t *testing.T) {
+	logger := logrus.New()
+	logger.SetLevel(logrus.WarnLevel)
+	chunker := NewSheetBasedChunking(logger)
+
+	doc := &models.ExcelDocument{
+		Version: "1.0",
+		Metadata: models.DocumentMetadata{
+			AppVersion:   "test-1.0",
+			OriginalFile: "case_collision.xlsx",
+			Checksum:     "test-checksum",
+		},
+		Sheets: []models.Sheet{
+			{Name: "Sheet1", Index: 0, Cells: map[string]models.Cell{"A1": {Value: "upper-S", Type: models.CellTypeString}}},
+			{Name: "sheet1", Index: 1, Cells: map[string]models.Cell{"A1": {Value: "lower-s", Type: models.CellTypeString}}},
+			{Name: "SHEET1", Index: 2, Cells: map[string]models.Cell{"A1": {Value: "all-caps", Type: models.CellTypeString}}},
+		},
+	}
+
+	tempDir := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(tempDir, ".git"), constants.DirPermissions))
+	basePath := filepath.Join(tempDir, "case_collision.json")
+
+	files, err := chunker.WriteChunks(doc, basePath, ConvertOptions{})
+	require.NoError(t, err)
+	// workbook.json + 3 sheet files
+	require.Len(t, files, 4)
+
+	// Assert lowercased basenames are all distinct — the meaningful
+	// invariant on case-insensitive filesystems.
+	seen := make(map[string]string)
+	for _, f := range files {
+		base := filepath.Base(f)
+		lower := strings.ToLower(base)
+		if prior, dup := seen[lower]; dup {
+			t.Fatalf("case-insensitive collision: %q and %q both lowercase to %q", prior, base, lower)
+		}
+		seen[lower] = base
+	}
+
+	// Round-trip: ReadChunks must hand back all three sheets with their
+	// original casing preserved.
+	readDoc, err := chunker.ReadChunks(basePath)
+	require.NoError(t, err)
+	require.Len(t, readDoc.Sheets, 3)
+
+	names := make(map[string]string)
+	for _, sheet := range readDoc.Sheets {
+		require.Contains(t, sheet.Cells, "A1")
+		names[sheet.Name] = sheet.Cells["A1"].Value.(string)
+	}
+	assert.Equal(t, "upper-S", names["Sheet1"])
+	assert.Equal(t, "lower-s", names["sheet1"])
+	assert.Equal(t, "all-caps", names["SHEET1"])
 }

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-git/go-git/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -84,4 +85,34 @@ func TestEnsureManagedFile(t *testing.T) {
 		assert.True(t, strings.HasPrefix(s, "custom-line\n"+managedBlockMarker),
 			"managed block must start on its own line; got: %q", s)
 	})
+}
+
+// TestEnableGitLongPaths verifies that initializing a repository writes
+// `core.longpaths = true` to the on-disk git config. The setting is a
+// no-op on macOS/Linux but lifts Windows' default 260-char path limit so
+// deeply nested `.gitcells/data/...` chunk dirs don't trigger silent
+// `git add` failures. Asserting on the config file makes this OS-agnostic.
+func TestEnableGitLongPaths(t *testing.T) {
+	dir := t.TempDir()
+
+	repo, err := git.PlainInit(dir, false)
+	require.NoError(t, err)
+
+	require.NoError(t, enableGitLongPaths(repo))
+
+	configPath := filepath.Join(dir, ".git", "config")
+	raw, err := os.ReadFile(configPath) // #nosec G304 - test path
+	require.NoError(t, err)
+
+	got := string(raw)
+	assert.Contains(t, got, "longpaths = true",
+		"core.longpaths must be true; got config:\n%s", got)
+
+	// Re-applying is idempotent and must not duplicate the option.
+	require.NoError(t, enableGitLongPaths(repo))
+	raw2, err := os.ReadFile(configPath) // #nosec G304 - test path
+	require.NoError(t, err)
+	assert.Equal(t, strings.Count(string(raw), "longpaths"),
+		strings.Count(string(raw2), "longpaths"),
+		"re-applying must not duplicate the longpaths entry")
 }

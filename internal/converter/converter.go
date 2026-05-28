@@ -41,6 +41,12 @@ type ConvertOptions struct {
 	SheetsToConvert []string // Specific sheet names to convert (empty = convert all)
 	ExcludeSheets   []string // Sheet names to exclude from conversion
 	SheetIndices    []int    // Specific sheet indices to convert (0-based, empty = convert all)
+
+	// SkipBadSheets, when true, downgrades a sheet that fails to process
+	// from a hard error to a warn-and-continue. Default (false) aborts the
+	// whole conversion on the first failure, which is what callers want
+	// when round-trip integrity matters more than partial output.
+	SkipBadSheets bool
 }
 
 type converter struct {

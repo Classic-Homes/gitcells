@@ -152,8 +152,22 @@ func (s *SheetBasedChunking) WriteChunks(doc *models.ExcelDocument, basePath str
 	}
 	stagedFiles = append(stagedFiles, mainStaged)
 
+	// Pre-scan sheet names so case-insensitive filesystems (macOS APFS,
+	// Windows NTFS) can't silently clobber one chunk file with another.
+	// Two sheets named "Sheet1" and "sheet1" both sanitize to themselves
+	// — without this map they'd hit the same lowercased path on disk.
+	// Force-hash *every* member of a colliding group so the disambiguation
+	// is symmetric and the JSON stays byte-stable on subsequent writes.
+	caseInsensitiveCount := make(map[string]int, len(doc.Sheets))
 	for _, sheet := range doc.Sheets {
-		sheetFile := filepath.Join(stagingDir, s.sheetChunkFilename(sheet.Name))
+		key := strings.ToLower(filenameReplacer.Replace(sheet.Name))
+		caseInsensitiveCount[key]++
+	}
+
+	for _, sheet := range doc.Sheets {
+		key := strings.ToLower(filenameReplacer.Replace(sheet.Name))
+		forceHash := caseInsensitiveCount[key] > 1
+		sheetFile := filepath.Join(stagingDir, s.sheetChunkFilename(sheet.Name, forceHash))
 		sheetDoc := &SheetChunk{
 			Version:          doc.Version,
 			WorkbookChecksum: doc.Metadata.Checksum,
@@ -424,15 +438,23 @@ var filenameReplacer = strings.NewReplacer(
 	" ", "_",
 )
 
-// sheetChunkFilename builds the on-disk JSON filename for a sheet. When
-// sanitization changes the name, a short content-hash suffix is appended so
-// adversarial names like "A B" and "A_B" don't collide and silently
-// overwrite each other. The original sheet name is preserved inside the
-// chunk payload (SheetChunk.Sheet.Name), so the suffix is purely for
-// filename uniqueness.
-func (s *SheetBasedChunking) sheetChunkFilename(sheetName string) string {
+// sheetChunkFilename builds the on-disk JSON filename for a sheet.
+//
+// A short content-hash suffix is appended when either:
+//   - sanitization changed the name (adversarial collision: "A B" and
+//     "A_B" both sanitize to "A_B" so the literal one stays bare and the
+//     sanitized one carries a hash, keeping them distinct); or
+//   - the caller flags a case-insensitive collision with another sheet in
+//     the same workbook (forceHash=true). On macOS APFS and Windows NTFS,
+//     "Sheet1" and "sheet1" hit the same path on disk; the hash gives both
+//     sides a unique filename without depending on filesystem case
+//     sensitivity.
+//
+// The original sheet name is preserved inside the chunk payload
+// (SheetChunk.Sheet.Name), so the suffix is purely for filename uniqueness.
+func (s *SheetBasedChunking) sheetChunkFilename(sheetName string, forceHash bool) string {
 	sanitized := filenameReplacer.Replace(sheetName)
-	if sanitized == sheetName {
+	if sanitized == sheetName && !forceHash {
 		return fmt.Sprintf("sheet_%s.json", sanitized)
 	}
 	sum := sha1.Sum([]byte(sheetName)) // #nosec G401 - collision-resistance only, not auth

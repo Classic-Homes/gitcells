@@ -21,6 +21,7 @@ func newSyncCommand(logger *logrus.Logger) *cobra.Command {
 		Long:  "Synchronize Excel files with their JSON representations",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			commit, _ := cmd.Flags().GetBool("commit")
+			skipBadSheets, _ := cmd.Flags().GetBool("skip-bad-sheets")
 			includePatterns, _ := cmd.Flags().GetStringSlice("include")
 			excludePatterns, _ := cmd.Flags().GetStringSlice("exclude")
 
@@ -98,6 +99,7 @@ func newSyncCommand(logger *logrus.Logger) *cobra.Command {
 					IgnoreEmptyCells: cfg.Converter.IgnoreEmptyCells,
 					MaxCellsPerSheet: cfg.Converter.MaxCellsPerSheet,
 					ChunkingStrategy: cfg.Converter.ChunkingStrategy,
+					SkipBadSheets:    skipBadSheets,
 				}
 
 				err := conv.ExcelToJSONFile(fileStatus.ExcelPath, fileStatus.JSONPath, options)
@@ -160,6 +162,7 @@ func newSyncCommand(logger *logrus.Logger) *cobra.Command {
 	}
 
 	cmd.Flags().Bool("commit", false, "commit JSON changes to git (if repository exists)")
+	cmd.Flags().Bool("skip-bad-sheets", false, "skip sheets that fail to read instead of aborting (lossy: missing sheets won't be in the JSON)")
 	includePatterns := make([]string, len(constants.ExcelExtensions))
 	for i, ext := range constants.ExcelExtensions {
 		includePatterns[i] = "*" + ext

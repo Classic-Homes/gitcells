@@ -177,6 +177,24 @@ func timeoutOperation(ctx context.Context, logger *logrus.Logger, operation stri
 	}
 }
 
+// enableGitLongPaths writes `core.longpaths = true` to the repo config.
+// On Windows, this lifts the legacy 260-char MAX_PATH limit that would
+// otherwise make `git add` silently fail once `.gitcells/data/...` chunk
+// trees grow deep. On macOS and Linux the setting is a no-op but cheap.
+// Idempotent: if longpaths is already set, this just overwrites with the
+// same value.
+func enableGitLongPaths(repo *git.Repository) error {
+	cfg, err := repo.Config()
+	if err != nil {
+		return fmt.Errorf("load git config: %w", err)
+	}
+	cfg.Raw.SetOption("core", "", "longpaths", "true")
+	if err := repo.SetConfig(cfg); err != nil {
+		return fmt.Errorf("write git config: %w", err)
+	}
+	return nil
+}
+
 // suggestSolution provides helpful suggestions based on the error and platform
 func suggestSolution(err error, dir string, logger *logrus.Logger) {
 	if err == nil {
@@ -341,6 +359,11 @@ Thumbs.db
 				switch err {
 				case nil:
 					logger.Info("Directory is already a git repository")
+					// Make sure existing repos pick up the long-path
+					// setting on re-init. Cheap and idempotent.
+					if cfgErr := enableGitLongPaths(repo); cfgErr != nil {
+						logger.Warnf("Failed to enable core.longpaths on existing repository: %v", cfgErr)
+					}
 				case git.ErrRepositoryNotExists:
 					// Initialize new git repository with timeout
 					err = timeoutOperation(ctx, logger, "git repository initialization", func() error {
@@ -351,6 +374,16 @@ Thumbs.db
 					if err != nil {
 						suggestSolution(err, absDir, logger)
 						return utils.WrapError(err, utils.ErrorTypeGit, "init", "failed to initialize git repository")
+					}
+
+					// Enable core.longpaths so chunk dirs nested inside
+					// `.gitcells/data/...` can exceed Windows' default
+					// 260-char path limit. No-op on macOS/Linux. Setting
+					// it on init avoids a class of "git add silently
+					// fails" failures that only appear when the repo
+					// reaches a certain depth.
+					if cfgErr := enableGitLongPaths(repo); cfgErr != nil {
+						logger.Warnf("Failed to enable core.longpaths: %v", cfgErr)
 					}
 
 					// Get worktree with timeout

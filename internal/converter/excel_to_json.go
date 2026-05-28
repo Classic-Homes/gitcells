@@ -102,8 +102,11 @@ func (c *converter) ExcelToJSON(filePath string, options ConvertOptions) (*model
 
 		sheet, err := c.processSheet(f, sheetName, originalIndex, options)
 		if err != nil {
-			c.logger.Warnf("Failed to process sheet %s: %v", sheetName, err)
-			continue
+			if options.SkipBadSheets {
+				c.logger.Warnf("Failed to process sheet %s (skipped because SkipBadSheets=true): %v", sheetName, err)
+				continue
+			}
+			return nil, fmt.Errorf("failed to process sheet %q: %w", sheetName, err)
 		}
 		doc.Sheets = append(doc.Sheets, *sheet)
 		processedIndex++
