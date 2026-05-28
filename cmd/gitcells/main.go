@@ -24,9 +24,18 @@ func main() {
 	logger = setupLogger()
 
 	rootCmd := &cobra.Command{
-		Use:     "gitcells",
-		Short:   "Version control for Excel files",
-		Long:    `GitCells converts Excel files to JSON for version control and collaboration`,
+		Use:   "gitcells",
+		Short: "Version control for Excel files",
+		Long: `GitCells converts Excel files to JSON so you can version-control them with Git.
+
+Quickstart:
+  gitcells init                  Set up GitCells in the current directory
+  gitcells convert sheet.xlsx    Convert one workbook to JSON chunks
+  gitcells watch ./reports       Auto-convert on every save
+  gitcells status                See what's modified vs. stored
+  gitcells diff sheet.xlsx       Compare live workbook with stored chunks
+
+Run 'gitcells <command> --help' for details on any command.`,
 		Version: fmt.Sprintf("%s (built %s)", constants.Version, constants.BuildTime),
 	}
 
@@ -44,7 +53,7 @@ func main() {
 
 	// Global flags
 	rootCmd.PersistentFlags().String("config", "", "config file (default: .gitcells.yaml)")
-	rootCmd.PersistentFlags().Bool("verbose", false, "enable verbose logging")
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "enable verbose logging")
 	rootCmd.PersistentFlags().Bool("no-color", false, "disable colored output (also honors NO_COLOR env var)")
 
 	// Apply global flags before any subcommand runs.

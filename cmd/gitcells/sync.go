@@ -16,19 +16,19 @@ import (
 
 func newSyncCommand(logger *logrus.Logger) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "sync",
+		Use:   "sync [directory]",
 		Short: "Sync Excel files with their JSON representations",
-		Long:  "Synchronize Excel files with their JSON representations",
+		Long:  "Synchronize Excel files with their JSON representations in the given directory (defaults to current directory)",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			commit, _ := cmd.Flags().GetBool("commit")
 			skipBadSheets, _ := cmd.Flags().GetBool("skip-bad-sheets")
 			includePatterns, _ := cmd.Flags().GetStringSlice("include")
 			excludePatterns, _ := cmd.Flags().GetStringSlice("exclude")
 
-			// Get current directory
-			dir := "."
-			if len(args) > 0 {
-				dir = args[0]
+			dir, err := resolveDirArg(args)
+			if err != nil {
+				return err
 			}
 
 			// Load configuration
@@ -167,8 +167,8 @@ func newSyncCommand(logger *logrus.Logger) *cobra.Command {
 	for i, ext := range constants.ExcelExtensions {
 		includePatterns[i] = "*" + ext
 	}
-	cmd.Flags().StringSlice("include", includePatterns, "file patterns to include")
-	cmd.Flags().StringSlice("exclude", []string{constants.ExcelTempPrefix + "*", constants.TempFilePattern}, "file patterns to exclude")
+	cmd.Flags().StringSlice("include", includePatterns, "file patterns to include (repeatable or comma-separated)")
+	cmd.Flags().StringSlice("exclude", []string{constants.ExcelTempPrefix + "*", constants.TempFilePattern}, "file patterns to exclude (repeatable or comma-separated)")
 
 	return cmd
 }

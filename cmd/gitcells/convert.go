@@ -121,9 +121,9 @@ func newConvertCommand(logger *logrus.Logger) *cobra.Command {
 	cmd.Flags().Bool("skip-bad-sheets", false, "skip sheets that fail to read instead of aborting (lossy: missing sheets won't be in the JSON)")
 
 	// Sheet selection flags (only applicable for Excel to JSON conversion)
-	cmd.Flags().StringSlice("sheets", []string{}, "comma-separated list of sheet names to convert (default: all sheets)")
-	cmd.Flags().StringSlice("exclude-sheets", []string{}, "comma-separated list of sheet names to exclude from conversion")
-	cmd.Flags().IntSlice("sheet-indices", []int{}, "comma-separated list of sheet indices to convert (0-based, default: all sheets)")
+	cmd.Flags().StringSlice("sheets", []string{}, "sheet names to convert (repeatable; e.g. --sheets A --sheets B, or comma-separated). Default: all sheets")
+	cmd.Flags().StringSlice("exclude-sheets", []string{}, "sheet names to exclude (repeatable or comma-separated)")
+	cmd.Flags().IntSlice("sheet-indices", []int{}, "sheet indices to convert, 0-based (repeatable or comma-separated). Default: all sheets")
 
 	return cmd
 }

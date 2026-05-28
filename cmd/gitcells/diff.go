@@ -7,7 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Classic-Homes/gitcells/internal/constants"
 	"github.com/Classic-Homes/gitcells/internal/converter"
+	"github.com/Classic-Homes/gitcells/internal/git"
 	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/Classic-Homes/gitcells/pkg/models"
 	"github.com/sirupsen/logrus"
@@ -25,11 +27,13 @@ func newDiffCommand(logger *logrus.Logger) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "diff <file1> [file2]",
 		Short: "Show differences between Excel files or versions",
-		Long: `Compare two Excel files or show changes in a file.
+		Long: `Compare two Excel files, or compare one Excel file against its
+stored JSON chunks (the snapshot from the last 'gitcells convert' or
+'gitcells sync').
 
 Examples:
   gitcells diff file1.xlsx file2.xlsx    # Compare two Excel files
-  gitcells diff file.xlsx                # Compare with stored version`,
+  gitcells diff file.xlsx                # Compare with stored chunks`,
 		Args: cobra.RangeArgs(minDiffArgs, maxDiffArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDiff(cmd, args, logger)
@@ -40,7 +44,7 @@ Examples:
 	// don't redefine it here or cobra will refuse to register both.
 	cmd.Flags().Bool("summary", false, "Show only summary of changes")
 	cmd.Flags().String("format", "text", "Output format: text, json")
-	cmd.Flags().StringSlice("sheets", []string{}, "Only compare specific sheets")
+	cmd.Flags().StringSlice("sheets", []string{}, "limit comparison to these sheets (repeatable or comma-separated)")
 	cmd.Flags().Bool("ignore-formatting", false, "Ignore cell formatting differences")
 	cmd.Flags().Bool("ignore-empty", false, "Ignore empty cell differences")
 
@@ -60,29 +64,49 @@ func runDiff(cmd *cobra.Command, args []string, logger *logrus.Logger) error {
 	// output stays in sync with logger output.
 	useColor := !colorsDisabled
 
-	var file1, file2 string
-	file1 = args[0]
+	file1 := args[0]
 
-	// Determine second file
+	var doc1, doc2 *models.ExcelDocument
+	var err error
+
 	if len(args) == maxDiffArgs {
-		file2 = args[1]
+		// Two-arg form: compare two Excel files directly.
+		file2 := args[1]
+		logger.Debugf("Comparing %s with %s", file1, file2)
+
+		doc1, err = loadDocument(file1, false, ignoreFormatting, logger)
+		if err != nil {
+			return utils.WrapFileError(err, utils.ErrorTypeConverter, "load_document", file1, "failed to load first document")
+		}
+		doc2, err = loadDocument(file2, false, ignoreFormatting, logger)
+		if err != nil {
+			return utils.WrapFileError(err, utils.ErrorTypeConverter, "load_document", file2, "failed to load second document")
+		}
 	} else {
-		// For single file diff, we would need to load from chunks
-		// This is not yet implemented
-		return utils.NewError(utils.ErrorTypeValidation, "diff", "comparing with stored version not yet implemented - please specify two Excel files")
-	}
+		// One-arg form: compare the live xlsx against its stored chunk
+		// representation under `.gitcells/data/...`. This is what
+		// `gitcells diff sample.xlsx` advertises in --help and what users
+		// reach for when they want to know "what changed since the last
+		// commit". Pre-fix this path returned "not yet implemented".
+		logger.Debugf("Comparing %s against stored chunks", file1)
 
-	logger.Debugf("Comparing %s with %s", file1, file2)
+		// Confirm chunks exist before doing any conversion work so the
+		// error message reflects user intent ("no stored version") rather
+		// than ReadChunks' generic "JSON file chunks not found".
+		if err := requireStoredChunks(file1); err != nil {
+			return err
+		}
 
-	// Load documents
-	doc1, err := loadDocument(file1, false, ignoreFormatting, logger)
-	if err != nil {
-		return utils.WrapFileError(err, utils.ErrorTypeConverter, "load_document", file1, "failed to load first document")
-	}
+		doc1, err = loadDocument(file1, false, ignoreFormatting, logger)
+		if err != nil {
+			return utils.WrapFileError(err, utils.ErrorTypeConverter, "load_document", file1, "failed to load live document")
+		}
 
-	doc2, err := loadDocument(file2, false, ignoreFormatting, logger)
-	if err != nil {
-		return utils.WrapFileError(err, utils.ErrorTypeConverter, "load_document", file2, "failed to load second document")
+		conv := converter.NewConverter(logger)
+		doc2, err = conv.ReadStoredDocument(file1)
+		if err != nil {
+			return utils.WrapFileError(err, utils.ErrorTypeConverter, "load_stored_document", file1, "failed to load stored document")
+		}
 	}
 
 	// Filter sheets if specified
@@ -105,6 +129,37 @@ func runDiff(cmd *cobra.Command, args []string, logger *logrus.Logger) error {
 	default:
 		return outputDiffText(diff, summaryOnly, useColor)
 	}
+}
+
+// requireStoredChunks returns a clean user-facing error when no chunk
+// tree exists for excelPath under `.gitcells/data/...`. Mirrors the
+// resolution logic in status.go and chunking.go so the diagnostic
+// matches what convert/sync would actually write.
+func requireStoredChunks(excelPath string) error {
+	absExcel, err := filepath.Abs(excelPath)
+	if err != nil {
+		absExcel = excelPath
+	}
+	excelDir := filepath.Dir(absExcel)
+	gitRoot, gerr := git.FindRepositoryRoot(excelDir)
+	if gerr != nil {
+		gitRoot = excelDir
+	}
+	relPath, rerr := filepath.Rel(gitRoot, absExcel)
+	if rerr != nil {
+		relPath = absExcel
+	}
+	baseName := strings.TrimSuffix(filepath.Base(absExcel), filepath.Ext(absExcel))
+	chunkDir := filepath.Join(gitRoot, constants.GitCellsDataDir, filepath.Dir(relPath), baseName+constants.ChunksDirSuffix)
+	metaFile := filepath.Join(chunkDir, constants.ChunkMetadataFile)
+	if _, err := os.Stat(metaFile); err != nil {
+		if os.IsNotExist(err) {
+			return utils.NewError(utils.ErrorTypeValidation, "diff",
+				fmt.Sprintf("no stored version found for %s; run 'gitcells convert' or 'gitcells sync' first", excelPath))
+		}
+		return utils.WrapFileError(err, utils.ErrorTypeFileSystem, "diff", metaFile, "failed to stat chunk metadata")
+	}
+	return nil
 }
 
 func loadDocument(filePath string, jsonMode, ignoreFormatting bool, logger *logrus.Logger) (*models.ExcelDocument, error) {

@@ -18,30 +18,31 @@ import (
 )
 
 type FileStatus struct {
-	ExcelPath    string
-	JSONPath     string
-	Status       string // "synced", "modified", "new", "missing"
-	ExcelModTime time.Time
-	JSONModTime  time.Time
-	ExcelSize    int64
-	JSONSize     int64
-	LastSyncTime *time.Time
-	HasChanges   bool
+	ExcelPath    string     `json:"excel_path"`
+	JSONPath     string     `json:"json_path,omitempty"`
+	Status       string     `json:"status"` // "synced", "modified", "new", "missing"
+	ExcelModTime time.Time  `json:"excel_mod_time"`
+	JSONModTime  time.Time  `json:"json_mod_time,omitempty"`
+	ExcelSize    int64      `json:"excel_size"`
+	JSONSize     int64      `json:"json_size,omitempty"`
+	LastSyncTime *time.Time `json:"last_sync_time,omitempty"`
+	HasChanges   bool       `json:"has_changes"`
 }
 
 func newStatusCommand(logger *logrus.Logger) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "status",
+		Use:   "status [directory]",
 		Short: "Show status of Excel files and their JSON representations",
-		Long:  "Display the synchronization status of Excel files and JSON representations in the current directory",
+		Long:  "Display the synchronization status of Excel files and JSON representations in the given directory (defaults to current directory)",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			detailed, _ := cmd.Flags().GetBool("detailed")
+			jsonMode, _ := cmd.Flags().GetBool("json")
 			includePatterns, _ := cmd.Flags().GetStringSlice("include")
 
-			// Get current directory
-			dir := "."
-			if len(args) > 0 {
-				dir = args[0]
+			dir, err := resolveDirArg(args)
+			if err != nil {
+				return err
 			}
 
 			// Find all Excel files
@@ -51,6 +52,9 @@ func newStatusCommand(logger *logrus.Logger) *cobra.Command {
 			}
 
 			if len(excelFiles) == 0 {
+				if jsonMode {
+					return outputStatusJSON(nil)
+				}
 				fmt.Println("No Excel files found in the current directory")
 				return nil
 			}
@@ -67,6 +71,9 @@ func newStatusCommand(logger *logrus.Logger) *cobra.Command {
 			}
 
 			// Display results
+			if jsonMode {
+				return outputStatusJSON(statuses)
+			}
 			displayStatus(statuses, detailed)
 
 			return nil
@@ -74,7 +81,8 @@ func newStatusCommand(logger *logrus.Logger) *cobra.Command {
 	}
 
 	cmd.Flags().Bool("detailed", false, "show detailed status information")
-	cmd.Flags().StringSlice("include", []string{"*.xlsx", "*.xls", "*.xlsm"}, "file patterns to include")
+	cmd.Flags().Bool("json", false, "output machine-readable JSON (no emoji or color)")
+	cmd.Flags().StringSlice("include", []string{"*.xlsx", "*.xls", "*.xlsm"}, "file patterns to include (repeatable or comma-separated)")
 
 	return cmd
 }
@@ -263,10 +271,38 @@ func displayStatus(statuses []FileStatus, detailed bool) {
 		}
 	}
 
-	// Display action hints
+	// Display action hints. `sync` converts both modified AND new files
+	// (see sync.go: status == "modified" || status == "new"), so reflect
+	// that here. Without --commit, sync only updates the JSON chunks; the
+	// hint mentions both so the user doesn't follow up wondering why the
+	// repo isn't dirty afterward.
 	if counts["modified"] > 0 || counts["new"] > 0 {
-		fmt.Println("\n💡 Hint: Run 'gitcells sync' to synchronize modified files")
+		fmt.Println("\nHint: run 'gitcells sync' to convert modified and new files (add --commit to also commit them)")
 	}
+}
+
+// outputStatusJSON emits the same FileStatus slice + a summary block as
+// JSON to stdout. No emoji, no color — meant for scripting.
+func outputStatusJSON(statuses []FileStatus) error {
+	counts := map[string]int{
+		"synced":   0,
+		"modified": 0,
+		"new":      0,
+		"missing":  0,
+	}
+	for _, s := range statuses {
+		counts[s.Status]++
+	}
+	payload := struct {
+		Files   []FileStatus   `json:"files"`
+		Summary map[string]int `json:"summary"`
+	}{
+		Files:   statuses,
+		Summary: counts,
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(payload)
 }
 
 func getStatusIcon(status string) string {

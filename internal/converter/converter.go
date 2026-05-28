@@ -15,6 +15,12 @@ type Converter interface {
 	ExcelToJSONFile(inputPath, outputPath string, options ConvertOptions) error
 	JSONFileToExcel(inputPath, outputPath string, options ConvertOptions) error
 
+	// ReadStoredDocument reconstructs the in-memory ExcelDocument from the
+	// chunked JSON tree associated with basePath. Use this when callers
+	// need the stored representation directly (e.g. `gitcells diff` against
+	// the on-disk chunks) without writing an .xlsx out the other side.
+	ReadStoredDocument(basePath string) (*models.ExcelDocument, error)
+
 	// Utility operations
 	GetExcelSheetNames(filePath string) ([]string, error)
 	GetChunkPaths(basePath string) ([]string, error)

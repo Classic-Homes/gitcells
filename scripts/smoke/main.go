@@ -10,7 +10,9 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -48,6 +50,15 @@ func main() {
 		if _, err := os.Stat(filepath.Join(tmp, f)); err != nil {
 			fail("init did not create %s: %v", f, err)
 		}
+	}
+	// Init must set core.longpaths so Windows users with deeply nested
+	// chunk dirs don't trip on MAX_PATH. The setting is a string in
+	// .git/config so the check is OS-agnostic.
+	gitConfig := filepath.Join(tmp, ".git", "config")
+	if cfg, err := os.ReadFile(gitConfig); err != nil { // #nosec G304 - smoke tempdir
+		fail("reading .git/config: %v", err)
+	} else if !strings.Contains(string(cfg), "longpaths = true") {
+		fail("init did not enable core.longpaths in .git/config:\n%s", cfg)
 	}
 
 	// 3. Build a small fixture and convert it
@@ -99,6 +110,71 @@ func main() {
 	chunkDir2 := filepath.Join(tmp2, ".gitcells", "data", "sample_chunks")
 	if err := diffDirsByContent(chunkDir, chunkDir2); err != nil {
 		fail("determinism check failed: %v", err)
+	}
+
+	// (The case-insensitive sheet-collision protection is exercised by
+	// the converter unit test TestWriteChunks_CaseInsensitiveSheetCollision.
+	// We can't cover it from this binary-level smoke because Excel
+	// itself — and therefore excelize — disallows two sheets whose
+	// names differ only in case, so we can't author such a workbook
+	// here.)
+
+	// 6. Single-arg diff on unmodified workbook. Pre-fix this returned
+	// "not yet implemented"; now it should report no differences and
+	// exit 0.
+	diffOut, diffErr := runCapture(bin, tmp, "diff", fixture)
+	if diffErr != nil {
+		fail("single-arg diff: %v\nstdout:\n%s", diffErr, diffOut)
+	}
+	if !strings.Contains(diffOut, "No differences") {
+		fail("single-arg diff did not report no differences:\n%s", diffOut)
+	}
+
+	// 7. Bad-sheet policy. Default must fail when a sheet is unreadable;
+	// --skip-bad-sheets must succeed and leave the bad sheet out.
+	badDir := filepath.Join(tmp, "bad")
+	if err := os.Mkdir(badDir, 0o755); err != nil {
+		fail("bad dir: %v", err)
+	}
+	badFixture := filepath.Join(badDir, "bad.xlsx")
+	if err := writeFixture(badFixture); err != nil {
+		fail("bad fixture: %v", err)
+	}
+	if err := removeXlsxEntry(badFixture, "xl/worksheets/sheet2.xml"); err != nil {
+		fail("corrupt fixture: %v", err)
+	}
+	if _, err := runCapture(bin, tmp, "convert", badFixture); err == nil {
+		fail("default convert must fail on unreadable sheet, got success")
+	}
+	if _, err := runCapture(bin, tmp, "convert", badFixture, "--skip-bad-sheets"); err != nil {
+		fail("--skip-bad-sheets must succeed even with one unreadable sheet: %v", err)
+	}
+
+	// 8. --help must not bleed ANSI escapes when stdout is piped
+	// (exec.Command gives us a non-TTY pipe). Pre-fix the logger
+	// hardcoded DisableColors=false; now TTY detection suppresses them.
+	helpOut, helpErr := runCapture(bin, tmp, "--help")
+	if helpErr != nil {
+		fail("--help failed: %v\n%s", helpErr, helpOut)
+	}
+	if strings.Contains(helpOut, "\x1b[") {
+		fail("--help leaked ANSI escapes when piped:\n%s", helpOut)
+	}
+
+	// 9. status --json parses cleanly so scripts can consume the output.
+	statusOut, statusErr := runCapture(bin, tmp, "status", "--json")
+	if statusErr != nil {
+		fail("status --json: %v\n%s", statusErr, statusOut)
+	}
+	var statusPayload struct {
+		Files   []map[string]interface{} `json:"files"`
+		Summary map[string]int           `json:"summary"`
+	}
+	if err := json.Unmarshal([]byte(statusOut), &statusPayload); err != nil {
+		fail("status --json is not valid JSON: %v\n%s", err, statusOut)
+	}
+	if _, ok := statusPayload.Summary["synced"]; !ok {
+		fail("status --json missing summary.synced key:\n%s", statusOut)
 	}
 
 	fmt.Println("smoke OK")
@@ -180,6 +256,62 @@ func run(bin, cwd string, args ...string) {
 		fail("`%s %s` failed: %v\nstdout:\n%s\nstderr:\n%s",
 			filepath.Base(bin), strings.Join(args, " "), err, stdout.String(), stderr.String())
 	}
+}
+
+// runCapture is run's quiet sibling — returns combined stdout/stderr and
+// the cmd error instead of failing. Tests that want to assert *on* the
+// output (or assert that a command failed) use this.
+func runCapture(bin, cwd string, args ...string) (string, error) {
+	cmd := exec.Command(bin, args...)
+	cmd.Dir = cwd
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+	err := cmd.Run()
+	return buf.String(), err
+}
+
+// removeXlsxEntry rewrites an xlsx zip with the named entry removed.
+// Used to simulate an unreadable sheet for the bad-sheet policy check —
+// workbook.xml still references the sheet, but the worksheet XML payload
+// is gone, so GetRows errors out.
+func removeXlsxEntry(xlsxPath, entryName string) error {
+	src, err := zip.OpenReader(xlsxPath)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = src.Close() }()
+
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+	matched := false
+	for _, f := range src.File {
+		if f.Name == entryName {
+			matched = true
+			continue
+		}
+		hdr := f.FileHeader
+		out, err := w.CreateHeader(&hdr)
+		if err != nil {
+			return err
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(out, rc); err != nil {
+			_ = rc.Close()
+			return err
+		}
+		_ = rc.Close()
+	}
+	if err := w.Close(); err != nil {
+		return err
+	}
+	if !matched {
+		return fmt.Errorf("entry %q not found in %s", entryName, xlsxPath)
+	}
+	return os.WriteFile(xlsxPath, buf.Bytes(), 0o644)
 }
 
 // writeFixture builds a minimal .xlsx with values, a formula, a merged

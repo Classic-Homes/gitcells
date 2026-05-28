@@ -13,6 +13,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,12 +24,34 @@ import (
 	"github.com/Classic-Homes/gitcells/internal/constants"
 	"github.com/Classic-Homes/gitcells/internal/converter"
 	"github.com/Classic-Homes/gitcells/internal/watcher"
+	"github.com/Classic-Homes/gitcells/pkg/models"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/xuri/excelize/v2"
 )
+
+// captureStdout swaps os.Stdout for the duration of fn and returns
+// whatever fn wrote to it. The diff command prints results via
+// fmt.Println, which bypasses cobra's SetOut, so tests that want to
+// inspect the rendered output need to redirect at the os level.
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+
+	orig := os.Stdout
+	os.Stdout = w
+	defer func() { os.Stdout = orig }()
+
+	fn()
+	require.NoError(t, w.Close())
+
+	captured, err := io.ReadAll(r)
+	require.NoError(t, err)
+	return string(captured)
+}
 
 // realRootCmd wires the actual production commands (not the simplified
 // stubs in commands_test.go). Tests drive this just like the user would.
@@ -249,6 +272,91 @@ func TestIntegration_WatchDetectsModify(t *testing.T) {
 
 	chunkDir := filepath.Join(".gitcells", "data", "watched"+constants.ChunksDirSuffix)
 	mustExist(t, filepath.Join(chunkDir, constants.ChunkMetadataFile))
+}
+
+// TestIntegration_DiffSingleArg exercises `gitcells diff <file.xlsx>`,
+// which compares the live workbook against its stored chunk
+// representation. Pre-fix this path returned "not yet implemented" even
+// though the help text advertised it as a valid invocation.
+func TestIntegration_DiffSingleArg(t *testing.T) {
+	tmp := t.TempDir()
+	chdir(t, tmp)
+
+	fixture := filepath.Join(tmp, "sample.xlsx")
+	writeFixture(t, fixture)
+
+	// 1. init + convert so a chunk tree exists on disk.
+	runRoot(t, "init")
+	runRoot(t, "convert", fixture)
+
+	// 2. Single-arg diff on the unmodified workbook: format=json so the
+	// rendered output is machine-parseable. Result should be an
+	// ExcelDiff with no sheet diffs.
+	out := captureStdout(t, func() {
+		root := realRootCmd(t)
+		root.SetArgs([]string{"diff", fixture, "--format", "json"})
+		root.SetOut(io.Discard)
+		root.SetErr(io.Discard)
+		require.NoError(t, root.Execute(), "unmodified diff should succeed")
+	})
+
+	var diffResult models.ExcelDiff
+	require.NoError(t, json.Unmarshal([]byte(out), &diffResult), "diff output: %q", out)
+	assert.False(t, diffResult.HasChanges(), "unmodified workbook must report no changes; got: %+v", diffResult)
+
+	// 3. Mutate the workbook, then single-arg diff must surface the
+	// mutated cell.
+	f, err := excelize.OpenFile(fixture)
+	require.NoError(t, err)
+	require.NoError(t, f.SetCellValue("Sheet1", "A2", "Mutated"))
+	require.NoError(t, f.Save())
+	require.NoError(t, f.Close())
+
+	out = captureStdout(t, func() {
+		root := realRootCmd(t)
+		root.SetArgs([]string{"diff", fixture, "--format", "json"})
+		root.SetOut(io.Discard)
+		root.SetErr(io.Discard)
+		require.NoError(t, root.Execute())
+	})
+
+	require.NoError(t, json.Unmarshal([]byte(out), &diffResult))
+	assert.True(t, diffResult.HasChanges(), "mutated workbook must report changes")
+	mentionsA2 := false
+	for _, sd := range diffResult.SheetDiffs {
+		for _, ch := range sd.Changes {
+			if ch.Cell == "A2" {
+				mentionsA2 = true
+			}
+		}
+	}
+	assert.True(t, mentionsA2, "diff must reference cell A2; got: %+v", diffResult)
+
+	// 4. Remove the stored chunks. Single-arg diff must error with a
+	// clear "no stored version" message — not panic, not return success.
+	require.NoError(t, os.RemoveAll(filepath.Join(".gitcells", "data")))
+
+	root := realRootCmd(t)
+	root.SetArgs([]string{"diff", fixture})
+	var errBuf bytes.Buffer
+	root.SetOut(io.Discard)
+	root.SetErr(&errBuf)
+	err = root.Execute()
+	require.Error(t, err, "diff must fail when chunks are missing")
+	assert.Contains(t, err.Error(), "stored version", "error must explain the problem; got: %v", err)
+}
+
+// runRoot is a one-liner for the init+convert prep above; the existing
+// pattern of constructing a fresh root, setting buffers, and asserting
+// execute() got repetitive.
+func runRoot(t *testing.T, args ...string) {
+	t.Helper()
+	root := realRootCmd(t)
+	root.SetArgs(args)
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	require.NoError(t, root.Execute(), "%v failed: %s", args, out.String())
 }
 
 func TestIntegration_StagingDirCleanupOnFailure(t *testing.T) {

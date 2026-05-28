@@ -2,6 +2,7 @@ package converter
 
 import (
 	"github.com/Classic-Homes/gitcells/internal/utils"
+	"github.com/Classic-Homes/gitcells/pkg/models"
 )
 
 // ExcelToJSONFile converts Excel to chunked JSON files
@@ -20,6 +21,15 @@ func (c *converter) ExcelToJSONFile(inputPath, outputPath string, options Conver
 
 	c.logger.Infof("Successfully wrote %d chunk files for %s", len(chunks), inputPath)
 	return nil
+}
+
+// ReadStoredDocument hydrates the in-memory ExcelDocument from the chunk
+// tree at basePath. It's the read half of the JSON→Excel pipeline,
+// exposed so callers that only need the document (diff, status, future
+// inspection commands) can skip the .xlsx synthesis step in
+// JSONFileToExcel.
+func (c *converter) ReadStoredDocument(basePath string) (*models.ExcelDocument, error) {
+	return c.chunkingStrategy.ReadChunks(basePath)
 }
 
 // JSONFileToExcel converts chunked JSON files back to Excel
