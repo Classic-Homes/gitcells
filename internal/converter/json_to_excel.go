@@ -2,6 +2,8 @@ package converter
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/Classic-Homes/gitcells/internal/utils"
@@ -172,22 +174,57 @@ func (c *converter) JSONToExcel(doc *models.ExcelDocument, outputPath string, op
 		}
 	}
 
-	// Set defined names
-	for name, refersTo := range doc.DefinedNames {
+	// Set defined names. Iteration is over a sorted slice, so the
+	// resulting workbook's defined-name table is also in deterministic
+	// order — important for downstream byte-stability checks.
+	for _, dn := range doc.DefinedNames {
 		err := f.SetDefinedName(&excelize.DefinedName{
-			Name:     name,
-			RefersTo: refersTo,
+			Name:     dn.Name,
+			RefersTo: dn.RefersTo,
 			Scope:    "Workbook",
 		})
 		if err != nil {
-			c.logger.Warnf("Failed to set defined name %s: %v", name, err)
+			c.logger.Warnf("Failed to set defined name %s: %v", dn.Name, err)
 		}
 	}
 
-	// Save the file
-	if err := f.SaveAs(outputPath); err != nil {
-		return utils.WrapError(err, utils.ErrorTypeConverter, "saveFile", "failed to save Excel file")
+	// Save atomically: write to a staging path in the same directory and
+	// rename over the target. A crash, lock contention, or concurrent
+	// watcher read mid-write must not leave a torn .xlsx replacing a
+	// previously-good file. The rename is atomic on every supported OS
+	// for files (unlike directories — see chunking.go:atomicReplaceDir).
+	//
+	// excelize validates the file extension on SaveAs, so we keep the
+	// original extension at the end and slot the staging suffix in front
+	// of it. The leading dot hides the staging file from typical
+	// directory listings while it's in flight.
+	ext := filepath.Ext(outputPath)
+	base := strings.TrimSuffix(filepath.Base(outputPath), ext)
+	stagingPath := filepath.Join(filepath.Dir(outputPath), "."+base+".tmp."+uniqueSuffix()+ext)
+	committed := false
+	defer func() {
+		if !committed {
+			if rmErr := os.Remove(stagingPath); rmErr != nil && !os.IsNotExist(rmErr) {
+				c.logger.Warnf("Failed to clean up staging file %s: %v", stagingPath, rmErr)
+			}
+		}
+	}()
+
+	if err := f.SaveAs(stagingPath); err != nil {
+		return utils.WrapError(err, utils.ErrorTypeConverter, "saveFile", "failed to save Excel file to staging path")
 	}
+
+	// fsync the staging file so the rename publishes durable content,
+	// not a directory entry pointing at zero bytes after a power loss.
+	if sf, err := os.OpenFile(stagingPath, os.O_RDWR, 0); err == nil {
+		_ = sf.Sync()
+		_ = sf.Close()
+	}
+
+	if err := os.Rename(stagingPath, outputPath); err != nil {
+		return utils.WrapError(err, utils.ErrorTypeConverter, "saveFile", "failed to install Excel file")
+	}
+	committed = true
 
 	return nil
 }

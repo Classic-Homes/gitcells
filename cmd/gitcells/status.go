@@ -136,11 +136,17 @@ func getFileStatus(excelPath string, logger *logrus.Logger) (FileStatus, error) 
 	status.ExcelModTime = excelInfo.ModTime()
 	status.ExcelSize = excelInfo.Size()
 
-	// Determine JSON path
-	gitRoot, err := git.FindRepositoryRoot(filepath.Dir(excelPath))
+	// Determine JSON path. Mirror chunking.go's behavior precisely —
+	// when the Excel file is inside a git repo, chunks live at
+	// <repoRoot>/.gitcells/data; when it isn't, chunks live beside the
+	// Excel file at <excelDir>/.gitcells/data. The old fallback of "."
+	// (cwd) silently reported every file as "new" whenever the user ran
+	// `gitcells status` from outside the repo root.
+	excelDir := filepath.Dir(excelPath)
+	gitRoot, err := git.FindRepositoryRoot(excelDir)
 	if err != nil {
-		// If not in a git repo, use local .gitcells directory
-		gitRoot = "."
+		gitRoot = excelDir
+		logger.Debugf("file %s is outside any git repository; using excel dir as data root", excelPath)
 	}
 
 	relPath, err := filepath.Rel(gitRoot, excelPath)

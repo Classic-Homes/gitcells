@@ -63,6 +63,16 @@ func newConvertCommand(logger *logrus.Logger) *cobra.Command {
 			// Create converter
 			conv := converter.NewConverter(logger)
 
+			// Sweep stale staging/backup chunk dirs from a previous
+			// crash before writing new ones. Best-effort. We resolve
+			// the data dir relative to the input file's repo root so
+			// the sweep targets the same place WriteChunks will land
+			// in. Passing the bare `constants.GitCellsDataDir` (which
+			// is just `.gitcells/data`) would target cwd, not the
+			// actual repo, and quietly miss every orphan when the user
+			// runs convert from a subdirectory.
+			converter.SweepOrphans(resolveDataDir(filepath.Dir(inputFile)), converter.DefaultOrphanMaxAge, logger)
+
 			// Build conversion options
 			opts := converter.ConvertOptions{
 				PreserveFormulas: getBoolFlag(cmd, "preserve-formulas"),

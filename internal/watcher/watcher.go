@@ -177,6 +177,13 @@ func (fw *FileWatcher) Stop(grace time.Duration) error {
 }
 
 func (fw *FileWatcher) AddDirectory(path string) error {
+	// Resolve the user-supplied path so we can reliably tell "the root
+	// the user asked us to watch" apart from descendants. Without this,
+	// shouldIgnorePath would skip the root itself when invoked as
+	// `gitcells watch .` (base of "." is "." which matches the dot-prefix
+	// rule), and the user would silently see no events.
+	rootPath := filepath.Clean(path)
+
 	// Walk directory tree and add all subdirectories
 	err := filepath.Walk(path, func(walkPath string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -184,7 +191,13 @@ func (fw *FileWatcher) AddDirectory(path string) error {
 		}
 
 		if info.IsDir() {
-			if fw.shouldIgnorePath(walkPath) {
+			// Apply the ignore filter to descendants only. The root the
+			// user explicitly asked to watch is exempt — if they really
+			// want to watch ".gitcells" or "~/.somehidden" it's their
+			// call, and they shouldn't be silently no-op'd. Descendants
+			// still get filtered (so `gitcells watch .` doesn't burn
+			// fsnotify handles on every `.git/objects/**` subtree).
+			if filepath.Clean(walkPath) != rootPath && fw.shouldIgnorePath(walkPath) {
 				return filepath.SkipDir
 			}
 

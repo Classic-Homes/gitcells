@@ -15,11 +15,21 @@ import (
 )
 
 type ExcelDocument struct {
-	Version      string             `json:"version"`
-	Metadata     DocumentMetadata   `json:"metadata"`
-	Sheets       []Sheet            `json:"sheets"`
-	DefinedNames map[string]string  `json:"defined_names,omitempty"`
+	Version  string           `json:"version"`
+	Metadata DocumentMetadata `json:"metadata"`
+	Sheets   []Sheet          `json:"sheets"`
+	// DefinedNames is stored as a sorted slice (by Name) so the JSON
+	// output is byte-stable across runs and machines. Previously a
+	// map[string]string, which marshals with random key order and
+	// produced spurious git diffs on every conversion.
+	DefinedNames []DefinedName      `json:"defined_names,omitempty"`
 	Properties   DocumentProperties `json:"properties,omitempty"`
+}
+
+// DefinedName is one entry from Excel's workbook-scope defined-name table.
+type DefinedName struct {
+	Name     string `json:"name"`
+	RefersTo string `json:"refers_to"`
 }
 
 type DocumentMetadata struct {

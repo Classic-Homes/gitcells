@@ -50,6 +50,61 @@ converter:
 // initTimeout is the maximum time to wait for initialization operations
 const initTimeout = 10 * time.Second
 
+// managedBlockMarker brackets the GitCells-managed section inside a
+// user-owned dotfile. Re-runs of `gitcells init` look for this marker so
+// the block can be added at most once, and so any future cleanup pass
+// can find and replace the section without disturbing surrounding lines.
+const managedBlockMarker = "# >>> gitcells managed block — do not edit between these markers <<<"
+const managedBlockEnd = "# <<< gitcells managed block end"
+
+// ensureManagedFile makes sure the GitCells block (sandwiched between
+// the start/end markers) is present in the file at path:
+//
+//   - if the file doesn't exist, it's created with the block inside.
+//   - if the file exists and already contains the start marker, it's
+//     left untouched (idempotent re-run).
+//   - if the file exists but has no marker, the block is appended so
+//     user-authored content above survives.
+//
+// This replaces the prior unconditional Write which silently clobbered
+// any custom .gitignore / .gitattributes the user already kept.
+func ensureManagedFile(path, block string) error {
+	wrapped := managedBlockMarker + "\n" + block
+	if !strings.HasSuffix(wrapped, "\n") {
+		wrapped += "\n"
+	}
+	wrapped += managedBlockEnd + "\n"
+
+	existing, err := os.ReadFile(path) // #nosec G304 - explicit dotfile path inside init target
+	if err != nil {
+		if os.IsNotExist(err) {
+			return os.WriteFile(path, []byte(wrapped), filePermissions)
+		}
+		return err
+	}
+
+	if strings.Contains(string(existing), managedBlockMarker) {
+		// Already gitcells-managed. Leave it.
+		return nil
+	}
+
+	// Preserve trailing newline boundary so the appended block isn't
+	// glued onto the last user line.
+	needsLeadingNL := len(existing) > 0 && existing[len(existing)-1] != '\n'
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, filePermissions) // #nosec G304 - same justification
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if needsLeadingNL {
+		if _, err := f.WriteString("\n"); err != nil {
+			return err
+		}
+	}
+	_, err = f.WriteString(wrapped)
+	return err
+}
+
 // checkDirectoryAccess verifies if we can access and write to a directory
 func checkDirectoryAccess(dir string) error {
 	// First check if directory exists
@@ -179,9 +234,13 @@ func newInitCommand(logger *logrus.Logger) *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), initTimeout)
 			defer cancel()
 
-			// Check directory access first
+			// Check directory access first. Previously this checked
+			// filepath.Dir(absDir), which would pass for a read-only
+			// existing target whose *parent* happened to be writable.
+			// Checking absDir itself catches that case while still
+			// recursing to the parent when absDir doesn't exist yet.
 			logger.Info("Checking directory permissions...")
-			if err := checkDirectoryAccess(filepath.Dir(absDir)); err != nil {
+			if err := checkDirectoryAccess(absDir); err != nil {
 				suggestSolution(err, absDir, logger)
 				return err
 			}
@@ -215,9 +274,11 @@ func newInitCommand(logger *logrus.Logger) *cobra.Command {
 
 			logger.Infof("Created GitCells configuration at %s", configPath)
 
-			// Create .gitignore
+			// Create / merge .gitignore. If the user already has one, we
+			// append the GitCells-managed block once (gated by a sentinel
+			// comment) instead of clobbering their entries.
 			gitignorePath := filepath.Join(absDir, ".gitignore")
-			gitignoreContent := `# Excel temporary files
+			gitignoreBlock := `# Excel temporary files
 ~$*.xlsx
 ~$*.xls
 ~$*.xlsm
@@ -229,23 +290,24 @@ Thumbs.db
 
 # GitCells
 .gitcells.cache/
+.gitcells/logs/
+.gitcells/failures.log
 `
-			err = timeoutOperation(ctx, logger, ".gitignore creation", func() error {
-				return os.WriteFile(gitignorePath, []byte(gitignoreContent), filePermissions)
+			err = timeoutOperation(ctx, logger, ".gitignore setup", func() error {
+				return ensureManagedFile(gitignorePath, gitignoreBlock)
 			})
 			if err != nil {
-				logger.Warnf("Failed to create .gitignore: %v", err)
+				logger.Warnf("Failed to update .gitignore: %v", err)
 				suggestSolution(err, absDir, logger)
 			} else {
-				logger.Info("Created .gitignore file")
+				logger.Info("Ensured GitCells entries in .gitignore")
 			}
 
-			// Create .gitattributes so JSON chunks stay LF-normalized across
-			// Windows/macOS/Linux. Without this, a Windows dev with
-			// core.autocrlf=true gets a CRLF rewrite on every chunk and the
-			// diffs become unreadable noise.
+			// Same approach for .gitattributes. The LF normalization for
+			// chunk files is what keeps diffs stable across Windows devs
+			// with core.autocrlf=true.
 			gitattributesPath := filepath.Join(absDir, ".gitattributes")
-			gitattributesContent := `# GitCells: keep JSON chunks LF-normalized so diffs are stable
+			gitattributesBlock := `# GitCells: keep JSON chunks LF-normalized so diffs are stable
 # across Windows / macOS / Linux. Excel sources are binary.
 .gitcells/data/** text eol=lf
 *.json text eol=lf
@@ -253,14 +315,14 @@ Thumbs.db
 *.xls binary
 *.xlsm binary
 `
-			err = timeoutOperation(ctx, logger, ".gitattributes creation", func() error {
-				return os.WriteFile(gitattributesPath, []byte(gitattributesContent), filePermissions)
+			err = timeoutOperation(ctx, logger, ".gitattributes setup", func() error {
+				return ensureManagedFile(gitattributesPath, gitattributesBlock)
 			})
 			if err != nil {
-				logger.Warnf("Failed to create .gitattributes: %v", err)
+				logger.Warnf("Failed to update .gitattributes: %v", err)
 				suggestSolution(err, absDir, logger)
 			} else {
-				logger.Info("Created .gitattributes file")
+				logger.Info("Ensured GitCells entries in .gitattributes")
 			}
 
 			// Initialize git repo if requested

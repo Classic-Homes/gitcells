@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"time"
+	"path/filepath"
+	"sort"
 
 	"github.com/Classic-Homes/gitcells/internal/utils"
 	"github.com/Classic-Homes/gitcells/pkg/models"
@@ -48,15 +49,29 @@ func (c *converter) ExcelToJSON(filePath string, options ConvertOptions) (*model
 	doc := &models.ExcelDocument{
 		Version: "1.0",
 		Metadata: models.DocumentMetadata{
-			Created:      time.Now(),
-			Modified:     fileInfo.ModTime(),
-			AppVersion:   "gitcells-0.1.0",
-			OriginalFile: filePath,
+			// Created mirrors the source .xlsx mtime so two consecutive
+			// conversions of the same file produce byte-identical JSON.
+			// Using time.Now() here (the prior behavior) made every
+			// chunk file change on every run — a determinism bug that
+			// showed up as a noisy commit on every gitcells convert.
+			// The git commit timestamp already records "when the
+			// snapshot was made"; this field tracks the source file's
+			// mtime.
+			Created:  fileInfo.ModTime(),
+			Modified: fileInfo.ModTime(),
+			// gitcells version snapshot — left static for now since
+			// upgrading it would re-diff every file's metadata.
+			AppVersion: "gitcells-0.1.0",
+			// Store just the filename, not the absolute path. The
+			// path leaks user-specific filesystem layout (home dirs,
+			// build agent paths) and forces the JSON to differ between
+			// two developers converting the same workbook.
+			OriginalFile: filepath.Base(filePath),
 			FileSize:     fileInfo.Size(),
 			Checksum:     checksum,
 		},
 		Sheets:       []models.Sheet{},
-		DefinedNames: make(map[string]string),
+		DefinedNames: nil,
 	}
 
 	// Extract document properties
@@ -98,9 +113,21 @@ func (c *converter) ExcelToJSON(filePath string, options ConvertOptions) (*model
 		options.ProgressCallback("Processing complete", totalSheets, totalSheets)
 	}
 
-	// Extract defined names
-	for _, definedName := range f.GetDefinedName() {
-		doc.DefinedNames[definedName.Name] = definedName.RefersTo
+	// Extract defined names. excelize hands them back in workbook order,
+	// which is not deterministic across save/load cycles. Sort by name so
+	// the resulting JSON is byte-stable run-to-run and machine-to-machine.
+	excelNames := f.GetDefinedName()
+	if len(excelNames) > 0 {
+		doc.DefinedNames = make([]models.DefinedName, 0, len(excelNames))
+		for _, dn := range excelNames {
+			doc.DefinedNames = append(doc.DefinedNames, models.DefinedName{
+				Name:     dn.Name,
+				RefersTo: dn.RefersTo,
+			})
+		}
+		sort.Slice(doc.DefinedNames, func(i, j int) bool {
+			return doc.DefinedNames[i].Name < doc.DefinedNames[j].Name
+		})
 	}
 
 	return doc, nil
@@ -135,6 +162,13 @@ func (c *converter) processSheet(f *excelize.File, sheetName string, index int, 
 	totalRows := len(rows)
 	var cellRefErrors, formulaErrors int
 
+	// Per-sheet cache of "is this styleID a date format?" — keyed by
+	// the excelize style ID. Most workbooks have far fewer distinct
+	// styles than cells, so the cache makes the date check effectively
+	// free after the first cell per unique style. See date_detection.go
+	// for the rationale.
+	dateCache := make(dateFormatCache)
+
 	for rowIndex, row := range rows {
 		// Report progress every 100 rows to avoid performance impact
 		if options.ProgressCallback != nil && rowIndex%100 == 0 {
@@ -167,6 +201,18 @@ func (c *converter) processSheet(f *excelize.File, sheetName string, index int, 
 				}
 			}
 
+			// Date detection: if the cell's number-format style is one of
+			// the date/time formats, swap the formatted display string
+			// (what GetRows returned) for the raw serial number. Without
+			// this, "1/1/2020" gets stored as CellTypeString and
+			// =MONTH(A1) breaks after round-trip. See date_detection.go.
+			isDate := isDateCell(f, sheetName, cellRef, dateCache)
+			if isDate {
+				if raw, rawErr := f.GetCellValue(sheetName, cellRef, excelize.Options{RawCellValue: true}); rawErr == nil {
+					cellValue = raw
+				}
+			}
+
 			// Skip empty cells if option is set, BUT NOT if cell has a formula
 			if options.IgnoreEmptyCells && cellValue == "" && formula == "" {
 				continue
@@ -180,6 +226,16 @@ func (c *converter) processSheet(f *excelize.File, sheetName string, index int, 
 				if numVal, err := parseNumber(cellValue); err == nil {
 					cellVal = numVal
 				}
+			}
+
+			// Upgrade numeric date-formatted cells to CellTypeDate so
+			// downstream tools (diff, status) can render them as dates.
+			// The stored value remains the raw float serial — Excel's
+			// own model. Formula-typed cells keep CellTypeFormula even
+			// when styled as date; the formula text + the round-tripped
+			// number-format style together preserve the date semantics.
+			if isDate && cellType == models.CellTypeNumber {
+				cellType = models.CellTypeDate
 			}
 
 			cell := models.Cell{

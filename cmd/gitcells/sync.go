@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/Classic-Homes/gitcells/internal/config"
 	"github.com/Classic-Homes/gitcells/internal/constants"
@@ -111,16 +110,18 @@ func newSyncCommand(logger *logrus.Logger) *cobra.Command {
 				fmt.Println("✅")
 				successCount++
 
-				// Track converted chunk files for git commit
-				chunkDir := filepath.Dir(fileStatus.JSONPath)
-				err = filepath.Walk(chunkDir, func(path string, info os.FileInfo, err error) error {
-					if err == nil && !info.IsDir() && strings.HasSuffix(path, ".json") {
-						convertedFiles = append(convertedFiles, path)
-					}
-					return nil
-				})
+				// Track converted chunk files for git commit via the
+				// converter's own GetChunkPaths. The previous Walk-based
+				// approach picked up everything ending in `.json` in the
+				// chunk dir, which would include orphan staging leftovers
+				// (`*.tmp.*/...`) that SweepOrphans is best-effort about
+				// cleaning. GetChunkPaths returns only the files the
+				// metadata claims, plus the metadata file itself.
+				chunkPaths, err := conv.GetChunkPaths(fileStatus.ExcelPath)
 				if err != nil {
-					logger.Warnf("Failed to track chunk files: %v", err)
+					logger.Warnf("Failed to enumerate chunk paths for %s: %v", fileStatus.ExcelPath, err)
+				} else {
+					convertedFiles = append(convertedFiles, chunkPaths...)
 				}
 			}
 

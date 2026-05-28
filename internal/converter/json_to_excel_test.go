@@ -52,7 +52,7 @@ func TestJSONToExcel(t *testing.T) {
 						},
 					},
 				},
-				DefinedNames: make(map[string]string),
+				DefinedNames: nil,
 			},
 			options: ConvertOptions{
 				PreserveFormulas: true,
@@ -111,7 +111,7 @@ func TestJSONToExcel(t *testing.T) {
 						},
 					},
 				},
-				DefinedNames: make(map[string]string),
+				DefinedNames: nil,
 			},
 			options: ConvertOptions{
 				PreserveFormulas: true,
@@ -148,7 +148,7 @@ func TestJSONToExcel(t *testing.T) {
 						},
 					},
 				},
-				DefinedNames: make(map[string]string),
+				DefinedNames: nil,
 			},
 			options: ConvertOptions{},
 			validate: func(t *testing.T, outputPath string) {
@@ -194,7 +194,7 @@ func TestJSONToExcel(t *testing.T) {
 						},
 					},
 				},
-				DefinedNames: make(map[string]string),
+				DefinedNames: nil,
 			},
 			options: ConvertOptions{},
 			validate: func(t *testing.T, outputPath string) {
@@ -242,7 +242,7 @@ func TestJSONToExcel(t *testing.T) {
 						},
 					},
 				},
-				DefinedNames: make(map[string]string),
+				DefinedNames: nil,
 			},
 			options: ConvertOptions{
 				PreserveComments: true,

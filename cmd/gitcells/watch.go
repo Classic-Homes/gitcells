@@ -39,6 +39,13 @@ func newWatchCommand(logger *logrus.Logger) *cobra.Command {
 			// Initialize components
 			conv := converter.NewConverter(logger)
 
+			// Sweep stale staging/backup chunk dirs from a previous crash.
+			// Best-effort; safe to run before any writes start. Resolve
+			// relative to cwd so the sweep targets the repo's data dir,
+			// not whatever `.gitcells/data` happens to mean from the
+			// process's working directory.
+			converter.SweepOrphans(resolveDataDir("."), converter.DefaultOrphanMaxAge, logger)
+
 			gitConfig := &git.Config{
 				UserName:  cfg.Git.UserName,
 				UserEmail: cfg.Git.UserEmail,

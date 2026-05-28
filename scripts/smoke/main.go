@@ -79,7 +79,95 @@ func main() {
 		fail("round-trip xlsx has no sheets")
 	}
 
+	// 5. Determinism check on the built binary. Convert the same
+	// fixture again in a sibling tempdir and confirm every chunk
+	// file is byte-identical to the first conversion. This catches
+	// platform-specific encoding drift (e.g. line endings, map
+	// iteration order, time-fingerprint regressions) on the actual
+	// runner OS, not just in a Go test.
+	tmp2, err := os.MkdirTemp("", "gitcells-smoke-det-*")
+	if err != nil {
+		fail("mktemp determinism: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tmp2) }()
+	run(bin, tmp2, "init")
+	fixture2 := filepath.Join(tmp2, "sample.xlsx")
+	if err := copyFilePreservingMtime(fixture, fixture2); err != nil {
+		fail("copying fixture for determinism run: %v", err)
+	}
+	run(bin, tmp2, "convert", fixture2)
+	chunkDir2 := filepath.Join(tmp2, ".gitcells", "data", "sample_chunks")
+	if err := diffDirsByContent(chunkDir, chunkDir2); err != nil {
+		fail("determinism check failed: %v", err)
+	}
+
 	fmt.Println("smoke OK")
+}
+
+// copyFilePreservingMtime copies src to dst with byte fidelity and
+// applies src's mtime/atime to dst. Determinism depends on the source
+// mtime since we embed it in metadata.
+func copyFilePreservingMtime(src, dst string) error {
+	raw, err := os.ReadFile(src) // #nosec G304 - smoke fixture
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(dst, raw, 0o644); err != nil {
+		return err
+	}
+	info, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	return os.Chtimes(dst, info.ModTime(), info.ModTime())
+}
+
+// diffDirsByContent walks both roots and verifies that the set of
+// relative file paths is identical and that the bytes match for each.
+func diffDirsByContent(a, b string) error {
+	collect := func(root string) (map[string][]byte, error) {
+		out := make(map[string][]byte)
+		err := filepath.Walk(root, func(p string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+			rel, err := filepath.Rel(root, p)
+			if err != nil {
+				return err
+			}
+			data, err := os.ReadFile(p) // #nosec G304 - inside smoke tempdir
+			if err != nil {
+				return err
+			}
+			out[filepath.ToSlash(rel)] = data
+			return nil
+		})
+		return out, err
+	}
+	left, err := collect(a)
+	if err != nil {
+		return fmt.Errorf("scan %s: %w", a, err)
+	}
+	right, err := collect(b)
+	if err != nil {
+		return fmt.Errorf("scan %s: %w", b, err)
+	}
+	if len(left) != len(right) {
+		return fmt.Errorf("file count differs: %d vs %d", len(left), len(right))
+	}
+	for rel, lBytes := range left {
+		rBytes, ok := right[rel]
+		if !ok {
+			return fmt.Errorf("%s present in %s but not %s", rel, a, b)
+		}
+		if !bytes.Equal(lBytes, rBytes) {
+			return fmt.Errorf("%s differs between conversions", rel)
+		}
+	}
+	return nil
 }
 
 func run(bin, cwd string, args ...string) {

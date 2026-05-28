@@ -48,8 +48,8 @@ func TestSheetBasedChunking(t *testing.T) {
 				},
 			},
 		},
-		DefinedNames: map[string]string{
-			"TestName": "Sheet1!A1:B2",
+		DefinedNames: []models.DefinedName{
+			{Name: "TestName", RefersTo: "Sheet1!A1:B2"},
 		},
 	}
 
@@ -118,13 +118,28 @@ func TestSheetBasedChunking(t *testing.T) {
 		// Get chunk paths
 		paths, err := chunker.GetChunkPaths(basePath)
 		require.NoError(t, err)
-		assert.Len(t, paths, 3) // workbook.json + 2 sheets
+		// metadata + workbook + 2 sheets. The metadata file is part of
+		// the returned set because it must be committed alongside its
+		// content files (see GetChunkPaths comment).
+		assert.Len(t, paths, 4)
 
 		// Verify all paths exist
 		for _, path := range paths {
 			_, err := os.Stat(path)
 			assert.NoError(t, err, "Path should exist: %s", path)
 		}
+
+		// Confirm the metadata file is in the returned list — the
+		// pre-fix behavior omitted it, leading to silent commit
+		// inconsistency.
+		var hasMetadata bool
+		for _, p := range paths {
+			if strings.HasSuffix(p, constants.ChunkMetadataFile) {
+				hasMetadata = true
+				break
+			}
+		}
+		assert.True(t, hasMetadata, "GetChunkPaths must include the chunk metadata file")
 	})
 
 	t.Run("SheetChunkFilename", func(t *testing.T) {
@@ -250,4 +265,79 @@ func TestSheetChunk(t *testing.T) {
 	assert.Equal(t, chunk.WorkbookChecksum, loaded.WorkbookChecksum)
 	assert.Equal(t, chunk.Sheet.Name, loaded.Sheet.Name)
 	assert.Len(t, loaded.Sheet.Cells, 1)
+}
+
+// TestReadChunks_ForwardSlashMetadataIsPortable confirms the cross-OS
+// contract documented in CLAUDE.md: chunk metadata always stores paths
+// with forward slashes regardless of writer OS, and the reader applies
+// filepath.FromSlash before joining. Without this contract, a chunk
+// directory authored on Linux would fail to read on Windows.
+//
+// We hand-build a chunk dir whose .gitcells_chunks.json embeds explicit
+// forward-slash paths, then ReadChunks it and assert the sheet payload
+// loaded. The test passes identically on Windows, macOS, and Linux.
+func TestReadChunks_ForwardSlashMetadataIsPortable(t *testing.T) {
+	logger := logrus.New()
+	logger.SetLevel(logrus.ErrorLevel)
+	chunker := NewSheetBasedChunking(logger)
+
+	tempDir := t.TempDir()
+	chunkDir := filepath.Join(tempDir, "fixture"+constants.ChunksDirSuffix)
+	require.NoError(t, os.MkdirAll(chunkDir, constants.DirPermissions))
+
+	writeJSON := func(name string, v interface{}) {
+		data, err := json.MarshalIndent(v, "", "  ")
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(filepath.Join(chunkDir, name), data, constants.FilePermissions))
+	}
+
+	mainDoc := &models.ExcelDocument{
+		Version: "1.0",
+		Metadata: models.DocumentMetadata{
+			OriginalFile: "fixture.xlsx",
+			Checksum:     "cross-os",
+		},
+		Sheets: []models.Sheet{{Name: "Foo", Index: 0}},
+	}
+	writeJSON(constants.WorkbookFileName, mainDoc)
+
+	sheetChunk := &SheetChunk{
+		Version:          "1.0",
+		WorkbookChecksum: "cross-os",
+		Sheet: models.Sheet{
+			Name:  "Foo",
+			Index: 0,
+			Cells: map[string]models.Cell{
+				"A1": {Value: "portable", Type: models.CellTypeString},
+			},
+		},
+	}
+	writeJSON("sheet_Foo.json", sheetChunk)
+
+	// Explicit forward-slash paths in the metadata. On Windows, ReadChunks
+	// must apply filepath.FromSlash so the join produces a usable path.
+	metadata := &ChunkMetadata{
+		Version:     "1.0",
+		Strategy:    "sheet-based",
+		MainFile:    constants.WorkbookFileName,
+		ChunkFiles:  []string{"workbook.json", "sheet_Foo.json"},
+		TotalSheets: 1,
+		Created:     "2024-01-01T00:00:00Z",
+	}
+	writeJSON(constants.ChunkMetadataFile, metadata)
+
+	doc, err := chunker.ReadChunks(chunkDir)
+	require.NoError(t, err)
+	require.Len(t, doc.Sheets, 1)
+	assert.Equal(t, "Foo", doc.Sheets[0].Name)
+	require.Contains(t, doc.Sheets[0].Cells, "A1")
+	assert.Equal(t, "portable", doc.Sheets[0].Cells["A1"].Value)
+
+	// Also assert the metadata on disk has literal forward slashes —
+	// guards against a future change that lets backslashes leak in on
+	// Windows writes.
+	raw, err := os.ReadFile(filepath.Join(chunkDir, constants.ChunkMetadataFile))
+	require.NoError(t, err)
+	assert.NotContains(t, string(raw), `\\`, "metadata must not embed escaped backslashes")
+	assert.Contains(t, string(raw), `"sheet_Foo.json"`)
 }

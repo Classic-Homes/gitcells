@@ -166,6 +166,29 @@ func TestClient_AutoCommit(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to stage file")
 	})
+
+	t.Run("all files outside worktree returns error", func(t *testing.T) {
+		// Previously, AutoCommit would log "Skipping file outside
+		// worktree" for each input and then return nil because the
+		// worktree was clean — silent success masking the fact that
+		// nothing was committed. Confirm the failure now surfaces.
+		repoDir := t.TempDir()
+		otherDir := t.TempDir()
+
+		_, err := git.PlainInit(repoDir, false)
+		require.NoError(t, err)
+
+		client, err := NewClient(repoDir, config, logger)
+		require.NoError(t, err)
+		require.NotNil(t, client)
+
+		outsideFile := filepath.Join(otherDir, "outside.json")
+		require.NoError(t, os.WriteFile(outsideFile, []byte("{}"), 0o644))
+
+		err = client.AutoCommit([]string{outsideFile}, "test commit")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "worktree")
+	})
 }
 
 func TestClient_IsClean(t *testing.T) {

@@ -71,8 +71,12 @@ func (c *Client) AutoCommit(files []string, message string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Stage files
+	// Stage files. Track how many actually made it into the index so we
+	// can distinguish "caller asked for nothing" (fine) from "caller
+	// asked for several files and every one was outside the worktree"
+	// (failure that previously presented as silent success).
 	worktreeRoot := c.worktree.Filesystem.Root()
+	stagedCount := 0
 	for _, file := range files {
 		relPath, err := filepath.Rel(worktreeRoot, file)
 		if err != nil {
@@ -89,6 +93,12 @@ func (c *Client) AutoCommit(files []string, message string) error {
 		}); err != nil {
 			return utils.WrapFileError(err, utils.ErrorTypeGit, "stageFile", file, "failed to stage file")
 		}
+		stagedCount++
+	}
+
+	if len(files) > 0 && stagedCount == 0 {
+		return utils.NewError(utils.ErrorTypeGit, "AutoCommit",
+			"none of the provided files were under the git worktree; nothing was committed")
 	}
 
 	// Check if there are changes to commit

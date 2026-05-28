@@ -247,6 +247,20 @@ func (s *SheetBasedChunking) ReadChunks(basePath string) (*models.ExcelDocument,
 		return nil, utils.WrapFileError(err, utils.ErrorTypeConverter, "ReadChunks", metadataFile, "failed to read chunk metadata")
 	}
 
+	// Pre-flight: confirm every chunk file in metadata exists before we
+	// begin reading. Previously a missing file produced a Warnf + continue,
+	// silently returning a partial workbook with fewer sheets than
+	// metadata.TotalSheets claimed. That is data-loss masquerading as
+	// success. A missing chunk is unambiguous corruption — fail loudly so
+	// the caller can refuse to write back a truncated .xlsx.
+	for _, chunkFile := range metadata.ChunkFiles {
+		path := filepath.Join(chunkDir, filepath.FromSlash(chunkFile))
+		if _, err := os.Stat(path); err != nil {
+			return nil, utils.WrapFileError(err, utils.ErrorTypeConverter, "ReadChunks", path,
+				"chunk file listed in metadata is missing or unreadable")
+		}
+	}
+
 	// Read main workbook file
 	mainFile := filepath.Join(chunkDir, metadata.MainFile)
 	var doc models.ExcelDocument
@@ -257,7 +271,10 @@ func (s *SheetBasedChunking) ReadChunks(basePath string) (*models.ExcelDocument,
 	// Clear sheets array - we'll populate from individual files
 	doc.Sheets = []models.Sheet{}
 
-	// Read each sheet file
+	// Read each sheet file. Any read failure here is fatal — same
+	// reasoning as the pre-flight stat: a corrupted chunk file means
+	// the rebuilt workbook would be missing data without the user
+	// knowing.
 	for _, chunkFile := range metadata.ChunkFiles {
 		if chunkFile == metadata.MainFile {
 			continue // Skip main file
@@ -266,8 +283,8 @@ func (s *SheetBasedChunking) ReadChunks(basePath string) (*models.ExcelDocument,
 		sheetFile := filepath.Join(chunkDir, filepath.FromSlash(chunkFile))
 		var sheetChunk SheetChunk
 		if err := readJSONFileBounded(sheetFile, &sheetChunk); err != nil {
-			s.logger.Warnf("Failed to load sheet file %s: %v", sheetFile, err)
-			continue
+			return nil, utils.WrapFileError(err, utils.ErrorTypeConverter, "ReadChunks", sheetFile,
+				"failed to read sheet chunk")
 		}
 
 		doc.Sheets = append(doc.Sheets, sheetChunk.Sheet)
@@ -291,7 +308,12 @@ func (s *SheetBasedChunking) GetChunkPaths(basePath string) ([]string, error) {
 		return nil, utils.WrapFileError(err, utils.ErrorTypeConverter, "GetChunkPaths", metadataFile, "failed to read chunk metadata")
 	}
 
-	paths := make([]string, 0, len(metadata.ChunkFiles))
+	// Include the metadata file itself. It changes on every conversion
+	// (Created timestamp comes from doc.Metadata) and must be committed
+	// alongside its content files; if it isn't, git ends up with content
+	// chunks whose sibling metadata entry is stale.
+	paths := make([]string, 0, len(metadata.ChunkFiles)+1)
+	paths = append(paths, metadataFile)
 	for _, chunkFile := range metadata.ChunkFiles {
 		paths = append(paths, filepath.Join(chunkDir, filepath.FromSlash(chunkFile)))
 	}
@@ -363,6 +385,15 @@ func (s *SheetBasedChunking) writeJSONFile(path string, data interface{}, compac
 		return utils.WrapFileError(err, utils.ErrorTypeConverter, "writeJSONFile", path, "failed to marshal JSON")
 	}
 
+	// json.Marshal / MarshalIndent never append a trailing newline. Without
+	// one, every `git diff` of a chunk file is flagged "No newline at end
+	// of file" and many text tools (cat, less, $EDITOR's syntax highlighter)
+	// render the last line oddly. Appending here is cheap and makes chunk
+	// files behave like every other text artifact in a repo.
+	if len(jsonData) == 0 || jsonData[len(jsonData)-1] != '\n' {
+		jsonData = append(jsonData, '\n')
+	}
+
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, constants.FilePermissions) // #nosec G304 - path under our staging dir
 	if err != nil {
 		return err
@@ -421,4 +452,60 @@ func (s *SheetBasedChunking) getRelativeChunkFiles(baseDir string, fullPaths []s
 		relativePaths = append(relativePaths, filepath.ToSlash(relPath))
 	}
 	return relativePaths
+}
+
+// DefaultOrphanMaxAge is the threshold below which a staging directory
+// is assumed to belong to an in-flight write and left alone. One hour
+// is comfortably longer than any plausible Excel conversion.
+const DefaultOrphanMaxAge = 1 * time.Hour
+
+// SweepOrphans removes leftover staging (`*.tmp.*`) and backup
+// (`*.old.*`) directories under root whose mtime is older than maxAge.
+// Both patterns are produced by WriteChunks / atomicReplaceDir and
+// would otherwise survive a crash or SIGKILL.
+//
+// This is best-effort hygiene: any failure to scan or remove is logged
+// at warn level but never returned, so a permissions glitch on one stale
+// dir doesn't block the rest of the pipeline.
+func SweepOrphans(root string, maxAge time.Duration, logger Logger) {
+	if root == "" {
+		return
+	}
+	info, err := os.Stat(root)
+	if err != nil || !info.IsDir() {
+		return
+	}
+
+	cutoff := time.Now().Add(-maxAge)
+	walkErr := filepath.Walk(root, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return nil // continue walking siblings; one bad subtree shouldn't abort
+		}
+		if !info.IsDir() || path == root {
+			return nil
+		}
+		base := filepath.Base(path)
+		if !isOrphanStagingName(base) {
+			return nil
+		}
+		if info.ModTime().After(cutoff) {
+			return filepath.SkipDir
+		}
+		if rmErr := os.RemoveAll(path); rmErr != nil {
+			logger.Warnf("Failed to remove orphan staging dir %s: %v", path, rmErr)
+		} else {
+			logger.Debugf("Removed orphan staging dir: %s", path)
+		}
+		return filepath.SkipDir
+	})
+	if walkErr != nil {
+		logger.Warnf("Orphan sweep walk error under %s: %v", root, walkErr)
+	}
+}
+
+// isOrphanStagingName reports whether basename matches the staging or
+// backup naming convention used by WriteChunks and atomicReplaceDir
+// (suffixes of the form `.tmp.<pid>.<nanos>` or `.old.<pid>.<nanos>`).
+func isOrphanStagingName(base string) bool {
+	return strings.Contains(base, ".tmp.") || strings.Contains(base, ".old.")
 }

@@ -431,6 +431,6 @@ func createTestDocument() *ExcelDocument {
 				},
 			},
 		},
-		DefinedNames: make(map[string]string),
+		DefinedNames: nil,
 	}
 }
