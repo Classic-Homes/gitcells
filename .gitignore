@@ -77,3 +77,4 @@ site/
 # Testing
 /.gitcells
 gitcells_logs_*
+coverage_analysis.txt
