@@ -245,9 +245,10 @@ func TestProcessSheet_ErrorHandling(t *testing.T) {
 	}()
 
 	// Test with non-existent sheet
-	sheet, err := conv.processSheet(f, "NonExistentSheet", 0, ConvertOptions{})
+	sheet, formulaErrors, err := conv.processSheet(f, "NonExistentSheet", 0, ConvertOptions{})
 	assert.Error(t, err)
 	assert.Nil(t, sheet)
+	assert.Zero(t, formulaErrors)
 }
 
 func TestSheetSelectionConversion(t *testing.T) {

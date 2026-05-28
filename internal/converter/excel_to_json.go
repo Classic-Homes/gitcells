@@ -90,6 +90,7 @@ func (c *converter) ExcelToJSON(filePath string, options ConvertOptions) (*model
 	}
 
 	processedIndex := 0
+	totalFormulaErrors := 0
 	for originalIndex, sheetName := range sheetList {
 		// Skip sheets not in our filtered list
 		if !c.shouldProcessSheet(sheetName, originalIndex, options) {
@@ -100,7 +101,7 @@ func (c *converter) ExcelToJSON(filePath string, options ConvertOptions) (*model
 			options.ProgressCallback("Processing sheets", processedIndex, totalSheets)
 		}
 
-		sheet, err := c.processSheet(f, sheetName, originalIndex, options)
+		sheet, sheetFormulaErrors, err := c.processSheet(f, sheetName, originalIndex, options)
 		if err != nil {
 			if options.SkipBadSheets {
 				c.logger.Warnf("Failed to process sheet %s (skipped because SkipBadSheets=true): %v", sheetName, err)
@@ -108,8 +109,18 @@ func (c *converter) ExcelToJSON(filePath string, options ConvertOptions) (*model
 			}
 			return nil, fmt.Errorf("failed to process sheet %q: %w", sheetName, err)
 		}
+		totalFormulaErrors += sheetFormulaErrors
 		doc.Sheets = append(doc.Sheets, *sheet)
 		processedIndex++
+	}
+
+	// Surface a single-line summary when formula reads failed. The
+	// per-cell refs are emitted at Debug from processSheet; the aggregate
+	// is what a user-facing run prints at default verbosity so quiet
+	// silent corruption doesn't slip past.
+	if totalFormulaErrors > 0 {
+		c.logger.Warnf("Conversion preserved %d sheets but %d cell formula(s) could not be read and were stored without a formula. Re-run with --verbose to see per-cell refs.",
+			len(doc.Sheets), totalFormulaErrors)
 	}
 
 	if options.ProgressCallback != nil {
@@ -136,7 +147,7 @@ func (c *converter) ExcelToJSON(filePath string, options ConvertOptions) (*model
 	return doc, nil
 }
 
-func (c *converter) processSheet(f *excelize.File, sheetName string, index int, options ConvertOptions) (*models.Sheet, error) {
+func (c *converter) processSheet(f *excelize.File, sheetName string, index int, options ConvertOptions) (*models.Sheet, int, error) {
 	sheet := &models.Sheet{
 		Name:         sheetName,
 		Index:        index,
@@ -149,7 +160,7 @@ func (c *converter) processSheet(f *excelize.File, sheetName string, index int, 
 	// Get all cells in sheet
 	rows, err := f.GetRows(sheetName)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	// Build a per-sheet comment index once, instead of re-fetching and
@@ -199,6 +210,11 @@ func (c *converter) processSheet(f *excelize.File, sheetName string, index int, 
 				f2, fErr := f.GetCellFormula(sheetName, cellRef)
 				if fErr != nil {
 					formulaErrors++
+					// Per-cell ref at Debug so --verbose makes the bad
+					// addresses traceable. The aggregate count at the
+					// end of ExcelToJSON is what surfaces at default
+					// verbosity.
+					c.logger.Debugf("sheet %s cell %s: formula read failed: %v", sheetName, cellRef, fErr)
 				} else {
 					formula = f2
 				}
@@ -308,7 +324,7 @@ func (c *converter) processSheet(f *excelize.File, sheetName string, index int, 
 		"merged_cells": len(sheet.MergedCells),
 	}).Debug("Sheet processing completed")
 
-	return sheet, nil
+	return sheet, formulaErrors, nil
 }
 
 // buildCommentIndex returns a cell-ref → Comment map for the sheet, or

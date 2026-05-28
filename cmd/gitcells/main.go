@@ -7,10 +7,17 @@ import (
 	"github.com/Classic-Homes/gitcells/internal/constants"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var (
 	logger *logrus.Logger
+
+	// colorsDisabled is set by PersistentPreRun based on --no-color,
+	// NO_COLOR, and TTY detection. Subcommands that print their own ANSI
+	// codes (currently diff) read this directly so the logger and the
+	// command output stay consistent.
+	colorsDisabled bool
 )
 
 func main() {
@@ -38,13 +45,20 @@ func main() {
 	// Global flags
 	rootCmd.PersistentFlags().String("config", "", "config file (default: .gitcells.yaml)")
 	rootCmd.PersistentFlags().Bool("verbose", false, "enable verbose logging")
+	rootCmd.PersistentFlags().Bool("no-color", false, "disable colored output (also honors NO_COLOR env var)")
 
-	// Handle verbose flag
+	// Apply global flags before any subcommand runs.
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
-		verbose, _ := cmd.Flags().GetBool("verbose")
-		if verbose {
+		if verbose, _ := cmd.Flags().GetBool("verbose"); verbose {
 			logger.SetLevel(logrus.DebugLevel)
 		}
+
+		flag, _ := cmd.Flags().GetBool("no-color")
+		colorsDisabled = shouldDisableColors(flag, os.Getenv("NO_COLOR"), isStderrTerminal())
+		logger.SetFormatter(&logrus.TextFormatter{
+			FullTimestamp: true,
+			DisableColors: colorsDisabled,
+		})
 	}
 
 	if err := rootCmd.Execute(); err != nil {
@@ -53,11 +67,43 @@ func main() {
 	}
 }
 
+// shouldDisableColors returns true when ANSI color output should be
+// suppressed. Order of precedence:
+//
+//  1. --no-color flag (highest)
+//  2. NO_COLOR env var, per https://no-color.org (any non-empty value)
+//  3. stderr is not a TTY (piped, redirected, or running under a CI log
+//     collector that strips escape codes anyway)
+//
+// Kept as a pure function so the truth table is unit-testable without
+// touching real terminals.
+func shouldDisableColors(flag bool, envValue string, isTTY bool) bool {
+	if flag {
+		return true
+	}
+	if envValue != "" {
+		return true
+	}
+	return !isTTY
+}
+
+// isStderrTerminal reports whether stderr is connected to a terminal.
+// Stderr (not stdout) is what logrus writes to by default, so basing the
+// color decision on stderr matches what the user actually sees from log
+// lines. Subcommands that print to stdout (diff, status) also consult
+// this — keeping the two streams consistent is simpler than tracking
+// them separately.
+func isStderrTerminal() bool {
+	return term.IsTerminal(int(os.Stderr.Fd()))
+}
+
 func setupLogger() *logrus.Logger {
-	logger := logrus.New()
-	logger.SetFormatter(&logrus.TextFormatter{
+	l := logrus.New()
+	// Defaults are overwritten by PersistentPreRun once flags are parsed.
+	// What's here is enough for early panics before Execute is called.
+	l.SetFormatter(&logrus.TextFormatter{
 		FullTimestamp: true,
-		DisableColors: false,
+		DisableColors: shouldDisableColors(false, os.Getenv("NO_COLOR"), isStderrTerminal()),
 	})
-	return logger
+	return l
 }

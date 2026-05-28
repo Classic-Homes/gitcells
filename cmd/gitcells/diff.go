@@ -36,9 +36,9 @@ Examples:
 		},
 	}
 
-	// Add flags
+	// Add flags. --no-color is inherited from the root persistent flag;
+	// don't redefine it here or cobra will refuse to register both.
 	cmd.Flags().Bool("summary", false, "Show only summary of changes")
-	cmd.Flags().Bool("no-color", false, "Disable colored output")
 	cmd.Flags().String("format", "text", "Output format: text, json")
 	cmd.Flags().StringSlice("sheets", []string{}, "Only compare specific sheets")
 	cmd.Flags().Bool("ignore-formatting", false, "Ignore cell formatting differences")
@@ -50,11 +50,15 @@ Examples:
 func runDiff(cmd *cobra.Command, args []string, logger *logrus.Logger) error {
 	// Get flags
 	summaryOnly, _ := cmd.Flags().GetBool("summary")
-	noColor, _ := cmd.Flags().GetBool("no-color")
 	format, _ := cmd.Flags().GetString("format")
 	sheets, _ := cmd.Flags().GetStringSlice("sheets")
 	ignoreFormatting, _ := cmd.Flags().GetBool("ignore-formatting")
 	ignoreEmpty, _ := cmd.Flags().GetBool("ignore-empty")
+
+	// PersistentPreRun already computed colorsDisabled from the root
+	// --no-color flag, NO_COLOR env, and TTY detection. Reuse it so diff
+	// output stays in sync with logger output.
+	useColor := !colorsDisabled
 
 	var file1, file2 string
 	file1 = args[0]
@@ -99,7 +103,7 @@ func runDiff(cmd *cobra.Command, args []string, logger *logrus.Logger) error {
 	case "json":
 		return outputDiffJSON(diff)
 	default:
-		return outputDiffText(diff, summaryOnly, !noColor)
+		return outputDiffText(diff, summaryOnly, useColor)
 	}
 }
 
